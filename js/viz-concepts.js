@@ -74,7 +74,7 @@ const conceptData = {
 
 
     // Chapter 3: Syntrixkorporationen – Weaving the Logical Web
-    'korporator': { id: 'korporator', name: 'Korporator ({})', chapter: 3, position: new THREE.Vector3(0, -2, -5), type: 'operator', links: ['syntrix', 'konzenter', 'exzenter', 'nullsyntrix', 'syntropodenarchitektonik'], description: "Operator combining multiple Syntrices." },
+    'korporator': { id: 'korporator', name: 'Korporator ({})', chapter: 3, position: new THREE.Vector3(0, -2, -5), type: 'operator', links: ['syntrix', 'konzenter', 'exzenter', 'nullsyntrix', 'syntropodenarchitektonik', 'affinitaetssyndrom'], description: "Operator combining multiple Syntrices." },
     'konzenter': { id: 'konzenter', name: 'Konzenter', chapter: 3, position: new THREE.Vector3(-10, -5, -3), type: 'architecture', links: ['korporator', 'syntropodenarchitektonik'], description: "Korporation mode emphasizing composition (layered hierarchies)." },
     'exzenter': { id: 'exzenter', name: 'Exzenter', chapter: 3, position: new THREE.Vector3(10, -5, -3), type: 'architecture', links: ['korporator', 'konflexivsyntrix', 'syntropodenarchitektonik'], description: "Korporation mode emphasizing coupling (networked complexity)." },
     'konflexivsyntrix': { id: 'konflexivsyntrix', name: 'Konflexivsyntrix', chapter: 3, position: new THREE.Vector3(15, -5, -3), type: 'structure', links: ['exzenter', 'syntropoden'], description: "Resulting structure from excentric Korporation (network node)." },
@@ -93,7 +93,7 @@ const conceptData = {
     'syntrixraum': { id: 'syntrixraum', name: 'Syntrixraum', chapter: 4, position: new THREE.Vector3(-10, -18, 10), type: 'concept', links: ['syntrixtensorien'], description: "Abstract n-dimensional state space associated with a Gebilde." },
     'syntrixfunktoren': { id: 'syntrixfunktoren', name: 'Syntrixfunktoren', chapter: 4, position: new THREE.Vector3(0, -18, 13), type: 'operator', links: ['syntrixfeld', 'zeitkoerner'], description: "Operators transforming Syntrixfelder (meta-level dynamics)." },
     'zeitkoerner': { id: 'zeitkoerner', name: 'Zeitkörner', chapter: 4, position: new THREE.Vector3(-5, -21, 13), type: 'concept', links: ['syntrixfunktoren'], description: "Time granules; minimal units of change via Syntrixfunktor application." },
-    'affinitaetssyndrom': { id: 'affinitaetssyndrom', name: 'Affinitätssyndrom', chapter: 4, position: new THREE.Vector3(10, -21, 10), type: 'concept', links: ['syntrixfeld', 'reflexive_integration'], description: "Formal measure for coupling strength or interaction potential between systems." },
+    'affinitaetssyndrom': { id: 'affinitaetssyndrom', name: 'Affinitätssyndrom', chapter: 4, position: new THREE.Vector3(10, -21, 10), type: 'concept', links: ['syntrixfeld', 'reflexive_integration', 'korporator'], description: "Formal measure for coupling strength or interaction potential between systems." },
 
     // Chapter 5: Metroplextheorie – Infinite Hierarchies and Emerging Structures
     'metroplex': { id: 'metroplex', name: 'Metroplex (n M)', chapter: 5, position: new THREE.Vector3(0, -22, 15), type: 'structure', links: ['hypersyntrix', 'syntrokline_metroplexbruecken', 'metroplexkombinat', 'syntrixtotalitaet'], description: "Higher-order syntrometric structure; recursively defined hierarchy of Syntrices." },
@@ -103,14 +103,14 @@ const conceptData = {
     'kontraktion': { id: 'kontraktion', name: 'Kontraktion', chapter: 5, position: new THREE.Vector3(5, -25, 18), type: 'transformation', links: ['metroplex'], description: "Structure-reducing transformation for managing complexity." },
 
     // Chapter 6: Die televariante äonische Area - Dynamics, Purpose, and Transcendence
-    'aonische_area': { id: 'aonische_area', name: 'Äonische Area', chapter: 6, position: new THREE.Vector3(0, -32, 20), type: 'field', links: ['telezentrum', 'polydromie', 'transzendenzstufen', 'telezentrik'], description: "Evolutionary landscape/state space structured by Telezentren." },
+    'aonische_area': { id: 'aonische_area', name: 'Äonische Area', chapter: 6, position: new THREE.Vector3(0, -32, 20), type: 'field', links: ['telezentrum', 'polydromie', 'transzendenzstufen', 'telezentrik', 'telewarianz', 'dyswarianz'], description: "Evolutionary landscape/state space structured by Telezentren." },
     'telezentrum': { id: 'telezentrum', name: 'Telezentrum', chapter: 6, position: new THREE.Vector3(-10, -35, 20), type: 'concept', links: ['aonische_area', 'transzendenzstufen', 'telezentrik'], description: "Stable attractor states; points of maximal coherence/integration (purpose/goals)." },
     'polydromie': { id: 'polydromie', name: 'Polydromie', chapter: 6, position: new THREE.Vector3(10, -35, 20), type: 'dynamics', links: ['aonische_area'], description: "Multiple potential evolutionary paths simultaneously or probabilistically." },
     'transzendenzstufen': { id: 'transzendenzstufen', name: 'Transzendenzstufen', chapter: 6, position: new THREE.Vector3(0, -38, 23), type: 'concept', links: ['telezentrum', 'aonische_area', 'transzendentaltektonik'], description: "Qualitative leaps to higher organizational levels." },
     'transzendentaltektonik': { id: 'transzendentaltektonik', name: 'Transzendentaltektonik', chapter: 6, position: new THREE.Vector3(5, -38, 23), type: 'architecture', links: ['transzendenzstufen'], description: "Architecture governing transcendent levels and their interrelations." },
     'telezentrik': { id: 'telezentrik', name: 'Telezentrik', chapter: 6, position: new THREE.Vector3(-5, -35, 20), type: 'purpose', links: ['aonische_area', 'telezentrum'], description: "Principle of directedness towards stable states." },
      'telewarianz': { id: 'telewarianz', name: 'Telewarianz', chapter: 6, position: new THREE.Vector3(15, -35, 23), type: 'concept', links: ['telezentrik', 'aonische_area'], description: "Stable, purpose-aligned evolutionary paths towards Telezentren." },
-    'dyswarianz': { id: 'dyswarianz', name: 'Dyswarianz', chapter: 6, position: new THREE.Vector3(20, -35, 23), type: 'concept', links: ['aonische_area'], description: "Disruptive or unstable evolutionary paths away from Telezentren." },
+     'dyswarianz': { id: 'dyswarianz', name: 'Dyswarianz', chapter: 6, position: new THREE.Vector3(20, -35, 23), type: 'concept', links: ['aonische_area'], description: "Disruptive or unstable evolutionary paths away from Telezentren." },
 
 
      // Chapter 7: Anthropomorphic Syntrometry - Logic Meets the Human Mind
@@ -128,6 +128,12 @@ const conceptData = {
      'metronization': { id: 'metronization', name: 'Metronization', chapter: 11, position: new THREE.Vector3(-10, -55, 38), type: 'method', links: ['geometric_field', 'metronische_gitter', 'hyperstruktur'], description: "Process of realizing geometric fields on the Metronic Gitter." },
      'hyperstruktur': { id: 'hyperstruktur', name: 'Hyperstruktur', chapter: 11, position: new THREE.Vector3(-5, -58, 40), type: 'structure', links: ['metronization', 'metronische_gitter', 'strukturkondensation_realized'], description: "Localized, quantized structure (candidate for particles) realized on the grid." },
      'strukturkondensation_realized': { id: 'strukturkondensation_realized', name: 'Strukturkondensation (Realized)', chapter: 11, position: new THREE.Vector3(5, -58, 40), type: 'concept', links: ['hyperstruktur', 'reflexive_integration'], description: "Quantified realized order from Hyperstrukturen (linked to RIH)." },
+
+     // Placeholders linking to Simulation Metrics (Keep these IDs consistent)
+     // These are NOT added by createConceptNodes; they are created manually in createAgentSimulationPlaceholders
+     'agent_emotional_state': { id: 'agent_emotional_state', name: 'Agent Emotional State', chapter: 'Simulation', position: new THREE.Vector3(15, -5, 0), type: 'simulation_state', links: ['subjective_aspect', 'aonische_area', 'reflexive_integration'], description: 'Represents the agent\'s emotional state (Joy, Fear, etc.). Updates dynamically.' },
+     'emergence_core': { id: 'emergence_core', name: 'Emergence Core (RIH/Affinity)', chapter: 'Simulation', position: new THREE.Vector3(-15, -5, 0), type: 'simulation_state', links: ['reflexive_integration', 'affinitaetssyndrom', 'syntropodenarchitektonik'], description: 'Represents Reflexive Integration (RIH) and Affinities from agent processing.' },
+     'live2d_avatar_ref': { id: 'live2d_avatar_ref', name: 'Live2D Avatar', chapter: 'Visualization', position: new THREE.Vector3(0, -10, 0), type: 'live2d_avatar_ref', links: ['agent_emotional_state'], description: `Reference point for the Live2D avatar reflecting agent's emotional state.<br><i>Actual avatar is rendered separately in the other panel.</i>` }
 
 
 };
@@ -225,32 +231,19 @@ export function initConceptVisualization(appClock) {
         dirLight2.position.set(-5, -5, -5).normalize();
         conceptScene.add(dirLight2);
 
-        // Create placeholder plane for Live2D position reference (not visible, for info panel hover)
-         const planeGeo = new THREE.PlaneGeometry(10, 10);
-         const planeMat = new THREE.MeshBasicMaterial({ color: 0x555566, transparent: true, opacity: 0.0, side: THREE.DoubleSide });
-         live2dPlaneConcept = new THREE.Mesh(planeGeo, planeMat);
-         live2dPlaneConcept.position.set(0, -10, 0); // Position it somewhere relevant to the scene bounds
-         // Add placeholder to interactable objects for info panel hover
-         live2dPlaneConcept.userData = {
-            type: 'live2d_avatar_ref',
-            name: `Live2D Avatar`, // Name will be updated dynamically
-             description: `Reference point for the Live2D avatar reflecting agent's emotional state.<br><i>Actual avatar is rendered separately in the other panel.</i>`
-         };
-         conceptScene.add(live2dPlaneConcept);
-
 
         // Create concept nodes and edges
         createConceptNodes();
+        // Create placeholder objects for Agent State and Emergence Core, and Live2D Ref BEFORE creating edges
+        createAgentSimulationPlaceholders();
         createConceptEdges();
 
-        // Create placeholder objects for Agent State and Emergence Core
-        createAgentSimulationPlaceholders();
 
         // Populate interactable objects list after creating all objects
-        // This list needs to be updated whenever objects are added/removed.
+        // We need to get these *after* createConceptNodes and createAgentSimulationPlaceholders have run
         let conceptInteractableObjects = Object.values(conceptNodes).map(n => n.object);
         if (agentStateMesh) conceptInteractableObjects.push(agentStateMesh);
-        if (live2dPlaneConcept) conceptInteractableObjects.push(live2dPlaneConcept);
+        if (live2dPlaneConcept) conceptInteractableObjects.push(live2dPlaneConcept); // Make the placeholder interactable
         if (emergenceCoreMesh) conceptInteractableObjects.push(emergenceCoreMesh);
 
 
@@ -293,6 +286,12 @@ function createConceptNodes() {
 
     for (const id in conceptData) {
         const data = conceptData[id];
+
+         // Skip placeholder nodes, they are created separately in createAgentSimulationPlaceholders
+         if (data.type === 'simulation_state' || data.type === 'live2d_avatar_ref') {
+             continue;
+         }
+
 
         // Determine geometry and material based on node type
         let geometry;
@@ -374,8 +373,6 @@ function createConceptNodes() {
                  material = new THREE.MeshPhongMaterial({ color: 0xcc5555, emissive: 0x662222, shininess: 50 }); // Dark Red/Brown
                  break;
 
-
-             // Exclude 'dimension' type nodes as requested
             default:
                  console.warn(`Unknown concept node type: ${data.type} for ${id}. Skipping.`);
                  continue; // Skip creating node for unknown or excluded type
@@ -387,6 +384,14 @@ function createConceptNodes() {
         node.scale.set(currentScale, currentScale, currentScale); // Apply initial scale
         // Store data in userData for interaction
         node.userData = { id: data.id, name: data.name, type: data.type, description: data.description, chapter: data.chapter, links: data.links };
+
+        // Store original material properties for highlighting
+        node.userData.originalColor = node.material.color.getHex();
+        node.userData.originalEmissive = node.material.emissive.getHex();
+         // Store original position for animation base
+        node.userData.originalPosition = data.position.clone();
+
+
         conceptScene.add(node); // Add node to scene
 
         // Create CSS2D label
@@ -440,13 +445,17 @@ function createConceptEdges() {
     conceptEdges = []; // Reset the array
 
 
-    // Material for edges
-    const material = new THREE.MeshPhongMaterial({
+    // Base Material for edges - Cloned for each edge to handle opacity/color changes if needed per edge
+    // For simpler highlighting, we might just use one material and toggle visibility or opacity if edges are grouped.
+    // Let's keep cloning for now as per previous structure, but add original properties.
+     const baseEdgeMaterial = new THREE.MeshPhongMaterial({
         color: 0x888888, // Greyish color
+        emissive: 0x222222, // Subtle glow
         transparent: true,
         opacity: 0.5,
         side: THREE.DoubleSide // Render on both sides
     });
+
 
     const visitedEdges = new Set(); // Set to prevent duplicate edges (e.g., if A links to B and B links to A)
 
@@ -456,13 +465,20 @@ function createConceptEdges() {
 
     const nodeRadiusFactor = 1.2; // Factor to extend edge endpoint slightly beyond node sphere
 
-    for (const id of Object.keys(conceptNodes)) {
-        const sourceNode = conceptNodes[id];
-        if (!sourceNode || !sourceNode.object) {
-            console.warn(`Invalid sourceNode for id ${id}, cannot create edges.`);
+    // Iterate through all nodes AND placeholder nodes when creating edges
+    const allNodes = { ...conceptNodes }; // Start with concept nodes
+    if (agentStateMesh) allNodes['agent_emotional_state'] = { object: agentStateMesh, data: conceptData['agent_emotional_state'] };
+    if (emergenceCoreMesh) allNodes['emergence_core'] = { object: emergenceCoreMesh, data: conceptData['emergence_core'] };
+    if (live2dPlaneConcept) allNodes['live2d_avatar_ref'] = { object: live2dPlaneConcept, data: conceptData['live2d_avatar_ref'] };
+
+
+    for (const id of Object.keys(allNodes)) {
+        const sourceNode = allNodes[id];
+        if (!sourceNode || !sourceNode.object || !sourceNode.data) {
+            console.warn(`Invalid sourceNode data for id ${id}, cannot create edges.`);
             continue;
         }
-        const sourceScale = sourceNode.object.scale.x;
+        const sourceScale = sourceNode.object.scale.x; // Use current scale for radius approximation
          // Calculate the adjusted start point of the edge (slightly outside the node)
         const sourceBoundary = getApproxBoundaryRadius(sourceNode.object.geometry, sourceScale) * nodeRadiusFactor;
         const sourcePos = sourceNode.object.position;
@@ -470,22 +486,25 @@ function createConceptEdges() {
         const links = sourceNode.data.links || []; // Get links from source node data
 
         for (const targetId of links) {
-            const targetNode = conceptNodes[targetId];
+            const targetNode = allNodes[targetId]; // Look up target node in the combined list
 
-            // Skip if target node doesn't exist (e.g., linking to a filtered-out node like dimensions)
-            if (!targetNode || !targetNode.object) {
+            // Skip if target node doesn't exist
+            if (!targetNode || !targetNode.object || !targetNode.data) {
                  // console.warn(`Target node ${targetId} not found for link from ${id}. Skipping edge creation.`);
                 continue;
             }
 
             // Create a unique key for the edge regardless of direction (e.g., 'idA-idB')
-            const edgeKey = [id, targetId].sort().join('-');
+            // Ensure consistent ordering for the key
+            const sortedIds = [id, targetId].sort();
+            const edgeKey = sortedIds.join('-');
+
             if (visitedEdges.has(edgeKey)) {
                 continue; // Skip if edge already created
             }
             visitedEdges.add(edgeKey); // Mark edge as visited
 
-            const targetScale = targetNode.object.scale.x;
+            const targetScale = targetNode.object.scale.x; // Use current scale for radius approximation
              // Calculate the adjusted end point of the edge (slightly outside the node)
             const targetBoundary = getApproxBoundaryRadius(targetNode.object.geometry, targetScale) * nodeRadiusFactor;
             const targetPos = targetNode.object.position;
@@ -505,28 +524,37 @@ function createConceptEdges() {
             const endPoint = new THREE.Vector3().addVectors(targetPos, targetAdjust);
 
             // Create a curved path using CubicBezierCurve3
-            const midPoint = new THREE.Vector3().lerpVectors(startPoint, endPoint, 0.5);
             // Add some randomness to control points for varied curves
-            const controlPoint1 = new THREE.Vector3(
-                midPoint.x + (Math.random() - 0.5) * 5,
-                midPoint.y + (Math.random() - 0.5) * 5,
-                midPoint.z + (Math.random() - 0.5) * 5
-            );
-            const controlPoint2 = new THREE.Vector3(
-                midPoint.x + (Math.random() - 0.5) * 5,
-                midPoint.y + (Math.random() - 0.5) * 5,
-                midPoint.z + (Math.random() - 0.5) * 5
-            );
+            const midPoint = new THREE.Vector3().lerpVectors(startPoint, endPoint, 0.5);
+            const curveHeight = Math.sqrt(distance) * (Math.random() * 0.5 + 0.2); // Curve strength based on distance
+            // Use the *main camera* position for the normal direction to ensure curves consistently bend towards the viewer
+            const normal = new THREE.Vector3().subVectors(conceptCamera.position, midPoint).normalize(); // Use main camera normal
+            const curveOffset = normal.clone().multiplyScalar(curveHeight);
+
+             const controlPoint1 = new THREE.Vector3().lerpVectors(startPoint, endPoint, 0.3).add(curveOffset);
+             const controlPoint2 = new THREE.Vector3().lerpVectors(startPoint, endPoint, 0.7).add(curveOffset);
+
 
             const points = [startPoint, controlPoint1, controlPoint2, endPoint];
             const curve = new THREE.CubicBezierCurve3(...points);
 
             // Create a tube geometry along the curve
             const tubeGeo = new THREE.TubeGeometry(curve, tubularSegments, tubeRadius, tubeDetail, false);
-            const edgeMesh = new THREE.Mesh(tubeGeo, material); // Create the mesh
 
-            // Store source/target IDs in userData for potential interaction
-            edgeMesh.userData = { source: id, target: targetId, type: 'edge' };
+             // Clone the base material for this edge
+            const edgeMaterial = baseEdgeMaterial.clone();
+
+            const edgeMesh = new THREE.Mesh(tubeGeo, edgeMaterial); // Create the mesh
+
+            // Store source/target IDs in userData for potential interaction and highlighting
+            edgeMesh.userData = {
+                 sourceId: id,
+                 targetId: targetId,
+                 type: 'edge',
+                 originalOpacity: edgeMaterial.opacity, // Store original opacity
+                 originalColor: edgeMaterial.color.getHex(), // Store original color
+                 originalEmissive: edgeMaterial.emissive.getHex() // Store original emissive
+             };
 
             conceptScene.add(edgeMesh); // Add edge to scene
             conceptEdges.push(edgeMesh); // Store edge reference
@@ -537,6 +565,7 @@ function createConceptEdges() {
 
 
 // Creates placeholder objects for agent state and emergence core in the concept graph
+// These are now looked up in conceptData for consistency
 function createAgentSimulationPlaceholders() {
      // Dispose previous meshes if they exist
      if (agentStateMesh) {
@@ -551,62 +580,105 @@ function createAgentSimulationPlaceholders() {
          if (emergenceCoreLabel) emergenceCoreLabel.element.remove(); // Remove CSS label element
          conceptScene.remove(emergenceCoreMesh);
      }
+      if (live2dPlaneConcept) { // Dispose the Live2D placeholder if it exists
+         if (live2dPlaneConcept.geometry) live2dPlaneConcept.geometry.dispose();
+         if (live2dPlaneConcept.material) live2dPlaneConcept.material.dispose();
+         conceptScene.remove(live2dPlaneConcept);
+      }
 
-    // Agent State Placeholder (Sphere)
-    const agentGeo = new THREE.SphereGeometry(1.5, 32, 16);
-    const agentMat = new THREE.MeshPhongMaterial({
-        color: 0x66ff66, // Greenish
-        emissive: 0x338833,
-        shininess: 80,
-        transparent: true,
-        opacity: 0.7
-    });
-    agentStateMesh = new THREE.Mesh(agentGeo, agentMat);
-    agentStateMesh.position.set(15, -5, 0); // Position relative to other concepts
-    agentStateMesh.userData = { // Store data for info panel
-        type: 'simulation_state',
-        name: 'Agent Emotional State',
-        description: 'Represents the agent\'s emotional state (Joy, Fear, etc.). Updates dynamically.'
-    };
-    conceptScene.add(agentStateMesh); // Add to scene
 
-    // Label for Agent State
-    const agentLabelDiv = document.createElement('div');
-    agentLabelDiv.className = 'label';
-    agentLabelDiv.textContent = 'Agent State';
-    agentStateLabel = new THREE.CSS2DObject(agentLabelDiv);
-    agentStateLabel.position.set(0, 2.0, 0); // Position above the sphere
-    agentStateMesh.add(agentStateLabel); // Add label as child
+    // Agent State Placeholder (Sphere) - Use data from conceptData
+    const agentData = conceptData['agent_emotional_state'];
+    if (agentData) {
+        const agentGeo = new THREE.SphereGeometry(1.5, 32, 16);
+        const agentMat = new THREE.MeshPhongMaterial({
+            color: 0x66ff66, // Greenish
+            emissive: 0x338833,
+            shininess: 80,
+            transparent: true,
+            opacity: 0.7
+        });
+        agentStateMesh = new THREE.Mesh(agentGeo, agentMat);
+        agentStateMesh.position.copy(agentData.position); // Use position from data
+        // Store data in userData for interaction, including original position
+        agentStateMesh.userData = { ...agentData, originalPosition: agentData.position.clone() };
 
-    // Emergence Core Placeholder (Tetrahedron)
-    const coreGeo = new THREE.TetrahedronGeometry(2.0, 2); // Tetrahedron geometry
-    const coreMat = new THREE.MeshPhongMaterial({
-        color: 0xff66ff, // Purplish
-        emissive: 0x883388,
-        shininess: 100,
-        transparent: true,
-        opacity: 0.8
-    });
-    emergenceCoreMesh = new THREE.Mesh(coreGeo, coreMat);
-    emergenceCoreMesh.position.set(-15, -5, 0); // Position relative to other concepts
-    emergenceCoreMesh.userData = { // Store data for info panel
-        type: 'simulation_state',
-        name: 'Emergence Core',
-        description: 'Represents Reflexive Integration (RIH) and Affinities from agent processing.'
-    };
-    conceptScene.add(emergenceCoreMesh); // Add to scene
+         // Store original material properties for highlighting (These will be updated by updateAgentSimulationVisuals to be "base")
+         agentStateMesh.userData.originalColor = agentStateMesh.material.color.getHex();
+         agentStateMesh.userData.originalEmissive = agentStateMesh.material.emissive.getHex();
+         agentStateMesh.userData.baseOpacity = agentStateMesh.material.opacity; // Store original opacity
 
-    // Label for Emergence Core
-    const coreLabelDiv = document.createElement('div');
-    coreLabelDiv.className = 'label';
-    coreLabelDiv.textContent = 'Emergence Core';
-    emergenceCoreLabel = new THREE.CSS2DObject(coreLabelDiv);
-    emergenceCoreLabel.position.set(0, 2.5, 0); // Position above the tetrahedron
-    emergenceCoreMesh.add(emergenceCoreLabel); // Add label as child
 
-     // Link these placeholders to relevant concepts if desired (optional)
-     // E.g., agentStateMesh.userData.links = ['syntrometry', 'subjective_aspect'];
-     // emergenceCoreMesh.userData.links = ['reflexive_integration', 'affinitaetssyndrom'];
+        conceptScene.add(agentStateMesh); // Add to scene
+
+        // Create CSS2D label
+        const agentLabelDiv = document.createElement('div');
+        agentLabelDiv.className = 'label';
+        agentLabelDiv.textContent = agentData.name; // Use name from data
+        agentStateLabel = new THREE.CSS2DObject(agentLabelDiv);
+        // Position label above the sphere, adjusted for size
+         const agentBaseOffset = 2.0;
+        agentStateLabel.position.set(0, agentBaseOffset * agentStateMesh.scale.x, 0); // Position relative to node scale
+        agentStateMesh.add(agentStateLabel); // Add label as child
+    } else {
+         console.warn("Agent Emotional State concept data not found in conceptData.");
+    }
+
+
+    // Emergence Core Placeholder (Tetrahedron) - Use data from conceptData
+    const coreData = conceptData['emergence_core'];
+     if (coreData) {
+        const coreGeo = new THREE.TetrahedronGeometry(2.0, 2); // Tetrahedron geometry
+        const coreMat = new THREE.MeshPhongMaterial({
+            color: 0xff66ff, // Purplish
+            emissive: 0x883388,
+            shininess: 100,
+            transparent: true,
+            opacity: 0.8
+        });
+        emergenceCoreMesh = new THREE.Mesh(coreGeo, coreMat);
+        emergenceCoreMesh.position.copy(coreData.position); // Use position from data
+        // Store data in userData for interaction, including original position
+        emergenceCoreMesh.userData = { ...coreData, originalPosition: coreData.position.clone() };
+
+         // Store original material properties for highlighting (These will be updated by updateAgentSimulationVisuals to be "base")
+         emergenceCoreMesh.userData.originalColor = emergenceCoreMesh.material.color.getHex();
+         emergenceCoreMesh.userData.originalEmissive = emergenceCoreMesh.material.emissive.getHex();
+         emergenceCoreMesh.userData.baseOpacity = emergenceCoreMesh.material.opacity; // Store original opacity
+
+
+        conceptScene.add(emergenceCoreMesh); // Add to scene
+
+        // Label for Emergence Core
+        const coreLabelDiv = document.createElement('div');
+        coreLabelDiv.className = 'label';
+        coreLabelDiv.textContent = coreData.name; // Use name from data
+        emergenceCoreLabel = new THREE.CSS2DObject(coreLabelDiv);
+         // Position label above the tetrahedron, adjusted for size
+         const coreBaseOffset = 2.5;
+        emergenceCoreLabel.position.set(0, coreBaseOffset * emergenceCoreMesh.scale.x, 0); // Position relative to node scale
+        emergenceCoreMesh.add(emergenceCoreLabel); // Add label as child
+     } else {
+         console.warn("Emergence Core concept data not found in conceptData.");
+     }
+
+     // Live2D Avatar Placeholder (Invisible Plane) - Use data from conceptData
+     const live2dData = conceptData['live2d_avatar_ref'];
+     if (live2dData) {
+         const planeGeo = new THREE.PlaneGeometry(10, 10); // Size doesn't matter much visually
+         const planeMat = new THREE.MeshBasicMaterial({ color: 0x555566, transparent: true, opacity: 0.0, side: THREE.DoubleSide }); // Invisible material
+         live2dPlaneConcept = new THREE.Mesh(planeGeo, planeMat);
+         live2dPlaneConcept.position.copy(live2dData.position); // Use position from data
+          // Store data in userData for interaction
+          live2dPlaneConcept.userData = { ...live2dData };
+          // No material properties we animate/highlight in the same way
+          live2dPlaneConcept.userData.baseOpacity = planeMat.opacity; // Store base opacity
+
+
+         conceptScene.add(live2dPlaneConcept);
+     } else {
+         console.warn("Live2D Avatar Ref concept data not found in conceptData.");
+     }
 
 
     console.log("Agent simulation placeholders created.");
@@ -615,6 +687,9 @@ function createAgentSimulationPlaceholders() {
 /**
  * Updates the visuals of the agent state and emergence core placeholders.
  * This function also updates the internal `latest...` variables used by `updateInfoPanel`.
+ * This function's role is to update the *simulation-driven* properties of the placeholder nodes
+ * (like color/emissive based on emotions/RIH/affinity).
+ * It *does not* handle hover/select highlighting or general time-based animation.
  * @param {tf.Tensor|null} emotionsTensor Tensor of current emotion intensities.
  * @param {number} rihScore The current RIH score (0-1).
  * @param {number} avgAffinity The current average affinity score.
@@ -630,93 +705,89 @@ export function updateAgentSimulationVisuals(emotionsTensor, rihScore, avgAffini
     latestAvgAffinity = avgAffinity;
     latestHmLabel = hmLabel;
 
-    // **Do NOT call updateInfoPanel here anymore**
-    // The info panel state is now managed by hover/click events.
-    // This function *only* updates the internal variables (latest...) that updateInfoPanel reads.
 
+    // --- Update Agent State Mesh (Sphere) based on simulation state ---
+    if (agentStateMesh && agentStateMesh.material && agentStateMesh.userData) {
+        const emotions = latestAgentEmotions || zeros([Config.Agent.EMOTION_DIM]);
+         const dominantEmotionIdx = emotions.length === Config.Agent.EMOTION_DIM ? emotions.indexOf(Math.max(...emotions)) : -1;
+         const dominantEmotion = dominantEmotionIdx !== -1 ? emotionNames[dominantEmotionIdx] : 'Unknown';
 
-    // --- Update Agent State Mesh (Sphere) ---
-    const emotions = latestAgentEmotions; // Use stored latest emotions
+         const emotionIntensity = emotions.reduce((sum, val) => sum + val, 0) / Config.Agent.EMOTION_DIM; // Average intensity
 
-    // Get individual emotion values safely (handle potential undefined)
-    const joyVal = emotions && emotions.length > 0 ? emotions[0] || 0 : 0;
-    const fearVal = emotions && emotions.length > 1 ? emotions[1] || 0 : 0;
-    const curiosityVal = emotions && emotions.length > 2 ? emotions[2] || 0 : 0;
-    const frustrationVal = emotions && emotions.length > 3 ? emotions[3] || 0 : 0;
-    const calmVal = emotions && emotions.length > 4 ? emotions[4] || 0 : 0;
-    const surpriseVal = emotions && emotions.length > 5 ? emotions[5] || 0 : 0;
+         // Determine target color and emissive intensity based on simulation state
+         const targetColor = new THREE.Color();
+         const emotionColor = { // Use imported emotionNames here
+            'Joy': 0x66ff66,       // Green
+            'Fear': 0xff6666,      // Red
+            'Curiosity': 0x66ccff, // Light Blue
+            'Frustration': 0xff9966, // Orange
+            'Calm': 0x99ffcc,      // Teal
+            'Surprise': 0xffff66,  // Yellow
+            'Unknown': 0xcccccc    // Grey
+         }[dominantEmotion]; // Get color for the dominant emotion
+         targetColor.setHex(emotionColor);
 
+         const targetEmissiveIntensity = clamp(emotionIntensity * 0.5 + 0.2, 0.2, 0.8); // Emissive based on intensity
 
-    // Find dominant emotion and map to a color
-    const dominantEmotionIdx = emotions && emotions.length === Config.Agent.EMOTION_DIM ? emotions.indexOf(Math.max(...emotions)) : -1;
-    const dominantEmotion = dominantEmotionIdx !== -1 ? emotionNames[dominantEmotionIdx] : 'Unknown';
+         // Lerp towards the target color and emissive intensity, storing them as BASE
+         agentStateMesh.material.color.lerp(targetColor, 0.1);
+         agentStateMesh.userData.baseColor = agentStateMesh.material.color.getHex();
 
-    const emotionColor = { // Use imported emotionNames here
-        'Joy': 0x66ff66,       // Green
-        'Fear': 0xff6666,      // Red
-        'Curiosity': 0x66ccff, // Light Blue
-        'Frustration': 0xff9966, // Orange
-        'Calm': 0x99ffcc,      // Teal
-        'Surprise': 0xffff66,  // Yellow
-        'Unknown': 0xcccccc    // Grey
-    }[dominantEmotion]; // Get color for the dominant emotion
+         const currentEmissiveColor = agentStateMesh.material.emissive;
+         const targetEmissiveColor = agentStateMesh.material.color.clone().multiplyScalar(targetEmissiveIntensity);
+         currentEmissiveColor.lerp(targetEmissiveColor, 0.1);
+         agentStateMesh.userData.baseEmissive = currentEmissiveColor.getHex();
 
-    // Lerp (smoothly transition) the sphere's color towards the dominant emotion color
-    if (agentStateMesh.material.color) {
-        const targetColor = new THREE.Color(emotionColor);
-        agentStateMesh.material.color.lerp(targetColor, 0.1); // Smooth transition factor (0.1)
-        agentStateMesh.material.emissive.lerp(targetColor.clone().multiplyScalar(0.5), 0.1);
+         // Scale based on overall emotional intensity, storing as BASE
+         const agentScale = 1.0 + emotionIntensity * 0.5; // Scale based on intensity
+         agentStateMesh.userData.baseScale = agentScale; // Store base scale
+
+         // Opacity is fixed for now, but could also be based on state
+         agentStateMesh.userData.baseOpacity = agentStateMesh.material.opacity;
     }
 
-    // Scale the sphere based on overall emotional intensity
-    const emotionIntensity = emotions && emotions.length === Config.Agent.EMOTION_DIM ? emotions.reduce((sum, val) => sum + val, 0) / Config.Agent.EMOTION_DIM : 0; // Average intensity
-    const agentScale = 1.0 + emotionIntensity * 0.5; // Scale based on intensity
-    agentStateMesh.scale.set(agentScale, agentScale, agentScale); // Apply scale
 
-
-    // Update the description in userData for the info panel (these descriptions are static,
-    // the dynamic info comes from the latest... variables read by updateInfoPanel)
-    agentStateMesh.userData.description = `Represents the agent's emotional state.<br>` +
-        `<i>Dynamic details below reflect current simulation state.</i>`;
-
-
-    // --- Update Emergence Core Mesh (Tetrahedron) ---
-
-    // Lerp color based on RIH score (e.g., towards white with high RIH)
-    if (emergenceCoreMesh.material.color) {
+    // --- Update Emergence Core Mesh (Tetrahedron) based on simulation state ---
+    if (emergenceCoreMesh && emergenceCoreMesh.material && emergenceCoreMesh.userData) {
+         // Lerp color/emissive based on RIH score and average affinity, storing as BASE
          const targetColor = new THREE.Color(0xff66ff).lerp(new THREE.Color(0xffffff), clamp(rihScore, 0, 1) * 0.5); // Lerp towards white
-        emergenceCoreMesh.material.color.lerp(targetColor, 0.1); // Smooth transition
-        emergenceCoreMesh.material.emissive.lerp(targetColor.clone().multiplyScalar(0.5), 0.1);
+         const emissiveIntensity = clamp(rihScore * 0.8 + Math.abs(avgAffinity) * 0.3, 0.3, 0.9); // Emissive based on RIH and Affinity
+
+         emergenceCoreMesh.material.color.lerp(targetColor, 0.1);
+         emergenceCoreMesh.userData.baseColor = emergenceCoreMesh.material.color.getHex();
+
+         const currentEmissiveColor = emergenceCoreMesh.material.emissive;
+         const targetEmissiveColor = emergenceCoreMesh.material.color.clone().multiplyScalar(emissiveIntensity);
+         currentEmissiveColor.lerp(targetEmissiveColor, 0.1);
+         emergenceCoreMesh.userData.baseEmissive = currentEmissiveColor.getHex();
+
+
+         // Scale based on RIH score and average affinity, storing as BASE
+         const coreScale = 1.0 + clamp(rihScore, 0, 1) * 0.8 + clamp(avgAffinity, -1, 1) * 0.3; // Scale factors
+         emergenceCoreMesh.userData.baseScale = coreScale; // Store base scale
+
+         // Update opacity based on RIH score, storing as BASE
+         emergenceCoreMesh.material.opacity = clamp(0.6 + clamp(rihScore, 0, 1) * 0.3, 0.6, 0.9);
+         emergenceCoreMesh.userData.baseOpacity = emergenceCoreMesh.material.opacity; // Store base opacity
     }
 
-    // Scale based on RIH score and average affinity
-    const coreScale = 1.0 + clamp(rihScore, 0, 1) * 0.8 + clamp(avgAffinity, -1, 1) * 0.3; // Scale factors
-    emergenceCoreMesh.scale.set(coreScale, coreScale, coreScale); // Apply scale
-
-    // Update opacity based on RIH score
-    emergenceCoreMesh.material.opacity = clamp(0.6 + clamp(rihScore, 0, 1) * 0.3, 0.6, 0.9);
-
-    // Update description in userData for the info panel
-    emergenceCoreMesh.userData.description = `Represents Reflexive Integration and Affinities.<br>` +
-        `<i>Dynamic details below reflect current simulation state.</i>`;
-
-
-    // --- Update Live2D Placeholder Info ---
-     // This placeholder doesn't have visuals in this scene, just updates its userData for the info panel
-     if (live2dPlaneConcept) {
+    // --- Update Live2D Placeholder Info (only the base name) ---
+     if (live2dPlaneConcept && live2dPlaneConcept.userData) {
          const live2dStatus = live2dInitialized ? 'Active' : 'Inactive'; // Use the imported flag
-         live2dPlaneConcept.userData.name = `Live2D Avatar (Status: ${live2dStatus})`;
-         live2dPlaneConcept.userData.description = `Reference point for the Live2D avatar.<br>` +
-            `<i>Dynamic details below reflect current simulation state.</i>`;
+         live2dPlaneConcept.userData.name = `Live2D Avatar (Status: ${live2dStatus})`; // Update the base name
+         // No material properties we animate/highlight in the same way for this invisible mesh
+         live2dPlaneConcept.userData.baseOpacity = live2dPlaneConcept.material.opacity; // Store base opacity
      }
 
 
-    // --- Update Edge Opacity in Concept Graph ---
-    // Make edges slightly more visible when RIH or Avg Affinity is high
+    // --- Update Edge Base Opacity based on simulation state ---
+    // This sets the *base* opacity that edges return to when not highlighted by hover/select.
     conceptEdges.forEach(edge => {
-        if (edge.material) {
+        if (edge.material && edge.userData) {
              // Opacity increases with RIH and Avg Affinity
-            edge.material.opacity = clamp(0.3 + clamp(rihScore, 0, 1) * 0.3 + clamp(avgAffinity, -1, 1) * 0.2, 0.3, 0.7);
+             const baseOpacity = clamp(0.3 + clamp(rihScore, 0, 1) * 0.3 + clamp(avgAffinity, -1, 1) * 0.2, 0.3, 0.7);
+             edge.userData.baseOpacity = baseOpacity; // Store this base opacity
+             // The actual material opacity is set in animateConceptNodes based on this base and highlight state
         }
     });
 }
@@ -730,15 +801,18 @@ function setupConceptInteraction(interactableObjects) {
     conceptMouse = new THREE.Vector2(); // 2D vector for mouse coordinates
 
     // Add event listeners for mouse movements and clicks
-    // Pass interactableObjects to the handlers
-    conceptContainer.addEventListener('mousemove', (event) => onConceptMouseMove(event, interactableObjects), false);
-    conceptContainer.addEventListener('click', (event) => onConceptClick(event, interactableObjects), false);
+    // Use wrapper functions to pass interactableObjects list correctly and allow removal
+    conceptContainer.addEventListener('mousemove', handleConceptMouseMoveWrapper, false);
+    conceptContainer.addEventListener('click', handleConceptClickWrapper, false);
 
-     // Initialize info panel content
-     updateInfoPanel(); // Call updateInfoPanel to set initial text (showing default sim info)
+     // Initial call to updateInfoPanel to show default simulation data
+     // The animation loop will call this every frame afterwards.
+     // Calling it once here ensures the panel isn't blank before the first frame.
+     updateInfoPanel();
 }
 
 // Handles mouse movement over the concept graph container
+// This function now only updates the *hoveredObject* state variable
 function onConceptMouseMove(event, interactableObjects) {
     if (!conceptInitialized || !conceptCamera || !conceptRaycaster || !conceptMouse || !conceptContainer || !interactableObjects) return;
 
@@ -757,31 +831,30 @@ function onConceptMouseMove(event, interactableObjects) {
     if (intersects.length > 0) {
          // Get the first intersected object (closest to camera)
         newHoveredObject = intersects[0].object;
-
-        // Change cursor to pointer only if we are not currently selecting an object
-        if (!selectedObject) {
-             conceptContainer.style.cursor = 'pointer';
-        }
-    } else {
-        // Restore default cursor if no object is hovered AND nothing is selected
-        if (!selectedObject) {
-            conceptContainer.style.cursor = 'default';
-        }
     }
 
-    // Only update info panel on hover if no object is currently selected by click
+    // Update hoveredObject state *only if it's different* and nothing is selected
+    // We only update `hoveredObject` here. The animation loop will call `updateInfoPanel`
+    // which will then react to this change in state.
     if (!selectedObject && newHoveredObject !== hoveredObject) {
         hoveredObject = newHoveredObject;
-         updateInfoPanel(); // Call updateInfoPanel without arguments
+        // The animation loop calls updateInfoPanel every frame, reacting to state changes.
     } else if (!selectedObject && !newHoveredObject && hoveredObject !== null) {
          // Case where mouse moves off all objects and nothing is selected
          hoveredObject = null;
-         updateInfoPanel(); // Call updateInfoPanel without arguments
+         // The animation loop calls updateInfoPanel every frame, reacting to state changes.
     }
-     // If selectedObject exists, mousemove does NOT update the panel
+
+    // Update cursor based on whether *any* interactive object is currently hovered or selected
+    if (selectedObject || hoveredObject) {
+        conceptContainer.style.cursor = 'pointer';
+    } else {
+        conceptContainer.style.cursor = 'default';
+    }
 }
 
 // Handles mouse clicks on the concept graph container
+// This function now updates the *selectedObject* state variable
 function onConceptClick(event, interactableObjects) {
     if (!conceptInitialized || !conceptCamera || !conceptRaycaster || !conceptMouse || !conceptContainer || !conceptControls || !interactableObjects) return;
 
@@ -801,27 +874,52 @@ function onConceptClick(event, interactableObjects) {
 
         // console.log(`Clicked: ${clickedObject.userData.name || clickedObject.userData.id || 'Unknown Object'}`);
 
-        // If the clicked object is a concept node or placeholder with position data
-        if (clickedObject.userData && clickedObject.position) {
-             // Move the camera target to the clicked object's position
-            conceptControls.target.copy(clickedObject.position);
-             // Optional: smoothly move the camera position slightly towards a view of the target
-             // conceptCamera.position.lerp(clickedObject.position.clone().add(new THREE.Vector3(0, 5, 20)), 0.1); // Example smooth move
-            conceptControls.update(); // Update controls to apply the new target
+        // If the clicked object has userData (i.e., is one of our graph nodes/placeholders)
+        if (clickedObject.userData) { // Check for userData directly
 
-             // Set the selected object and update the panel
-             selectedObject = clickedObject;
-             updateInfoPanel(); // Call updateInfoPanel without arguments
-             conceptContainer.style.cursor = 'pointer'; // Keep pointer cursor while something is selected
+             // If we clicked the object that is already selected, deselect it
+             if (selectedObject === clickedObject) {
+                 selectedObject = null;
+                 // Revert cursor to default if nothing is hovered either
+                 if (!hoveredObject) {
+                      conceptContainer.style.cursor = 'default';
+                 }
+             } else {
+                  // Select the new object
+                  selectedObject = clickedObject;
+                  // Move camera target to the clicked object's position IF it has a position
+                 if (clickedObject.position) {
+                     conceptControls.target.copy(clickedObject.position);
+                     conceptControls.update(); // Apply new target
+                 }
+                  conceptContainer.style.cursor = 'pointer'; // Keep pointer cursor while something is selected
+             }
 
+             // The animation loop calls updateInfoPanel and animateConceptNodes every frame,
+             // which will now react to the updated `selectedObject` state variable.
+
+
+        } else {
+             // Clicked on a non-interactive Three.js object within the scene?
+             // Treat as a click on empty space: clear selection.
+             selectedObject = null;
+             // Revert cursor to default if nothing is hovered
+             if (!hoveredObject) {
+                 conceptContainer.style.cursor = 'default';
+             }
+             // The animation loop calls updateInfoPanel and animateConceptNodes every frame,
+             // which will now react to the updated `selectedObject` state variable.
         }
+
     } else {
-         // Clicked on empty space - clear selection and revert to hover/default
+         // Clicked on empty space - clear selection
          selectedObject = null;
-         // Check if mouse is currently hovering over something after clearing selection
-         // We can re-run the mousemove logic or just call updateInfoPanel which checks hover
-         updateInfoPanel(); // This will now show either hover info or default sim info
-         conceptContainer.style.cursor = 'default'; // Revert to default cursor
+         // Revert cursor to default if nothing is hovered
+         if (!hoveredObject) {
+             conceptContainer.style.cursor = 'default';
+         }
+         // The animation loop calls updateInfoPanel and animateConceptNodes every frame,
+         // which will now react to the updated `selectedObject` state variable.
     }
 }
 
@@ -829,29 +927,40 @@ function onConceptClick(event, interactableObjects) {
  * Updates the content of the info panel based on the currently selected, hovered,
  * or latest simulation data. Reads state variables (selectedObject, hoveredObject,
  * latest...) directly from module scope.
+ * This function is called every frame by the main animation loop in app.js.
  */
 export function updateInfoPanel() { // No arguments needed anymore
     if (!conceptInfoPanel) return; // Ensure the info panel element exists
     // Assumes emotionNames is available in this module scope (imported)
 
-    let displayData = null; // Data to use for the panel
+    let displayObject = null; // The object whose data we will display
 
+    // Prioritize selected object over hovered object
     if (selectedObject && selectedObject.userData) {
-         displayData = selectedObject.userData;
+         displayObject = selectedObject;
     } else if (hoveredObject && hoveredObject.userData) {
-         displayData = hoveredObject.userData;
+         displayObject = hoveredObject;
     }
 
-    // If we have specific object data (from selected or hovered)
-    if (displayData) {
+    // If we have an object to display information for
+    if (displayObject && displayObject.userData) {
+        const data = displayObject.userData;
+
+         // Get base description and name from the object's userData
+        let displayName = data.name || 'Unknown'; // Use let for dynamic name update
+        const baseDescription = data.description || 'No description available.';
+        let descriptionToDisplay = baseDescription.split('<br><i>Dynamic details')[0]; // Start with static part
+
          // Special handling for simulation state objects to append dynamic data
-        let dynamicInfo = '';
-        if (displayData.type === 'simulation_state' || displayData.type === 'live2d_avatar_ref') {
-             const dominantEmotionIdx = latestAgentEmotions && latestAgentEmotions.length === Config.Agent.EMOTION_DIM ? latestAgentEmotions.indexOf(Math.max(...latestAgentEmotions)) : -1;
+        let dynamicInfoHtml = '';
+
+        // Check if the object is one of the dynamic info placeholders using their IDs
+        if (data.id === 'agent_emotional_state' || data.id === 'emergence_core' || data.id === 'live2d_avatar_ref') {
+             const emotions = latestAgentEmotions || zeros([Config.Agent.EMOTION_DIM]);
+             const dominantEmotionIdx = emotions.length === Config.Agent.EMOTION_DIM ? emotions.indexOf(Math.max(...emotions)) : -1;
              const dominantEmotion = dominantEmotionIdx !== -1 ? emotionNames[dominantEmotionIdx] : 'Unknown';
 
-             if (displayData.type === 'simulation_state' && displayData.name === 'Agent Emotional State') {
-                  const emotions = latestAgentEmotions || zeros([Config.Agent.EMOTION_DIM]);
+             if (data.id === 'agent_emotional_state') {
                   const joyVal = emotions[0] || 0;
                   const fearVal = emotions[1] || 0;
                   const curiosityVal = emotions[2] || 0;
@@ -859,33 +968,37 @@ export function updateInfoPanel() { // No arguments needed anymore
                   const calmVal = emotions[4] || 0;
                   const surpriseVal = emotions[5] || 0;
 
-                  dynamicInfo = `<br><span class="simulated-data">Dominant Feeling: ${dominantEmotion}<br>` +
+                  dynamicInfoHtml = `<br><span class="simulated-data">Dominant Feeling: ${dominantEmotion}<br>` +
                                  `Joy: ${(joyVal * 100).toFixed(1)}%, Fear: ${(fearVal * 100).toFixed(1)}%<br>` +
                                  `Curiosity: ${(curiosityVal * 100).toFixed(1)}%, Frustration: ${(frustrationVal * 100).toFixed(1)}%<br>` +
                                  `Calm: ${(calmVal * 100).toFixed(1)}%, Surprise: ${(surpriseVal* 100).toFixed(1)}%</span>`;
 
-             } else if (displayData.type === 'simulation_state' && displayData.name === 'Emergence Core') {
-                  dynamicInfo = `<br><span class="simulated-data">RIH Score: ${(latestRIHScore * 100).toFixed(1)}%<br>` +
+             } else if (data.id === 'emergence_core') {
+                  dynamicInfoHtml = `<br><span class="simulated-data">RIH Score: ${(latestRIHScore * 100).toFixed(1)}%<br>` +
                                  `Average Affinity: ${(latestAvgAffinity * 100).toFixed(1)}%</span>`;
-             } else if (displayData.type === 'live2d_avatar_ref') {
+             } else if (data.id === 'live2d_avatar_ref') {
                  const live2dStatus = live2dInitialized ? 'Active' : 'Inactive';
-                 displayData.name = `Live2D Avatar (Status: ${live2dStatus})`; // Update name dynamically
-                 dynamicInfo = `<br><span class="simulated-data">Dominant Feeling: ${dominantEmotion}<br>` +
+                 // Update name dynamically for display
+                 const live2dDisplayName = `Live2D Avatar (Status: ${live2dStatus})`;
+                 dynamicInfoHtml = `<br><span class="simulated-data">Dominant Feeling: ${dominantEmotion}<br>` +
                                 `Current Action: ${latestHmLabel}<br>` +
                                 `Agent RIH: ${(latestRIHScore * 100).toFixed(1)}%</span>`;
-
+                 // We'll update the display name here temporarily, not modifying userData
+                 displayName = live2dDisplayName;
              }
-             // Combine static description with dynamic info
-             displayData.description = displayData.description.split('<br><i>Dynamic details')[0] + dynamicInfo; // Prevent stacking dynamic info
 
+              // Append the hint about dynamic details and the dynamic info html if it exists
+             if (dynamicInfoHtml) {
+                 descriptionToDisplay += '<br><i>Dynamic details below reflect current simulation state.</i>' + dynamicInfoHtml;
+             }
         }
 
 
         // Build HTML for linked concepts with tooltips
         let linksHtml = '';
-        if (displayData.links && displayData.links.length > 0) {
+        if (data.links && data.links.length > 0) {
             linksHtml = '<p><b>Connected Concepts:</b></p><ul class="links-list">';
-            displayData.links.forEach(linkId => {
+            data.links.forEach(linkId => {
                 const linkData = conceptData[linkId]; // Look up linked concept data
                 if (linkData) {
                      // Add linked concept name with its description as a title for tooltip
@@ -900,10 +1013,10 @@ export function updateInfoPanel() { // No arguments needed anymore
 
         // Build the info panel content
         conceptInfoPanel.innerHTML = `
-            <h3>${displayData.name || 'Unknown'}</h3>
-             <p><b>Type:</b> ${displayData.type ? displayData.type.charAt(0).toUpperCase() + displayData.type.slice(1) : 'N/A'}</p>
-            ${displayData.chapter ? `<p><b>Chapter:</b> ${displayData.chapter}</p>` : ''}
-            <p>${displayData.description || 'No description available.'}</p>
+            <h3>${displayName}</h3>
+             <p><b>Type:</b> ${data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1).replace(/_/g, ' ') : 'N/A'}</p> <!-- Added space for types -->
+            ${data.chapter ? `<p><b>Chapter:</b> ${data.chapter}</p>` : ''}
+            <p>${descriptionToDisplay}</p>
             ${linksHtml}
         `;
 
@@ -922,84 +1035,291 @@ export function updateInfoPanel() { // No arguments needed anymore
 
 
 /**
- * Animates concept nodes (rotation, oscillation).
+ * Animates concept nodes (rotation, oscillation) and applies highlight effects.
+ * Also updates the position/scale/color based on simulation state for dynamic nodes.
  * @param {number} deltaTime The time elapsed since the last frame.
+ * @param {number} integrationParam Value from the integration slider (0-1).
+ * @param {number} reflexivityParam Value from the reflexivity slider (0-1).
  */
-export function animateConceptNodes(deltaTime) {
+export function animateConceptNodes(deltaTime, integrationParam, reflexivityParam) { // Added parameters
      // Only animate if concept visualization is initialized and clock exists
-    if (!conceptInitialized || !conceptClock || !conceptNodes) return;
+    if (!conceptInitialized || !conceptClock || !conceptNodes || latestAgentEmotions === null) return; // Wait for initial sim data
 
     const time = conceptClock.getElapsedTime(); // Get elapsed time from the clock
 
-    // Animate concept nodes
-    Object.values(conceptNodes).forEach(node => {
-        const data = node.data; // Get node data
-        const object = node.object; // Get the THREE.Mesh
+     // Get emotions array safely for animation influence
+    const emotions = latestAgentEmotions || zeros([Config.Agent.EMOTION_DIM]);
+    const joyVal = emotions[0] || 0;
+    const fearVal = emotions[1] || 0;
+    const curiosityVal = emotions[2] || 0;
+    const frustrationVal = emotions[3] || 0;
+    const calmVal = emotions[4] || 0;
+    const surpriseVal = emotions[5] || 0;
 
-        if (!object || !object.rotation) return; // Safety check
+     // Define highlight colors/emissive values for nodes and edges
+     const nodeHighlightColor = new THREE.Color(0xffffff); // White highlight
+     const nodeHighlightEmissive = new THREE.Color(0xffffff).multiplyScalar(0.5); // White emissive glow
+     const linkedColor = new THREE.Color(0xaaaaee); // Light blueish tint for linked nodes
+     const linkedEmissive = new THREE.Color(0xaaaaee).multiplyScalar(0.3);
+     const edgeHighlightColor = new THREE.Color(0x00aaff); // Accent blue for edges
+     const edgeHighlightEmissive = new THREE.Color(0x00aaff).multiplyScalar(0.8);
 
-        // Basic rotation for visual interest (applies to all types)
-        object.rotation.y += deltaTime * 0.2;
 
-        // Optional: Specific animations per type (example: operator rotation, dynamics oscillation)
-        // We can add more complex animations here based on node type as a future enhancement.
-        switch(data.type) {
-            case 'operator':
-                 object.rotation.x += deltaTime * 0.3;
-                 object.rotation.z += deltaTime * 0.4;
-                 break;
-             case 'dynamics':
-                 // Use original Y position from data for oscillation base
-                 const originalY_dyn = data.position.y;
-                 const oscillationY = Math.sin(time * 2.0 + object.position.x * 0.1) * 0.5; // Use object position for variety
-                 object.position.y = originalY_dyn + oscillationY;
-                 break;
-             case 'purpose':
-                 const pulseScale = 1.0 + Math.sin(time * 1.5) * 0.05;
-                 object.scale.set(pulseScale, pulseScale, pulseScale);
-                 break;
-             case 'field':
-                 const fieldOscillationZ = Math.sin(time * 1.8 + object.position.y * 0.1) * 0.4;
-                 const originalZ_field = data.position.z;
-                 object.position.z = originalZ_field + fieldOscillationZ;
-                 break;
-              case 'geometry_metric':
-                 // Subtle color pulse/change based on time
-                 const hueShift = (Math.sin(time * 1.0) * 0.5 + 0.5) * 0.1 + 0.6; // Shift between blue/purple/white (adjust base hue if needed)
-                 const lightnessPulse = (Math.sin(time * 0.8) * 0.5 + 0.5) * 0.2 + 0.7; // Pulse lightness
-                 object.material.color.setHSL(hueShift, 0.8, lightnessPulse);
-                 object.material.emissive.setHSL(hueShift, 0.8, lightnessPulse * 0.5);
-                 break;
-            case 'relation':
-                // Subtle scale oscillation
-                const relationScale = 1.0 + Math.sin(time * 2.5 + object.position.z * 0.1) * 0.08;
-                object.scale.set(relationScale, relationScale, relationScale);
-                break;
-            case 'level':
-                // Subtle rotation on X and Z
-                 object.rotation.x += deltaTime * 0.25;
-                 object.rotation.z += deltaTime * 0.35;
-                break;
-             case 'transformation':
-                 // Subtle pulsation or change effect
-                 const transformScale = 1.0 + Math.sin(time * 2.2 + object.position.y * 0.15) * 0.07;
-                 object.scale.set(transformScale, transformScale, transformScale);
-                 break;
+     // --- Apply Node Animation & Highlight Effects ---
+     Object.values(conceptNodes).forEach(nodeEntry => {
+         const data = nodeEntry.data; // Get node data
+         const object = nodeEntry.object; // Get the THREE.Mesh
 
-             // Add cases for other types if specific animations are desired
-        }
+         // Ensure necessary properties exist
+         if (!object || !object.rotation || !object.position || !object.scale || !object.material || !object.userData || object.userData.originalPosition === undefined || object.userData.originalColor === undefined || object.userData.originalEmissive === undefined) {
+             console.warn(`Missing required userData for node: ${data ? data.id : 'Unknown'}. Skipping animation/highlight.`);
+             return; // Skip this node if data is incomplete
+         }
+
+
+         // Use the stored original position and material properties for base
+         const originalPosition = object.userData.originalPosition;
+         const originalColor = new THREE.Color(object.userData.originalColor);
+         const originalEmissive = new THREE.Color(object.userData.originalEmissive);
+         const baseScale = data.type === 'agent_emotional_state' || data.type === 'emergence_core'
+                             ? (object.userData.baseScale !== undefined ? object.userData.baseScale : 1.0) // Use sim-driven base scale for placeholders
+                             : 1.0; // Default base scale for other nodes
+
+         const isSelected = selectedObject === object;
+         const isHovered = !isSelected && hoveredObject === object; // Only hover highlight if not selected
+         // Check if node is linked to the selected/hovered object
+         const isLinkedToSelected = selectedObject && (data.links.includes(selectedObject.userData?.id) || (selectedObject.userData?.links || []).includes(data.id));
+         const isLinkedToHovered = !isSelected && !isLinkedToSelected && hoveredObject && (data.links.includes(hoveredObject.userData?.id) || (hoveredObject.userData?.links || []).includes(data.id));
+
+
+         // --- Determine Target State (Position, Scale, Color, Emissive) ---
+         let targetPosition = originalPosition.clone();
+         let targetScale = new THREE.Vector3(baseScale, baseScale, baseScale);
+         let targetColor = originalColor.clone();
+         let targetEmissive = originalEmissive.clone();
+
+
+         if (isSelected || isHovered) {
+             // Target State for Highlighted Objects
+             targetColor.copy(nodeHighlightColor);
+             targetEmissive.copy(nodeHighlightEmissive);
+             const highlightScaleFactor = baseScale * (isSelected ? 1.15 : 1.08); // Scale up slightly
+             targetScale.set(highlightScaleFactor, highlightScaleFactor, highlightScaleFactor);
+
+         } else if (isLinkedToSelected || isLinkedToHovered) {
+              // Target State for Linked Objects
+              targetColor.copy(linkedColor);
+              targetEmissive.copy(linkedEmissive);
+              targetScale.set(baseScale, baseScale, baseScale); // No scale change for linked
+         }
+         else {
+             // Target State for Non-highlighted Objects (apply type animations)
+             // Apply animations to the target position and scale
+             switch(data.type) {
+                 case 'framework':
+                     const frameworkPulse = baseScale * (1.0 + Math.sin(time * 0.8 + originalPosition.x * 0.05) * 0.03 * (1 + latestRIHScore * 0.5));
+                      targetScale.set(frameworkPulse, frameworkPulse, frameworkPulse);
+                     break;
+                 case 'structure':
+                      const structureOscillationY = Math.sin(time * 1.5 + originalPosition.z * 0.08) * (0.2 + integrationParam * 0.3);
+                      targetPosition.y = originalPosition.y + structureOscillationY;
+                      targetScale.set(baseScale, baseScale, baseScale);
+                      break;
+                 case 'core':
+                      const corePulse = baseScale * (1.0 + Math.sin(time * 2.5 + originalPosition.y * 0.1) * (0.04 + reflexivityParam * 0.06));
+                      targetScale.set(corePulse, corePulse, corePulse);
+                       // Rotation handled below
+                       targetPosition.copy(originalPosition); // Ensure position is base
+                      break;
+                 case 'component': // Rotation handled below
+                       targetScale.set(baseScale, baseScale, baseScale); targetPosition.copy(originalPosition);
+                      break;
+                 case 'property':
+                     let propertyEmotionInfluence = 0; if (data.id === 'metropie') propertyEmotionInfluence = curiosityVal * 0.2;
+                     const propertyScale = baseScale * (1.0 + Math.sin(time * 1.8 + originalPosition.x * 0.07) * (0.05 + propertyEmotionInfluence));
+                      targetScale.set(propertyScale, propertyScale, propertyScale);
+                      targetPosition.copy(originalPosition); // Ensure position is base
+                      break;
+                 case 'parameter': // Rotation handled below
+                      targetScale.set(baseScale, baseScale, baseScale); targetPosition.copy(originalPosition);
+                      break;
+                 case 'operator': // Rotation handled below
+                      targetScale.set(baseScale, baseScale, baseScale); targetPosition.copy(originalPosition);
+                      break;
+                 case 'method': // Rotation handled below
+                      targetScale.set(baseScale, baseScale, baseScale); targetPosition.copy(originalPosition);
+                      break;
+                 case 'concept':
+                     const totalEmotion = joyVal + fearVal + curiosityVal + frustrationVal + calmVal + surpriseVal;
+                     const emotionAvg = totalEmotion / Config.Agent.EMOTION_DIM;
+                     const conceptPulse = baseScale * (1.0 + Math.sin(time * 1.2 + originalPosition.y * 0.05) * 0.03 * emotionAvg);
+                      targetScale.set(conceptPulse, conceptPulse, conceptPulse);
+                      targetPosition.copy(originalPosition); // Ensure position is base
+                      break;
+                  case 'architecture': // Rotation handled below
+                       targetScale.set(baseScale, baseScale, baseScale); targetPosition.copy(originalPosition);
+                      break;
+                  case 'field':
+                      const fieldOscillationZ = Math.sin(time * 1.8 + originalPosition.y * 0.1) * (0.4 + Math.abs(latestAvgAffinity) * 0.3);
+                      targetPosition.z = originalPosition.z + fieldOscillationZ;
+                      targetScale.set(baseScale, baseScale, baseScale); // Ensure scale is base
+                      targetPosition.y = originalPosition.y; // Ensure Y is base if only animating Z
+                      break;
+                 case 'dynamics':
+                      let dynamicsEmotionInfluence = 0;
+                      if (data.id === 'polydromie') dynamicsEmotionInfluence = (curiosityVal + surpriseVal) * 0.3;
+                      const oscillationY_dyn = Math.sin(time * 2.0 + originalPosition.x * 0.1) * (0.5 + dynamicsEmotionInfluence);
+                      targetPosition.y = originalPosition.y + oscillationY_dyn;
+                      targetScale.set(baseScale, baseScale, baseScale); // Ensure scale is base
+                      targetPosition.z = originalPosition.z; // Ensure Z is base if only animating Y
+                      break;
+                 case 'purpose':
+                     let purposeInfluence = (calmVal + joyVal) * 0.2 + latestRIHScore * 0.3;
+                     const purposePulse = baseScale * (1.0 + Math.sin(time * 1.5 + originalPosition.x * 0.08) * (0.05 + purposeInfluence * 0.05));
+                     targetScale.set(purposePulse, purposePulse, purposePulse);
+                      targetPosition.copy(originalPosition); // Ensure position is base
+                      break;
+                 case 'principle': // Rotation handled below
+                      targetScale.set(baseScale, baseScale, baseScale); targetPosition.copy(originalPosition);
+                     break;
+                 case 'geometry_metric': // Color/emissive pulse handled above. Rotation handled below.
+                      targetScale.set(baseScale, baseScale, baseScale); targetPosition.copy(originalPosition);
+                      break;
+                 case 'relation':
+                     const relationScale = baseScale * (1.0 + Math.sin(time * 2.5 + originalPosition.z * 0.1) * (0.08 + Math.abs(latestAvgAffinity) * 0.05));
+                     targetScale.set(relationScale, relationScale, relationScale);
+                      targetPosition.copy(originalPosition); // Ensure position is base
+                      break;
+                 case 'level': // Rotation handled below
+                      targetScale.set(baseScale, baseScale, baseScale); targetPosition.copy(originalPosition);
+                     break;
+                 case 'transformation':
+                     const transformScale = baseScale * (1.0 + Math.sin(time * 2.2 + originalPosition.y * 0.15) * 0.07);
+                     targetScale.set(transformScale, transformScale, transformScale);
+                      targetPosition.copy(originalPosition); // Ensure position is base
+                      break;
+                  case 'simulation_state': // Placeholders - Scale/Color updated by updateAgentSimulationVisuals
+                       // Their scaling/coloring based on sim state is handled in updateAgentSimulationVisuals
+                       // Use the base scale set there, not the default 1.0
+                       targetScale.set(baseScale, baseScale, baseScale);
+                       targetPosition.copy(originalPosition); // Ensure position is base
+                       // Color/Emissive targets are handled in updateAgentSimulationVisuals
+                       targetColor.setHex(object.material.color.getHex()); // Keep the color/emissive set by updateAgentSimulationVisuals
+                       targetEmissive.setHex(object.material.emissive.getHex());
+                      break;
+                   case 'live2d_avatar_ref': // Live2D Placeholder - No visuals, but keep it in the loop for consistency
+                       targetScale.set(baseScale, baseScale, baseScale); targetPosition.copy(originalPosition);
+                       // No visual material updates for this invisible mesh
+                       if (object.material.color) object.material.color.copy(originalColor);
+                       if (object.material.emissive) object.material.emissive.copy(originalEmissive);
+                      break;
+
+                 default:
+                      targetScale.set(baseScale, baseScale, baseScale); targetPosition.copy(originalPosition);
+                     break;
+             }
+         }
+
+         // --- Apply Interpolated State ---
+         // Lerp current properties towards the determined target properties
+         object.position.lerp(targetPosition, 0.1);
+         object.scale.lerp(targetScale, 0.1);
+         object.material.color.lerp(targetColor, 0.1);
+         object.material.emissive.lerp(targetEmissive, 0.1);
+         // Opacity is handled separately below
+
+
+         // --- Apply Type-Specific Rotation (Always Applies unless Selected) ---
+         if (!isSelected) { // Only apply specific rotation if NOT selected
+              switch(data.type) {
+                  case 'core':
+                      object.rotation.x += deltaTime * 0.2;
+                      object.rotation.z += deltaTime * 0.3;
+                      break;
+                  case 'component':
+                       object.rotation.x += deltaTime * (0.15 + Math.abs(latestAvgAffinity) * 0.1); // Affinity influence
+                       object.rotation.z += deltaTime * (0.15 + Math.abs(latestAvgAffinity) * 0.1);
+                       break;
+                  case 'property':
+                       object.rotation.x += deltaTime * 0.1;
+                       break;
+                  case 'parameter':
+                       object.rotation.x += deltaTime * (0.3 + integrationParam * 0.1);
+                       object.rotation.z += deltaTime * (0.4 + reflexivityParam * 0.1);
+                       break;
+                  case 'operator':
+                       object.rotation.x += deltaTime * (0.3 + integrationParam * 0.2);
+                       object.rotation.z += deltaTime * (0.4 + integrationParam * 0.2);
+                       break;
+                  case 'method':
+                       object.rotation.x += deltaTime * (0.15 + reflexivityParam * 0.1);
+                       break;
+                  case 'principle':
+                       object.rotation.x += deltaTime * (0.25 + latestRIHScore * 0.1); // RIH influence
+                       object.rotation.z += deltaTime * (0.35 + latestRIHScore * 0.1);
+                      break;
+                   case 'level':
+                        object.rotation.x += deltaTime * (0.25 + integrationParam * 0.1); // Integration influence
+                        object.rotation.z += deltaTime * (0.35 + integrationParam * 0.1);
+                       break;
+                   // Default Y rotation handled before the switch
+              }
+         }
+
+
+         // Ensure labels stay correctly positioned relative to the node scale
+         if (nodeEntry.label) {
+             const baseOffset = { // Keep offsets consistent with creation
+                 'framework': 1.8, 'structure': 1.5, 'core': 1.3, 'component': 1.5,
+                 'property': 1.2, 'parameter': 1.1, 'operator': 1.6, 'method': 1.8,
+                 'concept': 1.4, 'architecture': 1.9, 'field': 1.7, 'dynamics': 1.6,
+                 'purpose': 1.6, 'principle': 1.6, 'geometry_metric': 1.6, 'relation': 1.3,
+                 'level': 1.4, 'transformation': 1.4, 'simulation_state': 2.0, 'live2d_avatar_ref': 0
+             }[data.type] || 1.5;
+             nodeEntry.label.position.y = baseOffset * object.scale.y; // Adjust label Y position based on current Y scale
+             // Also ensure label faces the camera (CSS2DRenderer handles this automatically usually)
+         }
     });
 
-    // Animate Agent State and Emergence Core meshes (rotation, slight pulse/color based on metrics - handled in updateAgentSimulationVisuals)
-    if (agentStateMesh && agentStateMesh.rotation) {
-        agentStateMesh.rotation.y += deltaTime * 0.3;
-        // Color/Scale update is in updateAgentSimulationVisuals
-    }
-    if (emergenceCoreMesh && emergenceCoreMesh.rotation) {
-        emergenceCoreMesh.rotation.y += deltaTime * 0.4;
-        emergenceCoreMesh.rotation.x += deltaTime * 0.2;
-        // Color/Scale update is in updateAgentSimulationVisuals
-    }
+
+    // --- Update Edge Highlight Effects ---
+    // This applies highlighting on top of the base opacity set by updateAgentSimulationVisuals
+    conceptEdges.forEach(edge => {
+        if (!edge.material || !edge.userData) return;
+
+         const originalColor = new THREE.Color(edge.userData.originalColor); // Base color
+         const originalEmissive = new THREE.Color(edge.userData.originalEmissive); // Base emissive
+         const baseOpacity = edge.userData.baseOpacity !== undefined ? edge.userData.baseOpacity : 0.5; // Base opacity from sim update
+
+
+         // Check if the edge is connected to the selected or hovered object
+         const isConnectedToSelected = selectedObject && (edge.userData.sourceId === selectedObject.userData?.id || edge.userData.targetId === selectedObject.userData?.id);
+         const isConnectedToHovered = !isConnectedToSelected && hoveredObject && (edge.userData.sourceId === hoveredObject.userData?.id || edge.userData.targetId === hoveredObject.userData?.id);
+
+         // Define edge highlight color/emissive (e.g., white or accent color)
+         const edgeHighlightColor = new THREE.Color(0x00aaff); // Accent blue
+         const edgeHighlightEmissive = new THREE.Color(0x00aaff).multiplyScalar(0.8);
+
+         if (isConnectedToSelected || isConnectedToHovered) {
+             // Apply highlight to edge (quick lerp)
+             edge.material.color.lerp(edgeHighlightColor, 0.2);
+             edge.material.emissive.lerp(edgeHighlightEmissive, 0.2);
+             edge.material.opacity = clamp(baseOpacity * 1.5, 0.6, 1.0); // Increase opacity
+         } else {
+             // Lerp back to base color/emissive/opacity (slower lerp)
+             edge.material.color.lerp(originalColor, 0.05);
+             edge.material.emissive.lerp(originalEmissive, 0.05);
+             edge.material.opacity = baseOpacity; // Return to base opacity
+         }
+    });
+
+
+    // Update the info panel based on the current state (selected, then hovered, then default)
+    // This is called every frame by app.js's animate loop.
+    // We simply call it here.
+    // updateInfoPanel(); // This call is handled by the wrappers now.
+
+
 }
 
 
@@ -1039,13 +1359,11 @@ export function cleanupConceptVisualization() {
      // Remove resize listener
     window.removeEventListener('resize', onConceptWindowResize);
 
-     // Remove interaction listeners
+     // Remove interaction listeners using the wrapper functions
      if (conceptContainer) {
-         // Using named function references for proper removal
          conceptContainer.removeEventListener('mousemove', handleConceptMouseMoveWrapper, false);
          conceptContainer.removeEventListener('click', handleConceptClickWrapper, false);
      }
-
 
      // Dispose renderer and remove canvases/elements
     if (conceptRenderer) {
@@ -1065,13 +1383,15 @@ export function cleanupConceptVisualization() {
         const node = cn.object;
         if (node) {
             if (node.geometry) node.geometry.dispose();
-            if (node.material) node.material.dispose();
-            // Remove from scene
-            if (node.parent) {
-                 node.parent.remove(node);
-             } else {
-                 conceptScene.remove(node);
+            if (node.material) node.material.dispose(); // Dispose node material
+             // Dispose children (reflexivity loops) geometries/materials
+             while(node.children.length > 0) {
+                 const child = node.children[0];
+                 if (child.geometry) child.geometry.dispose();
+                 if (child.material) child.material.dispose(); // Dispose child material
+                 node.remove(child); // Remove from node
              }
+            scene.remove(node); // Remove node from scene
         }
          // CSS labels' elements removed by labelRenderer cleanup or manually
          if (cn.label && cn.label.element && cn.label.element.parentNode) {
@@ -1083,7 +1403,7 @@ export function cleanupConceptVisualization() {
     // Dispose concept edge geometries and materials
     conceptEdges.forEach(edge => {
         if (edge.geometry) edge.geometry.dispose();
-        if (edge.material) edge.material.dispose();
+        if (edge.material) edge.material.dispose(); // Dispose edge material
         // Remove from scene
          if (edge.parent) {
              edge.parent.remove(edge);
@@ -1096,7 +1416,7 @@ export function cleanupConceptVisualization() {
     // Dispose Agent/Emergence meshes
     if(agentStateMesh) {
         if (agentStateMesh.geometry) agentStateMesh.geometry.dispose();
-        if (agentStateMesh.material) agentStateMesh.material.dispose();
+        if (agentStateMesh.material) agentStateMesh.material.dispose(); // Dispose material
         if (agentStateLabel && agentStateLabel.element && agentStateLabel.element.parentNode) agentStateLabel.element.parentNode.removeChild(agentStateLabel.element);
         conceptScene.remove(agentStateMesh);
         agentStateMesh = null;
@@ -1104,7 +1424,7 @@ export function cleanupConceptVisualization() {
     }
     if(emergenceCoreMesh) {
         if (emergenceCoreMesh.geometry) emergenceCoreMesh.geometry.dispose();
-        if (emergenceCoreMesh.material) emergenceCoreMesh.material.dispose();
+        if (emergenceCoreMesh.material) emergenceCoreMesh.material.dispose(); // Dispose material
         if (emergenceCoreLabel && emergenceCoreLabel.element && emergenceCoreLabel.element.parentNode) emergenceCoreLabel.element.parentNode.removeChild(emergenceCoreLabel.element);
         conceptScene.remove(emergenceCoreMesh);
         emergenceCoreMesh = null;
@@ -1112,7 +1432,7 @@ export function cleanupConceptVisualization() {
     }
     if(live2dPlaneConcept) {
         if (live2dPlaneConcept.geometry) live2dPlaneConcept.geometry.dispose();
-        if (live2dPlaneConcept.material) live2dPlaneConcept.material.dispose();
+        if (live2dPlaneConcept.material) live2dPlaneConcept.material.dispose(); // Dispose material
         conceptScene.remove(live2dPlaneConcept);
         live2dPlaneConcept = null;
     }
@@ -1124,7 +1444,7 @@ export function cleanupConceptVisualization() {
     conceptControls = null; // Nullify controls
 
     // Dispose scene (optional, often not necessary unless using complex materials/textures)
-    // scene.dispose(); // Use with caution
+    // conceptScene.dispose(); // Use with caution
     conceptScene = null; // Nullify scene
 
     conceptInitialized = false;
@@ -1132,22 +1452,35 @@ export function cleanupConceptVisualization() {
 }
 
 // --- Wrapper functions for event listeners to allow removal ---
+// These wrappers ensure the correct, up-to-date interactableObjects list is passed.
+// We also need to use named functions so removeEventListener works in cleanup.
 function handleConceptMouseMoveWrapper(event) {
-    // Check if interactableObjects is defined before passing it
-    const interactableObjects = Object.values(conceptNodes).map(n => n.object);
+    // Create the current list of interactable objects dynamically
+    const interactableObjects = [];
+    Object.values(conceptNodes).forEach(n => interactableObjects.push(n.object));
     if (agentStateMesh) interactableObjects.push(agentStateMesh);
     if (live2dPlaneConcept) interactableObjects.push(live2dPlaneConcept);
     if (emergenceCoreMesh) interactableObjects.push(emergenceCoreMesh);
 
     onConceptMouseMove(event, interactableObjects);
+
+    // After handling mousemove, update info panel IF nothing is selected.
+    // This ensures the hover state is reflected in the panel when no click selection exists.
+    if (!selectedObject) {
+        updateInfoPanel();
+    }
 }
 
 function handleConceptClickWrapper(event) {
-     // Check if interactableObjects is defined before passing it
-    const interactableObjects = Object.values(conceptNodes).map(n => n.object);
+     // Create the current list of interactable objects dynamically
+    const interactableObjects = [];
+    Object.values(conceptNodes).forEach(n => interactableObjects.push(n.object));
     if (agentStateMesh) interactableObjects.push(agentStateMesh);
     if (live2dPlaneConcept) interactableObjects.push(live2dPlaneConcept);
     if (emergenceCoreMesh) interactableObjects.push(emergenceCoreMesh);
 
     onConceptClick(event, interactableObjects);
+
+    // After handling the click, update the info panel based on the new state (selected or cleared)
+     updateInfoPanel();
 }
