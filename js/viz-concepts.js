@@ -39,22 +39,92 @@ let latestAvgAffinity = 0;
 let latestHmLabel = "idle";
 
 
-// Concept data (Structure from V1/V2 - kept V1 structure without dimension nodes)
+// --- Expanded Concept Data (Chapters 1-7) ---
 const conceptData = {
-    'reflexive_abstraction': { id: 'reflexive_abstraction', name: 'Reflexive Abstraction', chapter: 1, position: new THREE.Vector3(0, 20, -30), type: 'method', links: ['syntrometry'], description: "Method to overcome subjective limits by analyzing reflection itself." },
-    'subjective_aspect': { id: 'subjective_aspect', name: 'Subjective Aspect (S)', chapter: 1, position: new THREE.Vector3(-15, 15, -25), type: 'structure', links: ['pradikatrix', 'dialektik', 'koordination', 'aspektivsystem'], description: "Contextual framework for statements; a viewpoint." },
-    'pradikatrix': { id: 'pradikatrix', name: 'Prädikatrix (Pm)', chapter: 1, position: new THREE.Vector3(-25, 20, -20), type: 'component', links: [], description: "Schema of potential statements/predicates." },
-    'dialektik': { id: 'dialektik', name: 'Dialektik (Dn)', chapter: 1, position: new THREE.Vector3(-20, 20, -20), type: 'component', links: [], description: "Schema of subjective qualifiers/biases." },
-    'koordination': { id: 'koordination', name: 'Koordination (Kn)', chapter: 1, position: new THREE.Vector3(-15, 20, -20), type: 'component', links: [], description: "Mechanism linking Prädikatrix and Dialektik." },
-    'aspektivsystem': { id: 'aspektivsystem', name: 'Aspektivsystem (P)', chapter: 1, position: new THREE.Vector3(15, 15, -25), type: 'structure', links: ['metropie', 'idee'], description: "Collection of related subjective aspects." },
-    'metropie': { id: 'metropie', name: 'Metropie (g)', chapter: 1, position: new THREE.Vector3(25, 20, -20), type: 'property', links: [], description: "Metric defining 'distance' between aspects." },
-    'idee': { id: 'idee', name: 'Idee (Apodiktic Core)', chapter: 1, position: new THREE.Vector3(20, 10, -20), type: 'core', links: [], description: "Invariant elements within an Aspektivsystem." },
-    'syntrometry': { id: 'syntrometry', name: 'Syntrometrie', chapter: 1, position: new THREE.Vector3(0, 10, -25), type: 'framework', links: ['syntrix'], description: "Heim's universal logic derived from Reflexive Abstraction." },
-    'syntrix': { id: 'syntrix', name: 'Syntrix (ã|=)', chapter: 2, position: new THREE.Vector3(0, 5, -15), type: 'structure', links: ['metrophor', 'synkolator', 'synkolation_stage', 'korporator'], description: "Formal, recursive structure embodying a Category." },
-    'metrophor': { id: 'metrophor', name: 'Metrophor (ã)', chapter: 2, position: new THREE.Vector3(-10, 8, -12), type: 'core', links: ['idee'], description: "Invariant core (Idee) of a Syntrix; base elements." },
-    'synkolator': { id: 'synkolator', name: 'Synkolator ({)', chapter: 2, position: new THREE.Vector3(0, 8, -12), type: 'operator', links: [], description: "Recursive correlation law generating complexity." },
-    'synkolation_stage': { id: 'synkolation_stage', name: 'Synkolation Stage (m)', chapter: 2, position: new THREE.Vector3(10, 8, -12), type: 'parameter', links: [], description: "Arity/depth of the Synkolator." },
-    'korporator': { id: 'korporator', name: 'Korporator ({})', chapter: 3, position: new THREE.Vector3(0, -5, -8), type: 'operator', links: ['syntrix'], description: "Operator combining multiple Syntrices." }
+    // Chapter 1: Foundational Subjective Logic
+    'reflexive_abstraction': { id: 'reflexive_abstraction', name: 'Reflexive Abstraction', chapter: 1, position: new THREE.Vector3(0, 25, -35), type: 'method', links: ['syntrometry'], description: "Method to overcome subjective limits by analyzing reflection itself." },
+    'subjective_aspect': { id: 'subjective_aspect', name: 'Subjective Aspect (S)', chapter: 1, position: new THREE.Vector3(-20, 20, -30), type: 'structure', links: ['pradikatrix', 'dialektik', 'koordination', 'aspektivsystem'], description: "Contextual framework for statements; a viewpoint." },
+    'pradikatrix': { id: 'pradikatrix', name: 'Prädikatrix (Pm)', chapter: 1, position: new THREE.Vector3(-30, 25, -25), type: 'component', links: ['subjective_aspect'], description: "Schema of potential statements/predicates." },
+    'dialektik': { id: 'dialektik', name: 'Dialektik (Dn)', chapter: 1, position: new THREE.Vector3(-25, 25, -25), type: 'component', links: ['subjective_aspect', 'antagonismen'], description: "Schema of subjective qualifiers/biases." },
+    'koordination': { id: 'koordination', name: 'Koordination (Kn)', chapter: 1, position: new THREE.Vector3(-20, 25, -25), type: 'component', links: ['subjective_aspect'], description: "Mechanism linking Prädikatrix and Dialektik." },
+    'aspektivsystem': { id: 'aspektivsystem', name: 'Aspektivsystem (P)', chapter: 1, position: new THREE.Vector3(20, 20, -30), type: 'structure', links: ['subjective_aspect', 'metropie', 'idee'], description: "Collection of related subjective aspects." },
+    'metropie': { id: 'metropie', name: 'Metropie (g)', chapter: 1, position: new THREE.Vector3(30, 25, -25), type: 'property', links: ['aspektivsystem'], description: "Metric defining 'distance' between aspects." },
+    'idee': { id: 'idee', name: 'Idee (Apodiktic Core)', chapter: 1, position: new THREE.Vector3(25, 15, -25), type: 'core', links: ['aspektivsystem', 'metrophor'], description: "Invariant elements within an Aspektivsystem." },
+    'syntrometry': { id: 'syntrometry', name: 'Syntrometrie', chapter: 1, position: new THREE.Vector3(0, 15, -30), type: 'framework', links: ['syntrix', 'reflexive_abstraction', 'subjective_aspect', 'aspektivsystem'], description: "Heim's universal logic derived from Reflexive Abstraction." },
+    'antagonismen': { id: 'antagonismen', name: 'Antagonismen', chapter: 1, position: new THREE.Vector3(-10, 25, -30), type: 'concept', links: ['dialektik', 'reflexive_abstraction'], description: "Contradictions arising from anthropomorphic limits, driving abstraction." },
+
+    // Chapter 2: Syntrometric Elements - Universal Truths and Logical Structures
+    'syntrix': { id: 'syntrix', name: 'Syntrix (a|=)', chapter: 2, position: new THREE.Vector3(0, 10, -20), type: 'structure', links: ['metrophor', 'synkolator', 'synkolation_stage', 'korporator', 'aondyne_primigene', 'syntrometry'], description: "Formal, recursive structure embodying a Category." },
+    'metrophor': { id: 'metrophor', name: 'Metrophor (a)', chapter: 2, position: new THREE.Vector3(-15, 13, -17), type: 'core', links: ['idee', 'syntrix'], description: "Invariant core (Idee) of a Syntrix; base elements." },
+    'synkolator': { id: 'synkolator', name: 'Synkolator ({)', chapter: 2, position: new THREE.Vector3(0, 13, -17), type: 'operator', links: ['syntrix', 'combinatorics', 'komplexsynkolatoren'], description: "Recursive correlation law generating complexity." },
+    'synkolation_stage': { id: 'synkolation_stage', name: 'Synkolation Stage (m)', chapter: 2, position: new THREE.Vector3(15, 13, -17), type: 'parameter', links: ['syntrix', 'combinatorics'], description: "Arity/depth of the Synkolator." },
+    'combinatorics': { id: 'combinatorics', name: 'Syndrombesetzungen', chapter: 2, position: new THREE.Vector3(0, 13, -13), type: 'concept', links: ['synkolator', 'synkolation_stage'], description: "Combinatorial laws of structure generation." },
+    'komplexsynkolatoren': { id: 'komplexsynkolatoren', name: 'Komplexsynkolatoren', chapter: 2, position: new THREE.Vector3(0, 8, -10), type: 'operator', links: ['syntrix', 'synkolator', 'syndromabschluss'], description: "Synkolators with level-dependent rules, enabling dynamic growth." },
+    'syndromabschluss': { id: 'syndromabschluss', name: 'Syndromabschluß', chapter: 2, position: new THREE.Vector3(10, 8, -10), type: 'concept', links: ['komplexsynkolatoren', 'nullsyntrix'], description: "Syndrome termination conditions." },
+    'aondyne_primigene': { id: 'aondyne_primigene', name: 'Primigene Äondyne', chapter: 2, position: new THREE.Vector3(0, 3, -5), type: 'structure', links: ['syntrix', 'tensorium'], description: "Continuous generalization of Syntrix; recursively generated field theory." },
+    'tensorium': { id: 'tensorium', name: 'Tensorium', chapter: 2, position: new THREE.Vector3(-10, 3, -5), type: 'concept', links: ['aondyne_primigene'], description: "Multi-dimensional parameter space of the Äondyne." },
+    'selektionsprinzip': { id: 'selektionsprinzip', name: 'Selektionsprinzip', chapter: 2, position: new THREE.Vector3(10, 3, -5), type: 'principle', links: ['metrophorischer_zirkel'], description: "Stability principle based on cyclical relationships." },
+    'metrophorischer_zirkel': { id: 'metrophorischer_zirkel', name: 'Metrophorischer Zirkel', chapter: 2, position: new THREE.Vector3(15, 3, -5), type: 'concept', links: ['selektionsprinzip'], description: "Closed loop of aspect systems where Metrophor is invariant." },
+    'nullsyntrix': { id: 'nullsyntrix', name: 'Nullsyntrix', chapter: 2, position: new THREE.Vector3(0, -5, -1), type: 'structure', links: ['korporator', 'syndromabschluss'], description: "Outcome where generated syndromes are empty; termination state." },
+
+
+    // Chapter 3: Syntrixkorporationen – Weaving the Logical Web
+    'korporator': { id: 'korporator', name: 'Korporator ({})', chapter: 3, position: new THREE.Vector3(0, -2, -5), type: 'operator', links: ['syntrix', 'konzenter', 'exzenter', 'nullsyntrix', 'syntropodenarchitektonik'], description: "Operator combining multiple Syntrices." },
+    'konzenter': { id: 'konzenter', name: 'Konzenter', chapter: 3, position: new THREE.Vector3(-10, -5, -3), type: 'architecture', links: ['korporator', 'syntropodenarchitektonik'], description: "Korporation mode emphasizing composition (layered hierarchies)." },
+    'exzenter': { id: 'exzenter', name: 'Exzenter', chapter: 3, position: new THREE.Vector3(10, -5, -3), type: 'architecture', links: ['korporator', 'konflexivsyntrix', 'syntropodenarchitektonik'], description: "Korporation mode emphasizing coupling (networked complexity)." },
+    'konflexivsyntrix': { id: 'konflexivsyntrix', name: 'Konflexivsyntrix', chapter: 3, position: new THREE.Vector3(15, -5, -3), type: 'structure', links: ['exzenter', 'syntropoden'], description: "Resulting structure from excentric Korporation (network node)." },
+    'syntropoden': { id: 'syntropoden', name: 'Syntropoden', chapter: 3, position: new THREE.Vector3(-15, -5, -1), type: 'component', links: ['konflexivsyntrix'], description: "Uncorporated base segments of a Syntrix within a Konflexivsyntrix." },
+    'syntropodenarchitektonik': { id: 'syntropodenarchitektonik', name: 'Syntropodenarchitektonik', chapter: 3, position: new THREE.Vector3(0, -8, 0), type: 'architecture', links: ['konflexivsyntrix', 'syntropoden', 'konzenter', 'exzenter'], description: "Overall network architecture of multi-membered Konflexivsyntrizen." },
+
+    // Chapter 4: Enyphansyntrizen - The Dynamics of Syntrometric Fields
+    'enyphanie': { id: 'enyphanie', name: 'Enyphanie', chapter: 4, position: new THREE.Vector3(0, -12, 5), type: 'property', links: ['syntrixtotalitaet', 'enyphansyntrizen'], description: "Intrinsic dynamic potential of Syntrices." },
+    'syntrixtotalitaet': { id: 'syntrixtotalitaet', name: 'Syntrixtotalität (To)', chapter: 4, position: new THREE.Vector3(-15, -15, 5), type: 'structure', links: ['enyphanie', 'syntrixfeld', 'protyposis', 'hypersyntrix'], description: "Complete ensemble of possible Syntrices from Protyposis." },
+    'protyposis': { id: 'protyposis', name: 'Protyposis', chapter: 4, position: new THREE.Vector3(-20, -18, 5), type: 'core', links: ['syntrixtotalitaet'], description: "Primordial soup of elementary structures and rules." },
+    'enyphansyntrizen': { id: 'enyphansyntrizen', name: 'Enyphansyntrizen', chapter: 4, position: new THREE.Vector3(0, -15, 10), type: 'dynamics', links: ['syntrixtotalitaet', 'syntrixfeld'], description: "Dynamic operations acting on/within the Syntrixtotalität." },
+    'syntrixfeld': { id: 'syntrixfeld', name: 'Syntrixfeld', chapter: 4, position: new THREE.Vector3(15, -15, 5), type: 'field', links: ['syntrixtotalitaet', 'enyphansyntrizen', 'syntrixfunktoren', 'affinitaetssyndrom'], description: "Structured 4D field with geometry/dynamics; state space of emergent Gebilde/Holoformen." },
+    'gebilde': { id: 'gebilde', name: 'Gebilde', chapter: 4, position: new THREE.Vector3(10, -18, 8), type: 'structure', links: ['syntrixfeld', 'holoformen'], description: "Stable, emergent structures formed by excentric Korporationen." },
+    'holoformen': { id: 'holoformen', name: 'Holoformen', chapter: 4, position: new THREE.Vector3(15, -18, 8), type: 'structure', links: ['syntrixfeld', 'gebilde', 'reflexive_integration'], description: "Special Gebilde with non-reducible holistic properties (linked to RIH)." },
+    'syntrixtensorien': { id: 'syntrixtensorien', name: 'Syntrixtensorien', chapter: 4, position: new THREE.Vector3(-5, -18, 10), type: 'concept', links: ['syntrixfeld', 'syntrixraum'], description: "Tensor-like representations of Syntropoden within a Gebilde." },
+    'syntrixraum': { id: 'syntrixraum', name: 'Syntrixraum', chapter: 4, position: new THREE.Vector3(-10, -18, 10), type: 'concept', links: ['syntrixtensorien'], description: "Abstract n-dimensional state space associated with a Gebilde." },
+    'syntrixfunktoren': { id: 'syntrixfunktoren', name: 'Syntrixfunktoren', chapter: 4, position: new THREE.Vector3(0, -18, 13), type: 'operator', links: ['syntrixfeld', 'zeitkoerner'], description: "Operators transforming Syntrixfelder (meta-level dynamics)." },
+    'zeitkoerner': { id: 'zeitkoerner', name: 'Zeitkörner', chapter: 4, position: new THREE.Vector3(-5, -21, 13), type: 'concept', links: ['syntrixfunktoren'], description: "Time granules; minimal units of change via Syntrixfunktor application." },
+    'affinitaetssyndrom': { id: 'affinitaetssyndrom', name: 'Affinitätssyndrom', chapter: 4, position: new THREE.Vector3(10, -21, 10), type: 'concept', links: ['syntrixfeld', 'reflexive_integration'], description: "Formal measure for coupling strength or interaction potential between systems." },
+
+    // Chapter 5: Metroplextheorie – Infinite Hierarchies and Emerging Structures
+    'metroplex': { id: 'metroplex', name: 'Metroplex (n M)', chapter: 5, position: new THREE.Vector3(0, -22, 15), type: 'structure', links: ['hypersyntrix', 'syntrokline_metroplexbruecken', 'metroplexkombinat', 'syntrixtotalitaet'], description: "Higher-order syntrometric structure; recursively defined hierarchy of Syntrices." },
+    'hypersyntrix': { id: 'hypersyntrix', name: 'Hypersyntrix (1 M)', chapter: 5, position: new THREE.Vector3(-10, -25, 15), type: 'structure', links: ['metroplex', 'syntrixtotalitaet'], description: "Metroplex of the first grade; ensemble of Syntrices treated as a unit." },
+    'syntrokline_metroplexbruecken': { id: 'syntrokline_metroplexbruecken', name: 'Syntrokline Metroplexbrücken', chapter: 5, position: new THREE.Vector3(10, -25, 15), type: 'operator', links: ['metroplex', 'metroplexkombinat'], description: "Operators connecting structures across different Metroplex grades." },
+    'metroplexkombinat': { id: 'metroplexkombinat', name: 'Metroplexkombinat', chapter: 5, position: new THREE.Vector3(0, -28, 18), type: 'architecture', links: ['metroplex', 'syntrokline_metroplexbruecken'], description: "Complete integrated architecture of nested Metroplexes and Bridges." },
+    'kontraktion': { id: 'kontraktion', name: 'Kontraktion', chapter: 5, position: new THREE.Vector3(5, -25, 18), type: 'transformation', links: ['metroplex'], description: "Structure-reducing transformation for managing complexity." },
+
+    // Chapter 6: Die televariante äonische Area - Dynamics, Purpose, and Transcendence
+    'aonische_area': { id: 'aonische_area', name: 'Äonische Area', chapter: 6, position: new THREE.Vector3(0, -32, 20), type: 'field', links: ['telezentrum', 'polydromie', 'transzendenzstufen', 'telezentrik'], description: "Evolutionary landscape/state space structured by Telezentren." },
+    'telezentrum': { id: 'telezentrum', name: 'Telezentrum', chapter: 6, position: new THREE.Vector3(-10, -35, 20), type: 'concept', links: ['aonische_area', 'transzendenzstufen'], description: "Stable attractor states; points of maximal coherence/integration (purpose/goals)." },
+    'polydromie': { id: 'polydromie', name: 'Polydromie', chapter: 6, position: new THREE.Vector3(10, -35, 20), type: 'dynamics', links: ['aonische_area'], description: "Multiple potential evolutionary paths simultaneously or probabilistically." },
+    'transzendenzstufen': { id: 'transzendenzstufen', name: 'Transzendenzstufen', chapter: 6, position: new THREE.Vector3(0, -38, 23), type: 'concept', links: ['telezentrum', 'aonische_area', 'transzendentaltektonik'], description: "Qualitative leaps to higher organizational levels." },
+    'transzendentaltektonik': { id: 'transzendentaltektonik', name: 'Transzendentaltektonik', chapter: 6, position: new THREE.Vector3(5, -38, 23), type: 'architecture', links: ['transzendenzstufen'], description: "Architecture governing transcendent levels and their interrelations." },
+    'telezentrik': { id: 'telezentrik', name: 'Telezentrik', chapter: 6, position: new THREE.Vector3(-5, -35, 20), type: 'purpose', links: ['aonische_area', 'telezentrum'], description: "Principle of directedness towards stable states." },
+
+
+     // Chapter 7: Anthropomorphic Syntrometry - Logic Meets the Human Mind
+    'quantitaetssyntrix': { id: 'quantitaetssyntrix', name: 'Quantitätssyntrix', chapter: 7, position: new THREE.Vector3(0, -42, 28), type: 'structure', links: ['subjective_aspect', 'metron', 'metronische_gitter'], description: "Specialized Syntrix for modeling quantifiable dimensions of perception." },
+    'metron': { id: 'metron', name: 'Metron (tau)', chapter: 7, position: new THREE.Vector3(-10, -45, 28), type: 'parameter', links: ['quantitaetssyntrix', 'metronische_gitter'], description: "Smallest indivisible quantum or step size." },
+    'metronische_gitter': { id: 'metronische_gitter', name: 'Metronische Gitter', chapter: 7, position: new THREE.Vector3(-15, -45, 28), type: 'structure', links: ['metron', 'metronische_elementaroperationen', 'quantitaetssyntrix'], description: "Fundamental discrete lattice underlying reality." },
+    'metronische_elementaroperationen': { id: 'metronische_elementaroperationen', name: 'Metronische Elementaroperationen', chapter: 7, position: new THREE.Vector3(0, -45, 30), type: 'operator', links: ['metronische_gitter', 'metrondifferential', 'metronintegral'], description: "Discrete calculus (differential & integral) on the Metronic Gitter." },
+    'metrondifferential': { id: 'metrondifferential', name: 'Metrondifferential (delta)', chapter: 7, position: new THREE.Vector3(-5, -48, 30), type: 'operator', links: ['metronische_elementaroperationen'], description: "Discrete analogue of the differential operator." },
+    'metronintegral': { id: 'metronintegral', name: 'Metronintegral (S)', chapter: 7, position: new THREE.Vector3(5, -48, 30), type: 'operator', links: ['metronische_elementaroperationen'], description: "Discrete analogue of the integral operator." },
+
+     // Concepts from later chapters potentially relevant to the graph
+     'reflexive_integration': { id: 'reflexive_integration', name: 'Reflexive Integration (RIH)', chapter: 8, position: new THREE.Vector3(0, -52, 35), type: 'concept', links: ['holoformen', 'affinitaetssyndrom'], description: "Measure of system coherence or self-awareness (linked to Holoformen/Affinities)." },
+     'geometric_field': { id: 'geometric_field', name: 'Geometric Field (g_ik, Gamma, R)', chapter: 8, position: new THREE.Vector3(10, -52, 35), type: 'geometry_metric', links: ['syntrixfeld', 'reflexive_integration'], description: "Field with intrinsic geometry (metric, connection, curvature) emerging from Syntrixfeld." },
+     'selection_principles': { id: 'selection_principles', name: 'Selection Principles', chapter: 8, position: new THREE.Vector3(0, -55, 38), type: 'principle', links: ['reflexive_integration', 'geometric_field'], description: "Principles for selecting stable geometric configurations (relevant for RIH)." },
+     'metronization': { id: 'metronization', name: 'Metronization', chapter: 11, position: new THREE.Vector3(-10, -55, 38), type: 'method', links: ['geometric_field', 'metronische_gitter'], description: "Process of realizing geometric fields on the Metronic Gitter." },
+     'hyperstruktur': { id: 'hyperstruktur', name: 'Hyperstruktur', chapter: 11, position: new THREE.Vector3(-5, -58, 40), type: 'structure', links: ['metronization', 'metronische_gitter'], description: "Localized, quantized structure (candidate for particles) realized on the grid." },
+     'strukturkondensation_realized': { id: 'strukturkondensation_realized', name: 'Strukturkondensation (Realized)', chapter: 11, position: new THREE.Vector3(5, -58, 40), type: 'concept', links: ['hyperstruktur', 'reflexive_integration'], description: "Quantified realized order from Hyperstrukturen (linked to RIH)." },
+     'telewarianz': { id: 'telewarianz', name: 'Telewarianz', chapter: 6, position: new THREE.Vector3(15, -35, 23), type: 'concept', links: ['telezentrik', 'aonische_area'], description: "Stable, purpose-aligned evolutionary paths towards Telezentren." },
+     'dyswarianz': { id: 'dyswarianz', name: 'Dyswarianz', chapter: 6, position: new THREE.Vector3(20, -35, 23), type: 'concept', links: ['aonische_area'], description: "Disruptive or unstable evolutionary paths away from Telezentren." }
+
+
 };
 
 
@@ -145,6 +215,7 @@ export function initConceptVisualization(appClock) {
         const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.0); // Main directional light
         dirLight1.position.set(5, 10, 7).normalize();
         conceptScene.add(dirLight1);
+        // FIX: Corrected typo in DirectionalLight
         const dirLight2 = new THREE.DirectionalLight(0xaaaaff, 0.5); // Secondary light
         dirLight2.position.set(-5, -5, -5).normalize();
         conceptScene.add(dirLight2);
@@ -223,39 +294,78 @@ function createConceptNodes() {
         let material;
         let currentScale = 1.0; // Initial scale
 
+        // --- Add cases for new node types ---
         switch (data.type) {
             case 'framework':
                 geometry = new THREE.BoxGeometry(baseSize * 2.5, baseSize * 2.5, baseSize * 2.5);
-                material = new THREE.MeshPhongMaterial({ color: 0x66ccff, shininess: 60, transparent: true, opacity: 0.9 });
+                material = new THREE.MeshPhongMaterial({ color: 0x66ccff, emissive: 0x3366ff, shininess: 60, transparent: true, opacity: 0.9 });
                 break;
             case 'structure':
                 geometry = new THREE.SphereGeometry(baseSize * 1.2, 32, 16);
-                material = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 80 });
+                material = new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0x555555, shininess: 80 });
                 break;
             case 'core':
                 geometry = new THREE.SphereGeometry(baseSize * 0.9, 24, 12);
-                material = new THREE.MeshPhongMaterial({ color: 0xffff66, shininess: 100 });
+                material = new THREE.MeshPhongMaterial({ color: 0xffff66, emissive: 0x888833, shininess: 100 });
                 break;
             case 'component':
                 geometry = new THREE.SphereGeometry(baseSize, 16, 12);
-                material = new THREE.MeshPhongMaterial({ color: 0x66ffaa, shininess: 50 });
+                material = new THREE.MeshPhongMaterial({ color: 0x66ffaa, emissive: 0x338855, shininess: 50 });
                 break;
             case 'property':
                 geometry = new THREE.SphereGeometry(baseSize * 0.8, 12, 8);
-                material = new THREE.MeshPhongMaterial({ color: 0xffaaff, shininess: 40 });
+                material = new THREE.MeshPhongMaterial({ color: 0xffaaff, emissive: 0x885588, shininess: 40 });
                 break;
             case 'parameter':
                 geometry = new THREE.SphereGeometry(baseSize * 0.7, 12, 8);
-                material = new THREE.MeshPhongMaterial({ color: 0xaaffff, shininess: 30 });
+                material = new THREE.MeshPhongMaterial({ color: 0xaaffff, emissive: 0x558888, shininess: 30 });
                 break;
             case 'operator':
                 geometry = new THREE.OctahedronGeometry(baseSize * 1.1, 0);
-                material = new THREE.MeshPhongMaterial({ color: 0xffaa66, shininess: 70 });
+                material = new THREE.MeshPhongMaterial({ color: 0xffaa66, emissive: 0x885533, shininess: 70 });
                 break;
             case 'method':
                 geometry = new THREE.CylinderGeometry(baseSize * 0.6, baseSize * 0.6, baseSize * 2.0, 16);
-                material = new THREE.MeshPhongMaterial({ color: 0xff66ff, shininess: 60 });
+                material = new THREE.MeshPhongMaterial({ color: 0xff66ff, emissive: 0x883388, shininess: 60 });
                 break;
+            case 'concept': // General concept nodes not fitting other types
+                geometry = new THREE.SphereGeometry(baseSize * 0.9, 16, 12);
+                material = new THREE.MeshPhongMaterial({ color: 0xaaaaaa, emissive: 0x555555, shininess: 40 }); // Grey color
+                break;
+             case 'architecture': // Nodes representing architectural structures
+                geometry = new THREE.BoxGeometry(baseSize * 1.8, baseSize * 1.8, baseSize * 1.8);
+                material = new THREE.MeshPhongMaterial({ color: 0xccaa66, emissive: 0x665533, shininess: 55 }); // Brownish/Orange
+                break;
+             case 'field': // Nodes representing fields (e.g., Syntrixfeld, Aonische Area)
+                geometry = new THREE.SphereGeometry(baseSize * 1.5, 32, 16); // Larger sphere
+                material = new THREE.MeshPhongMaterial({ color: 0x88ccff, emissive: 0x446688, shininess: 70 }); // Light Blue
+                break;
+            case 'dynamics': // Nodes representing dynamic processes
+                geometry = new THREE.IcosahedronGeometry(baseSize * 1.1, 0); // Icosahedron
+                material = new THREE.MeshPhongMaterial({ color: 0x66ffcc, emissive: 0x338866, shininess: 60 }); // Cyan/Teal
+                break;
+            case 'purpose': // Nodes related to Telezentrik/Purpose
+                geometry = new THREE.SphereGeometry(baseSize * 1.3, 24, 12); // Slightly larger sphere
+                material = new THREE.MeshPhongMaterial({ color: 0xaa66ff, emissive: 0x553388, shininess: 75 }); // Purple
+                break;
+            case 'principle': // Nodes representing principles or rules
+                geometry = new THREE.BoxGeometry(baseSize * 1.5, baseSize * 1.5, baseSize * 1.5); // Smaller box
+                material = new THREE.MeshPhongMaterial({ color: 0xffaa66, emissive: 0x885533, shininess: 50 }); // Orange
+                break;
+            case 'geometry_metric': // Nodes representing geometric concepts (metric, connection, curvature)
+                geometry = new THREE.SphereGeometry(baseSize * 1.3, 20, 10); // Medium sphere
+                material = new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0x888888, shininess: 85 }); // White/Bright
+                break;
+             case 'relation': // Nodes representing relational concepts
+                geometry = new THREE.CylinderGeometry(baseSize * 0.5, baseSize * 0.5, baseSize * 1.0, 12); // Small Cylinder
+                material = new THREE.MeshPhongMaterial({ color: 0xeecc88, emissive: 0x776644, shininess: 45 }); // Light Brown/Yellow
+                break;
+             case 'level': // Nodes representing hierarchical levels or steps
+                geometry = new THREE.TorusGeometry(baseSize * 0.6, baseSize * 0.2, 8, 16); // Torus (Donut)
+                material = new THREE.MeshPhongMaterial({ color: 0xccccff, emissive: 0x666688, shininess: 50 }); // Light Purple/Blue
+                break;
+
+
              // Exclude 'dimension' type nodes as requested
             default:
                  console.warn(`Unknown concept node type: ${data.type} for ${id}. Skipping.`);
@@ -285,7 +395,16 @@ function createConceptNodes() {
              'property': 1.2,
              'parameter': 1.1,
              'operator': 1.6,
-             'method': 1.8
+             'method': 1.8,
+             'concept': 1.4, // Offset for new types
+             'architecture': 1.9,
+             'field': 1.7,
+             'dynamics': 1.6,
+             'purpose': 1.6,
+             'principle': 1.6,
+             'geometry_metric': 1.6,
+             'relation': 1.3,
+             'level': 1.4
          }[data.type] || 1.5; // Default offset
 
         label.position.set(0, baseOffset * currentScale, 0);
@@ -427,6 +546,7 @@ function createAgentSimulationPlaceholders() {
     const agentGeo = new THREE.SphereGeometry(1.5, 32, 16);
     const agentMat = new THREE.MeshPhongMaterial({
         color: 0x66ff66, // Greenish
+        emissive: 0x338833,
         shininess: 80,
         transparent: true,
         opacity: 0.7
@@ -452,6 +572,7 @@ function createAgentSimulationPlaceholders() {
     const coreGeo = new THREE.TetrahedronGeometry(2.0, 2); // Tetrahedron geometry
     const coreMat = new THREE.MeshPhongMaterial({
         color: 0xff66ff, // Purplish
+        emissive: 0x883388,
         shininess: 100,
         transparent: true,
         opacity: 0.8
@@ -530,6 +651,7 @@ export function updateAgentSimulationVisuals(emotionsTensor, rihScore, avgAffini
     if (agentStateMesh.material.color) {
         const targetColor = new THREE.Color(emotionColor);
         agentStateMesh.material.color.lerp(targetColor, 0.1); // Smooth transition factor (0.1)
+        agentStateMesh.material.emissive.lerp(targetColor.clone().multiplyScalar(0.5), 0.1);
     }
 
     // Scale the sphere based on overall emotional intensity
@@ -548,10 +670,11 @@ export function updateAgentSimulationVisuals(emotionsTensor, rihScore, avgAffini
 
     // --- Update Emergence Core Mesh (Tetrahedron) ---
 
-    // Lerp color based on RIH score (e.g., towards white for higher RIH)
+    // Lerp color based on RIH score (e.g., towards white with high RIH)
     if (emergenceCoreMesh.material.color) {
          const targetColor = new THREE.Color(0xff66ff).lerp(new THREE.Color(0xffffff), clamp(rihScore, 0, 1) * 0.5); // Lerp towards white
         emergenceCoreMesh.material.color.lerp(targetColor, 0.1); // Smooth transition
+        emergenceCoreMesh.material.emissive.lerp(targetColor.clone().multiplyScalar(0.5), 0.1);
     }
 
     // Scale based on RIH score and average affinity
@@ -747,33 +870,62 @@ export function animateConceptNodes(deltaTime) {
 
         if (!object || !object.rotation) return; // Safety check
 
-        // Basic rotation for visual interest
+        // Basic rotation for visual interest (applies to all types)
         object.rotation.y += deltaTime * 0.2;
 
-        // Specific animations per type (example: operator rotation)
-        if (data.type === 'operator') {
-            object.rotation.x += deltaTime * 0.3;
-            object.rotation.z += deltaTime * 0.4;
+        // Optional: Specific animations per type (example: operator rotation, dynamics oscillation)
+        // We can add more complex animations here based on node type as a future enhancement.
+        switch(data.type) {
+            case 'operator':
+                 object.rotation.x += deltaTime * 0.3;
+                 object.rotation.z += deltaTime * 0.4;
+                 break;
+             case 'dynamics':
+                 // Use original Y position from data for oscillation base
+                 const originalY = data.position.y;
+                 const oscillationY = Math.sin(time * 2 + object.position.x * 0.1) * 0.5; // Use object position for variety
+                 object.position.y = originalY + oscillationY;
+                 break;
+             case 'purpose':
+                 const pulseScale = 1.0 + Math.sin(time * 1.5) * 0.05;
+                 object.scale.set(pulseScale, pulseScale, pulseScale);
+                 break;
+             case 'field':
+                 const fieldOscillationZ = Math.sin(time * 1.8 + object.position.y * 0.1) * 0.4;
+                 const originalZ = data.position.z;
+                 object.position.z = originalZ + fieldOscillationZ;
+                 break;
+              case 'geometry_metric':
+                 // Subtle color pulse/change based on time
+                 const hueShift = (Math.sin(time * 1.0) * 0.5 + 0.5) * 0.1 + 0.6; // Shift between blue/purple/white
+                 const lightnessPulse = (Math.sin(time * 0.8) * 0.5 + 0.5) * 0.2 + 0.7; // Pulse lightness
+                 object.material.color.setHSL(hueShift, 0.8, lightnessPulse);
+                 object.material.emissive.setHSL(hueShift, 0.8, lightnessPulse * 0.5);
+                 break;
+            case 'relation':
+                // Subtle scale oscillation
+                const relationScale = 1.0 + Math.sin(time * 2.5 + object.position.z * 0.1) * 0.08;
+                object.scale.set(relationScale, relationScale, relationScale);
+                break;
+            case 'level':
+                // Subtle rotation on X and Z
+                 object.rotation.x += deltaTime * 0.25;
+                 object.rotation.z += deltaTime * 0.35;
+                break;
+
+             // Add cases for other types if specific animations are desired
         }
-
-         // Optional: Add oscillation effect to position/scale
-         // const baseScale = 1.0; // Assumed base scale from creation
-         // const scaleOscillation = Math.sin(time * 2 + object.position.x) * 0.05;
-         // const newScale = baseScale * (1 + scaleOscillation); // Apply oscillation factor to base scale
-         // object.scale.set(newScale, newScale, newScale); // Apply scale oscillation
-
-
-         // const offsetY = Math.sin(time * 0.5 + object.position.z) * 0.5;
-         // object.position.y = data.position.y + offsetY; // Oscillate position along Y relative to original data position
     });
 
-    // Animate Agent State and Emergence Core meshes (rotation)
+    // Animate Agent State and Emergence Core meshes (rotation, slight pulse/color based on metrics - handled in updateAgentSimulationVisuals)
     if (agentStateMesh && agentStateMesh.rotation) {
         agentStateMesh.rotation.y += deltaTime * 0.3;
+        // Color/Scale update is in updateAgentSimulationVisuals
     }
     if (emergenceCoreMesh && emergenceCoreMesh.rotation) {
         emergenceCoreMesh.rotation.y += deltaTime * 0.4;
         emergenceCoreMesh.rotation.x += deltaTime * 0.2;
+        // Color/Scale update is in updateAgentSimulationVisuals
     }
 }
 
@@ -898,7 +1050,7 @@ export function cleanupConceptVisualization() {
     conceptControls = null; // Nullify controls
 
     // Dispose scene (optional, often not necessary unless using complex materials/textures)
-    // conceptScene.dispose(); // Use with caution
+    // scene.dispose(); // Use with caution
     conceptScene = null; // Nullify scene
 
     conceptInitialized = false;
