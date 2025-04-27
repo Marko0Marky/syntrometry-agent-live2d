@@ -39,7 +39,7 @@ let latestAvgAffinity = 0;
 let latestHmLabel = "idle";
 
 
-// --- Expanded Concept Data (Chapters 1-7) ---
+// --- Expanded Concept Data (Chapters 1-7 + relevant later) ---
 const conceptData = {
     // Chapter 1: Foundational Subjective Logic
     'reflexive_abstraction': { id: 'reflexive_abstraction', name: 'Reflexive Abstraction', chapter: 1, position: new THREE.Vector3(0, 25, -35), type: 'method', links: ['syntrometry'], description: "Method to overcome subjective limits by analyzing reflection itself." },
@@ -61,7 +61,7 @@ const conceptData = {
     'combinatorics': { id: 'combinatorics', name: 'Syndrombesetzungen', chapter: 2, position: new THREE.Vector3(0, 13, -13), type: 'concept', links: ['synkolator', 'synkolation_stage'], description: "Combinatorial laws of structure generation." },
     'komplexsynkolatoren': { id: 'komplexsynkolatoren', name: 'Komplexsynkolatoren', chapter: 2, position: new THREE.Vector3(0, 8, -10), type: 'operator', links: ['syntrix', 'synkolator', 'syndromabschluss'], description: "Synkolators with level-dependent rules, enabling dynamic growth." },
     'syndromabschluss': { id: 'syndromabschluss', name: 'Syndromabschluß', chapter: 2, position: new THREE.Vector3(10, 8, -10), type: 'concept', links: ['komplexsynkolatoren', 'nullsyntrix'], description: "Syndrome termination conditions." },
-    'aondyne_primigene': { id: 'aondyne_primigene', name: 'Primigene Äondyne', chapter: 2, position: new THREE.Vector3(0, 3, -5), type: 'structure', links: ['syntrix', 'tensorium'], description: "Continuous generalization of Syntrix; recursively generated field theory." },
+    'aondyne_primigene': { id: 'aondyne_primigene', name: 'Primigene Äondyne', chapter: 2, position: new THREE.Vector3(0, 3, -5), type: 'structure', links: ['syntrix', 'tensorium', 'geometric_field'], description: "Continuous generalization of Syntrix; recursively generated field theory." },
     'tensorium': { id: 'tensorium', name: 'Tensorium', chapter: 2, position: new THREE.Vector3(-10, 3, -5), type: 'concept', links: ['aondyne_primigene'], description: "Multi-dimensional parameter space of the Äondyne." },
     'selektionsprinzip': { id: 'selektionsprinzip', name: 'Selektionsprinzip', chapter: 2, position: new THREE.Vector3(10, 3, -5), type: 'principle', links: ['metrophorischer_zirkel'], description: "Stability principle based on cyclical relationships." },
     'metrophorischer_zirkel': { id: 'metrophorischer_zirkel', name: 'Metrophorischer Zirkel', chapter: 2, position: new THREE.Vector3(15, 3, -5), type: 'concept', links: ['selektionsprinzip'], description: "Closed loop of aspect systems where Metrophor is invariant." },
@@ -81,7 +81,7 @@ const conceptData = {
     'syntrixtotalitaet': { id: 'syntrixtotalitaet', name: 'Syntrixtotalität (To)', chapter: 4, position: new THREE.Vector3(-15, -15, 5), type: 'structure', links: ['enyphanie', 'syntrixfeld', 'protyposis', 'hypersyntrix'], description: "Complete ensemble of possible Syntrices from Protyposis." },
     'protyposis': { id: 'protyposis', name: 'Protyposis', chapter: 4, position: new THREE.Vector3(-20, -18, 5), type: 'core', links: ['syntrixtotalitaet'], description: "Primordial soup of elementary structures and rules." },
     'enyphansyntrizen': { id: 'enyphansyntrizen', name: 'Enyphansyntrizen', chapter: 4, position: new THREE.Vector3(0, -15, 10), type: 'dynamics', links: ['syntrixtotalitaet', 'syntrixfeld'], description: "Dynamic operations acting on/within the Syntrixtotalität." },
-    'syntrixfeld': { id: 'syntrixfeld', name: 'Syntrixfeld', chapter: 4, position: new THREE.Vector3(15, -15, 5), type: 'field', links: ['syntrixtotalitaet', 'enyphansyntrizen', 'syntrixfunktoren', 'affinitaetssyndrom'], description: "Structured 4D field with geometry/dynamics; state space of emergent Gebilde/Holoformen." },
+    'syntrixfeld': { id: 'syntrixfeld', name: 'Syntrixfeld', chapter: 4, position: new THREE.Vector3(15, -15, 5), type: 'field', links: ['syntrixtotalitaet', 'enyphansyntrizen', 'syntrixfunktoren', 'affinitaetssyndrom', 'geometric_field'], description: "Structured 4D field with geometry/dynamics; state space of emergent Gebilde/Holoformen." },
     'gebilde': { id: 'gebilde', name: 'Gebilde', chapter: 4, position: new THREE.Vector3(10, -18, 8), type: 'structure', links: ['syntrixfeld', 'holoformen'], description: "Stable, emergent structures formed by excentric Korporationen." },
     'holoformen': { id: 'holoformen', name: 'Holoformen', chapter: 4, position: new THREE.Vector3(15, -18, 8), type: 'structure', links: ['syntrixfeld', 'gebilde', 'reflexive_integration'], description: "Special Gebilde with non-reducible holistic properties (linked to RIH)." },
     'syntrixtensorien': { id: 'syntrixtensorien', name: 'Syntrixtensorien', chapter: 4, position: new THREE.Vector3(-5, -18, 10), type: 'concept', links: ['syntrixfeld', 'syntrixraum'], description: "Tensor-like representations of Syntropoden within a Gebilde." },
@@ -99,11 +99,13 @@ const conceptData = {
 
     // Chapter 6: Die televariante äonische Area - Dynamics, Purpose, and Transcendence
     'aonische_area': { id: 'aonische_area', name: 'Äonische Area', chapter: 6, position: new THREE.Vector3(0, -32, 20), type: 'field', links: ['telezentrum', 'polydromie', 'transzendenzstufen', 'telezentrik'], description: "Evolutionary landscape/state space structured by Telezentren." },
-    'telezentrum': { id: 'telezentrum', name: 'Telezentrum', chapter: 6, position: new THREE.Vector3(-10, -35, 20), type: 'concept', links: ['aonische_area', 'transzendenzstufen'], description: "Stable attractor states; points of maximal coherence/integration (purpose/goals)." },
+    'telezentrum': { id: 'telezentrum', name: 'Telezentrum', chapter: 6, position: new THREE.Vector3(-10, -35, 20), type: 'concept', links: ['aonische_area', 'transzendenzstufen', 'telezentrik'], description: "Stable attractor states; points of maximal coherence/integration (purpose/goals)." },
     'polydromie': { id: 'polydromie', name: 'Polydromie', chapter: 6, position: new THREE.Vector3(10, -35, 20), type: 'dynamics', links: ['aonische_area'], description: "Multiple potential evolutionary paths simultaneously or probabilistically." },
     'transzendenzstufen': { id: 'transzendenzstufen', name: 'Transzendenzstufen', chapter: 6, position: new THREE.Vector3(0, -38, 23), type: 'concept', links: ['telezentrum', 'aonische_area', 'transzendentaltektonik'], description: "Qualitative leaps to higher organizational levels." },
     'transzendentaltektonik': { id: 'transzendentaltektonik', name: 'Transzendentaltektonik', chapter: 6, position: new THREE.Vector3(5, -38, 23), type: 'architecture', links: ['transzendenzstufen'], description: "Architecture governing transcendent levels and their interrelations." },
     'telezentrik': { id: 'telezentrik', name: 'Telezentrik', chapter: 6, position: new THREE.Vector3(-5, -35, 20), type: 'purpose', links: ['aonische_area', 'telezentrum'], description: "Principle of directedness towards stable states." },
+     'telewarianz': { id: 'telewarianz', name: 'Telewarianz', chapter: 6, position: new THREE.Vector3(15, -35, 23), type: 'concept', links: ['telezentrik', 'aonische_area'], description: "Stable, purpose-aligned evolutionary paths towards Telezentren." },
+    'dyswarianz': { id: 'dyswarianz', name: 'Dyswarianz', chapter: 6, position: new THREE.Vector3(20, -35, 23), type: 'concept', links: ['aonische_area'], description: "Disruptive or unstable evolutionary paths away from Telezentren." },
 
 
      // Chapter 7: Anthropomorphic Syntrometry - Logic Meets the Human Mind
@@ -115,14 +117,12 @@ const conceptData = {
     'metronintegral': { id: 'metronintegral', name: 'Metronintegral (S)', chapter: 7, position: new THREE.Vector3(5, -48, 30), type: 'operator', links: ['metronische_elementaroperationen'], description: "Discrete analogue of the integral operator." },
 
      // Concepts from later chapters potentially relevant to the graph
-     'reflexive_integration': { id: 'reflexive_integration', name: 'Reflexive Integration (RIH)', chapter: 8, position: new THREE.Vector3(0, -52, 35), type: 'concept', links: ['holoformen', 'affinitaetssyndrom'], description: "Measure of system coherence or self-awareness (linked to Holoformen/Affinities)." },
-     'geometric_field': { id: 'geometric_field', name: 'Geometric Field (g_ik, Gamma, R)', chapter: 8, position: new THREE.Vector3(10, -52, 35), type: 'geometry_metric', links: ['syntrixfeld', 'reflexive_integration'], description: "Field with intrinsic geometry (metric, connection, curvature) emerging from Syntrixfeld." },
+     'reflexive_integration': { id: 'reflexive_integration', name: 'Reflexive Integration (RIH)', chapter: 8, position: new THREE.Vector3(0, -52, 35), type: 'concept', links: ['holoformen', 'affinitaetssyndrom', 'selection_principles', 'strukturkondensation_realized'], description: "Measure of system coherence or self-awareness (linked to Holoformen/Affinities)." },
+     'geometric_field': { id: 'geometric_field', name: 'Geometric Field (g_ik, Gamma, R)', chapter: 8, position: new THREE.Vector3(10, -52, 35), type: 'geometry_metric', links: ['syntrixfeld', 'reflexive_integration', 'selection_principles', 'metronization'], description: "Field with intrinsic geometry (metric, connection, curvature) emerging from Syntrixfeld." },
      'selection_principles': { id: 'selection_principles', name: 'Selection Principles', chapter: 8, position: new THREE.Vector3(0, -55, 38), type: 'principle', links: ['reflexive_integration', 'geometric_field'], description: "Principles for selecting stable geometric configurations (relevant for RIH)." },
-     'metronization': { id: 'metronization', name: 'Metronization', chapter: 11, position: new THREE.Vector3(-10, -55, 38), type: 'method', links: ['geometric_field', 'metronische_gitter'], description: "Process of realizing geometric fields on the Metronic Gitter." },
-     'hyperstruktur': { id: 'hyperstruktur', name: 'Hyperstruktur', chapter: 11, position: new THREE.Vector3(-5, -58, 40), type: 'structure', links: ['metronization', 'metronische_gitter'], description: "Localized, quantized structure (candidate for particles) realized on the grid." },
+     'metronization': { id: 'metronization', name: 'Metronization', chapter: 11, position: new THREE.Vector3(-10, -55, 38), type: 'method', links: ['geometric_field', 'metronische_gitter', 'hyperstruktur'], description: "Process of realizing geometric fields on the Metronic Gitter." },
+     'hyperstruktur': { id: 'hyperstruktur', name: 'Hyperstruktur', chapter: 11, position: new THREE.Vector3(-5, -58, 40), type: 'structure', links: ['metronization', 'metronische_gitter', 'strukturkondensation_realized'], description: "Localized, quantized structure (candidate for particles) realized on the grid." },
      'strukturkondensation_realized': { id: 'strukturkondensation_realized', name: 'Strukturkondensation (Realized)', chapter: 11, position: new THREE.Vector3(5, -58, 40), type: 'concept', links: ['hyperstruktur', 'reflexive_integration'], description: "Quantified realized order from Hyperstrukturen (linked to RIH)." },
-     'telewarianz': { id: 'telewarianz', name: 'Telewarianz', chapter: 6, position: new THREE.Vector3(15, -35, 23), type: 'concept', links: ['telezentrik', 'aonische_area'], description: "Stable, purpose-aligned evolutionary paths towards Telezentren." },
-     'dyswarianz': { id: 'dyswarianz', name: 'Dyswarianz', chapter: 6, position: new THREE.Vector3(20, -35, 23), type: 'concept', links: ['aonische_area'], description: "Disruptive or unstable evolutionary paths away from Telezentren." }
 
 
 };
@@ -364,6 +364,10 @@ function createConceptNodes() {
                 geometry = new THREE.TorusGeometry(baseSize * 0.6, baseSize * 0.2, 8, 16); // Torus (Donut)
                 material = new THREE.MeshPhongMaterial({ color: 0xccccff, emissive: 0x666688, shininess: 50 }); // Light Purple/Blue
                 break;
+            case 'transformation': // Nodes representing transformations (e.g., Kontraktion)
+                 geometry = new THREE.BoxGeometry(baseSize * 1.5, baseSize * 1.0, baseSize * 1.5); // Box, slightly flatter
+                 material = new THREE.MeshPhongMaterial({ color: 0xcc5555, emissive: 0x662222, shininess: 50 }); // Dark Red/Brown
+                 break;
 
 
              // Exclude 'dimension' type nodes as requested
@@ -404,7 +408,8 @@ function createConceptNodes() {
              'principle': 1.6,
              'geometry_metric': 1.6,
              'relation': 1.3,
-             'level': 1.4
+             'level': 1.4,
+             'transformation': 1.4 // Offset for new type
          }[data.type] || 1.5; // Default offset
 
         label.position.set(0, baseOffset * currentScale, 0);
@@ -725,7 +730,7 @@ function setupConceptInteraction(interactableObjects) {
 
     // Add event listeners for mouse movements and clicks
     conceptContainer.addEventListener('mousemove', (event) => onConceptMouseMove(event, interactableObjects), false);
-    conceptContainer.addEventListener('click', (event) => onConceptClick(event, interactableObjects), false);
+    conceptContainer.addEventListener('click', (event) => onConceptClick(event, interactableObjects), false); // Add click listener
 
      // Initialize info panel content
      updateInfoPanel(null); // Call updateInfoPanel to set initial text
@@ -758,7 +763,7 @@ function onConceptMouseMove(event, interactableObjects) {
         conceptContainer.style.cursor = 'default';
     }
 
-    // Update the info panel based on the hovered object
+    // Update the info panel based on the hovered object (only on hover)
     updateInfoPanel(hoveredObject);
 }
 
@@ -789,7 +794,16 @@ function onConceptClick(event, interactableObjects) {
              // Optional: smoothly move the camera position slightly towards a view of the target
              // conceptCamera.position.lerp(clickedObject.position.clone().add(new THREE.Vector3(0, 5, 20)), 0.1); // Example smooth move
             conceptControls.update(); // Update controls to apply the new target
+
+             // FIX: Also update the info panel on click
+             updateInfoPanel(clickedObject);
         }
+         // If no object was clicked that updates the panel, we might want to clear it or revert to default info
+         // This is handled implicitly by the updateInfoPanel(null) call in the mousemove handler when no object is hovered.
+         // For click, we only update *if* an object is clicked.
+    } else {
+         // Optional: Clear info panel if the click was on empty space
+         // updateInfoPanel(null); // Uncomment this line if you want clicking empty space to clear the panel
     }
 }
 
@@ -882,9 +896,9 @@ export function animateConceptNodes(deltaTime) {
                  break;
              case 'dynamics':
                  // Use original Y position from data for oscillation base
-                 const originalY = data.position.y;
-                 const oscillationY = Math.sin(time * 2 + object.position.x * 0.1) * 0.5; // Use object position for variety
-                 object.position.y = originalY + oscillationY;
+                 const originalY_dyn = data.position.y;
+                 const oscillationY = Math.sin(time * 2.0 + object.position.x * 0.1) * 0.5; // Use object position for variety
+                 object.position.y = originalY_dyn + oscillationY;
                  break;
              case 'purpose':
                  const pulseScale = 1.0 + Math.sin(time * 1.5) * 0.05;
@@ -892,12 +906,12 @@ export function animateConceptNodes(deltaTime) {
                  break;
              case 'field':
                  const fieldOscillationZ = Math.sin(time * 1.8 + object.position.y * 0.1) * 0.4;
-                 const originalZ = data.position.z;
-                 object.position.z = originalZ + fieldOscillationZ;
+                 const originalZ_field = data.position.z;
+                 object.position.z = originalZ_field + fieldOscillationZ;
                  break;
               case 'geometry_metric':
                  // Subtle color pulse/change based on time
-                 const hueShift = (Math.sin(time * 1.0) * 0.5 + 0.5) * 0.1 + 0.6; // Shift between blue/purple/white
+                 const hueShift = (Math.sin(time * 1.0) * 0.5 + 0.5) * 0.1 + 0.6; // Shift between blue/purple/white (adjust base hue if needed)
                  const lightnessPulse = (Math.sin(time * 0.8) * 0.5 + 0.5) * 0.2 + 0.7; // Pulse lightness
                  object.material.color.setHSL(hueShift, 0.8, lightnessPulse);
                  object.material.emissive.setHSL(hueShift, 0.8, lightnessPulse * 0.5);
@@ -912,6 +926,11 @@ export function animateConceptNodes(deltaTime) {
                  object.rotation.x += deltaTime * 0.25;
                  object.rotation.z += deltaTime * 0.35;
                 break;
+             case 'transformation':
+                 // Subtle pulsation or change effect
+                 const transformScale = 1.0 + Math.sin(time * 2.2 + object.position.y * 0.15) * 0.07;
+                 object.scale.set(transformScale, transformScale, transformScale);
+                 break;
 
              // Add cases for other types if specific animations are desired
         }
