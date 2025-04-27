@@ -5,7 +5,7 @@ import { displayError, appendChatMessage, zeros, tensor, clamp } from './utils.j
 import { SyntrometricAgent } from './agent.js';
 import { EmotionalSpace } from './environment.js';
 import { initThreeJS, updateThreeJS, cleanupThreeJS } from './viz-syntrometry.js';
-// Import init, update, animate, cleanup functions, and the conceptInitialized flag
+// Import init, update, animate, cleanup functions, and the conceptInitialized flag, renderers, scene, camera, controls
 import { initConceptVisualization, updateAgentSimulationVisuals, animateConceptNodes, updateInfoPanel, cleanupConceptVisualization, conceptInitialized, conceptRenderer, conceptLabelRenderer, conceptScene, conceptCamera, conceptControls } from './viz-concepts.js';
 import { initLive2D, updateLive2DEmotions, updateLive2DHeadMovement, live2dInitialized } from './viz-live2d.js'; // Import live2dInitialized flag
 
@@ -99,11 +99,11 @@ async function initialize() {
                   parseFloat(document.getElementById('reflexivity-slider')?.value || 0.5)
               );
          }
-         if (conceptSuccess) {
+         if (conceptInitialized) { // Use conceptInitialized flag
               // Pass initial state to update visual placeholders
              updateAgentSimulationVisuals(currentAgentEmotions, currentRIHScore, currentAvgAffinity, currentHmLabel);
              // Update the concept info panel which uses these updated globals
-             updateInfoPanel(null); // Pass null to show default/latest sim info
+             updateInfoPanel(); // Call updateInfoPanel without arguments
          }
           if (live2dSuccess) {
              // Pass initial state to Live2D
@@ -123,9 +123,9 @@ async function initialize() {
          if (threeSuccess) {
             updateThreeJS(zeros([Config.DIMENSIONS]), 0, [], 0.5, 0.5);
          }
-         if (conceptSuccess) {
+         if (conceptInitialized) { // Use conceptInitialized flag
              updateAgentSimulationVisuals(currentAgentEmotions, 0, 0, 'idle');
-             updateInfoPanel(null);
+             updateInfoPanel(); // Call updateInfoPanel without arguments
          }
          if (live2dSuccess) {
               updateLive2DEmotions(currentAgentEmotions);
@@ -311,7 +311,7 @@ async function animate() {
              { eventType: envStep.eventType, reward: envStep.reward } // Pass environment context
         );
 
-         // Dispose of the previous agent emotions tensor if the agent process didn't already
+         // Dispose of previous agent emotions tensor if the agent process didn't already
          // Note: The Agent class now handles disposing its *internal* prevEmotions.
          // If the *returned* emotion tensor needs explicit external disposal, it should be done here.
          // However, `agentResponse.emotions` is the *new* tensor the agent will use as `prevEmotions`
@@ -369,8 +369,8 @@ async function animate() {
     // Update the Concept Graph placeholders based on agent/env state
     if (conceptInitialized) { // Check if concept visualization is initialized
         updateAgentSimulationVisuals(currentAgentEmotions, currentRIHScore, currentAvgAffinity, currentHmLabel);
-        // Update info panel based on latest data (already updated by updateAgentSimulationVisuals)
-        updateInfoPanel(null); // Pass null to show default/latest sim info
+        // **FIX:** Removed the conflicting updateInfoPanel(null) call from here.
+        // The Concept Graph module now manages when to show default info vs. object info.
     }
 
      // Update the Live2D model (emotions and head movement)
@@ -388,11 +388,6 @@ async function animate() {
     if (conceptInitialized && conceptControls) {
         conceptControls.update();
     }
-
-     // Animate concept graph nodes (rotations, oscillations)
-     if (conceptInitialized) { // Check if concept visualization is initialized
-         animateConceptNodes(deltaTime); // Pass deltaTime
-     }
 
      // **CRITICAL FIX:** Explicitly render the Concept Graph scene using both renderers
      if (conceptInitialized && conceptRenderer && conceptLabelRenderer && conceptScene && conceptCamera) {
