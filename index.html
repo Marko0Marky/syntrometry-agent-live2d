@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heim's Syntrometric Theory & Live2D Agent Demo</title>
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Link to external CSS -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- CDN Scripts (loaded globally, assumed by modules) -->
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js"
+        onerror="handleScriptError('TensorFlow.js', null, 'Could not load TensorFlow.js.')"></script>
+    <!-- Three.js -->
+    <script src="https://unpkg.com/three@0.132.2/build/three.min.js"
+        onerror="handleScriptError('Three.js', 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js', 'Could not load Three.js.')"></script>
+    <!-- Three.js Examples - OrbitControls and CSS2DRenderer -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"
+        onerror="handleScriptError('OrbitControls', null, 'Could not load OrbitControls.')"></script>
+     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/renderers/CSS2DRenderer.js"
+        onerror="handleScriptError('CSS2DRenderer', null, 'Could not load CSS2DRenderer.')"></script>
+    <!-- Pixi.js -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.3.3/dist/pixi.min.js"
+        onerror="handleScriptError('Pixi.js', 'https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.3/pixi.min.js', 'Could not load Pixi.js.')"></script>
+    <!-- Cubism 4 Core -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"
+        onerror="handleScriptError('Cubism 4 Core', null, 'Could not load Cubism 4 Core.')"></script>
+    <!-- pixi-live2d-display -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"
+        onerror="handleScriptError('pixi-live2d-display', 'https://unpkg.com/pixi-live2d-display@0.4.0/dist/cubism4.min.js', 'Could not load pixi-live2d-display.')"></script>
+
+    <!-- Basic error handling for CDNs (will be replaced by displayError in utils.js) -->
+    <script>
+        // This handleScriptError is just a fallback before utils.js is guaranteed to load
+        // The one in utils.js will be used during app initialization.
+        function handleScriptError(library, fallback, message) {
+            console.error(`[Error] Failed to load ${library}. ${message || ''}`);
+            const errorDiv = document.getElementById('error-message');
+            if (errorDiv) {
+                 errorDiv.innerHTML += `[Error] Failed to load ${library}. ${message || ''}<br>`;
+                 errorDiv.style.display = 'block';
+            } else {
+                 console.error("Error message container not found.");
+            }
+
+            if (fallback) {
+                console.log(`[Error] Attempting to load fallback: ${fallback}`);
+                const script = document.createElement('script');
+                script.src = fallback;
+                script.onerror = () => console.error(`[Error] Fallback script ${fallback} also failed.`);
+                document.head.appendChild(script);
+            }
+        }
+
+        // Suppress X3557 shader warnings
+        const originalConsoleWarn = console.warn;
+        console.warn = function (...args) {
+            if (typeof args[0] === 'string' && args[0].includes('gl.getProgramInfoLog') && args[0].includes('X3557')) {
+                return; // Suppress X3557 warnings
+            }
+            originalConsoleWarn.apply(console, args);
+        };
+    </script>
+
+</head>
+<body>
+    <header>
+        <h1>Heim's Syntrometric Theory & Live2D Agent Demo</h1>
+        <p>Interactive visualization of Syntrometric concepts with an AI-driven Live2D agent.</p>
+    </header>
+
+    <div class="container">
+        <div style="display: flex; flex-wrap: wrap; gap: 2rem;">
+            <div style="flex: 1; min-width: 300px;">
+                <h2>Syntrometric Theory</h2>
+                <p>
+                    Heim's Syntrometric Theory proposes a framework for understanding complex systems through higher-dimensional interactions of Syntrix and Metrons, governed by Reflexive Integration and Structural Condensation. This demo visualizes these concepts interactively, with an AI agent reflecting emotional states via a Live2D avatar.
+                </p>
+                <h3>Quick Links</h3>
+                <ul class="quick-links-list">
+                    <li><a href="/metron-analysis">Metron Analysis</a>: Explore the fundamental units of Syntrometric systems.</li>
+                    <li><a href="/syntrix-explorer">Syntrix Explorer</a>: Interact with dynamic Syntrix formations.</li>
+                    <li><a href="/rih-calculator">RIH Calculator</a>: Compute Reflexive Integration scores.</li>
+                    <li><a href="/cascade-simulator">Cascade Simulator</a>: Simulate Structural Condensation cascades.</li>
+                </ul>
+            </div>
+            <div style="flex: 1; min-width: 300px;">
+                <h2>Interactive Visualization</h2>
+                <p>Control the simulation parameters and observe the agent's emotional responses in real-time.</p>
+                <div class="threejs-container" id="syntrometry-panel">
+                    <div id="error-message" class="error-message"></div>
+                    <div id="live2d-container"></div>
+                    <div id="chat-container">
+                        <div id="chat-output"><div><b>System:</b> Welcome to the Syntrometric Simulation.</div></div>
+                        <input id="chat-input" type="text" placeholder="Interact with the simulation...">
+                    </div>
+                    <div id="metrics">Loading metrics...</div>
+                    <div id="controls">
+                        <label for="integration-slider">Integration (I(S)): <span id="integration-value">0.50</span></label>
+                        <input type="range" id="integration-slider" min="0" max="1" step="0.01" value="0.5">
+                        <label for="reflexivity-slider">Reflexivity (Ψ): <span id="reflexivity-value">0.50</span></label>
+                        <input type="range" id="reflexivity-slider" min="0" max="1" step="0.01" value="0.5">
+                    </div>
+                </div>
+                <h2>Concept Graph Visualization</h2>
+                <p>Explore the relationships between Syntrometric concepts with interactive tooltips.</p>
+                <div class="threejs-container-concept" id="concept-panel">
+                    <div id="concept-error-message" class="error-message"></div>
+                    <div id="info-panel"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="live2d-offscreen-canvas"></canvas>
+
+    <!-- Link to the main application script using type="module" -->
+    <script type="module" src="./js/app.js"></script>
+</body>
+</html>
