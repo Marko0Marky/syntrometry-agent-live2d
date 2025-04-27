@@ -6,6 +6,7 @@ import { SyntrometricAgent } from './agent.js';
 import { EmotionalSpace } from './environment.js';
 import { initThreeJS, updateThreeJS, cleanupThreeJS } from './viz-syntrometry.js';
 // Import init, update, animate, cleanup functions, and the conceptInitialized flag, renderers, scene, camera, controls
+// Ensure animateConceptNodes is imported
 import { initConceptVisualization, updateAgentSimulationVisuals, animateConceptNodes, updateInfoPanel, cleanupConceptVisualization, conceptInitialized, conceptRenderer, conceptLabelRenderer, conceptScene, conceptCamera, conceptControls } from './viz-concepts.js';
 import { initLive2D, updateLive2DEmotions, updateLive2DHeadMovement, live2dInitialized } from './viz-live2d.js'; // Import live2dInitialized flag
 
@@ -94,7 +95,7 @@ async function initialize() {
              updateThreeJS(
                   currentStateVector.slice(0, Config.DIMENSIONS), // Pass only the visible state dimensions
                   currentRIHScore,
-                  initialAgentResponse.affinities || [], // Pass initial affinities, default to empty array
+                  agent.affinities || [], // Pass initial affinities from agent if available
                   parseFloat(document.getElementById('integration-slider')?.value || 0.5),
                   parseFloat(document.getElementById('reflexivity-slider')?.value || 0.5)
               );
@@ -103,7 +104,8 @@ async function initialize() {
               // Pass initial state to update visual placeholders
              updateAgentSimulationVisuals(currentAgentEmotions, currentRIHScore, currentAvgAffinity, currentHmLabel);
              // Update the concept info panel which uses these updated globals
-             updateInfoPanel(); // Call updateInfoPanel without arguments
+             // FIX: Call updateInfoPanel here initially to show the default sim data
+             updateInfoPanel();
          }
           if (live2dSuccess) {
              // Pass initial state to Live2D
@@ -113,7 +115,7 @@ async function initialize() {
 
 
          // Update initial metrics display
-         updateMetricsDisplay(currentRIHScore, initialAgentResponse.affinities || [], currentAgentEmotions, currentContext); // Pass affinities array
+         updateMetricsDisplay(currentRIHScore, agent.affinities || [], currentAgentEmotions, currentContext); // Pass affinities array
 
     } else {
          // Core init failed, update visuals with zeros/defaults if visualizations did init
@@ -125,7 +127,8 @@ async function initialize() {
          }
          if (conceptInitialized) { // Use conceptInitialized flag
              updateAgentSimulationVisuals(currentAgentEmotions, 0, 0, 'idle');
-             updateInfoPanel(); // Call updateInfoPanel without arguments
+             // FIX: Call updateInfoPanel here initially to show the default sim data
+             updateInfoPanel();
          }
          if (live2dSuccess) {
               updateLive2DEmotions(currentAgentEmotions);
@@ -254,9 +257,7 @@ function updateMetricsDisplay(rihScore, affinities, emotionsTensor, context) {
 
      // Find dominant emotion name (handle empty emotions array)
     // Ensure emotions array has content before finding max
-    const dominantEmotionIdx = emotions && emotions.length > 0
-        ? emotions.indexOf(Math.max(...emotions))
-        : -1;
+    const dominantEmotionIdx = emotions && emotions.length === Config.Agent.EMOTION_DIM ? emotions.indexOf(Math.max(...emotions)) : -1;
     const dominantEmotionName = dominantEmotionIdx !== -1 ? emotionNames[dominantEmotionIdx] : 'Unknown';
 
     // Get dominant emotion value safely
@@ -311,20 +312,7 @@ async function animate() {
              { eventType: envStep.eventType, reward: envStep.reward } // Pass environment context
         );
 
-         // Dispose of previous agent emotions tensor if the agent process didn't already
-         // Note: The Agent class now handles disposing its *internal* prevEmotions.
-         // If the *returned* emotion tensor needs explicit external disposal, it should be done here.
-         // However, `agentResponse.emotions` is the *new* tensor the agent will use as `prevEmotions`
-         // in the *next* step, so we should NOT dispose it here. We only dispose the *previous*
-         // `currentAgentEmotions` if the agent didn't replace it internally (e.g., on error).
-         // Let's add a check/dispose here for safety if the agent process *replaces* the tensor instance.
-         // The agent process method already handles disposing its OLD prevEmotions. We just need to update
-         // our global `currentAgentEmotions` reference to the NEW tensor returned by the agent.
-
-
          // Update global state variables with results from the agent
-         // Ensure we clone the emotion tensor if the agent returns a reference that might be disposed internally later
-         // The agent should return a NEW tensor or clone its internal state for safe external use.
         currentAgentEmotions = agentResponse.emotions; // Update agent's emotion tensor
         currentRIHScore = agentResponse.rihScore; // Update RIH score
          // Update average affinity (ensure affinities array exists)
@@ -333,30 +321,21 @@ async function animate() {
         currentContext = envStep.context; // Update environment context message
          currentStateVector = envStateArray; // Update the raw state vector array
 
-         // Dispose of the previous agent emotions tensor after getting the new one
-         // This assumes agentResponse.emotions is a *new* tensor. If it's a reference to the internal prevEmotions,
-         // the agent class is responsible for its disposal before the *next* step's computation.
-         // Let's trust the Agent class's internal disposal logic for prevEmotions.
-
     } else {
          // Handle case where agent/environment are not initialized (e.g., TF.js failed)
          // Visualizations and Live2D might still run their basic animations/idle states
          // Use default values or last known values for updates
-         // currentStateVector, currentAgentEmotions etc. would hold their last valid state or initial defaults
-         // The update functions should handle null/invalid input gracefully.
-         // console.warn("Agent or Environment not initialized, skipping simulation step.");
-         // Ensure currentAgentEmotions is a valid (though potentially zero) tensor for Live2D updates
          if (!currentAgentEmotions || typeof currentAgentEmotions.dispose !== 'function') {
              currentAgentEmotions = tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]);
          }
     }
 
      // --- Update Visualizations ---
-     // Pass current state variables to visualization update functions
-     // Check initialization flags before calling update functions
+     // Pass current state variables and slider params to visualization update/animate functions
+     // Check initialization flags before calling functions
 
     // Update the main Syntrometry visualization
-    if (initThreeJS) { // Check if the function exists (i.e., module loaded) - initThreeJS sets its own flag
+    if (initThreeJS) {
         updateThreeJS(
              currentStateVector ? currentStateVector.slice(0, Config.DIMENSIONS) : zeros([Config.DIMENSIONS]), // Pass only the first N dimensions
              currentRIHScore,
@@ -367,14 +346,14 @@ async function animate() {
     }
 
     // Update the Concept Graph placeholders based on agent/env state
-    if (conceptInitialized) { // Check if concept visualization is initialized
+    if (conceptInitialized) {
         updateAgentSimulationVisuals(currentAgentEmotions, currentRIHScore, currentAvgAffinity, currentHmLabel);
-        // **FIX:** Removed the conflicting updateInfoPanel(null) call from here.
-        // The Concept Graph module now manages when to show default info vs. object info.
+        // The info panel state is now managed by hover/click events within viz-concepts.
+        // No longer update info panel here.
     }
 
      // Update the Live2D model (emotions and head movement)
-     if (initLive2D && live2dInitialized) { // Check if function exists AND Live2D initialized
+     if (live2dInitialized) { // Use the exported flag directly
          updateLive2DEmotions(currentAgentEmotions); // Pass current emotion tensor
          updateLive2DHeadMovement(currentHmLabel, deltaTime); // Pass delta time for smoothing
      }
@@ -383,20 +362,28 @@ async function animate() {
     // Update the metrics display panel
     updateMetricsDisplay(currentRIHScore, agent ? (agent.affinities || []) : [], currentAgentEmotions, currentContext); // Pass affinities and emotions
 
-    // --- Render Visualizations ---
+    // --- Animate Visualizations ---
     // Update controls for smooth camera movement in the concept graph
     if (conceptInitialized && conceptControls) {
         conceptControls.update();
     }
 
-     // **CRITICAL FIX:** Explicitly render the Concept Graph scene using both renderers
+     // Animate concept graph nodes (rotations, oscillations, state reactions)
+     // The animations also handle highlight state now
+     if (conceptInitialized) {
+         // Pass slider values to animateConceptNodes for animation influence
+         animateConceptNodes(deltaTime, integrationParam, reflexivityParam);
+     }
+
+     // **Render Visualizations**
+     // Explicitly render the Concept Graph scene using both renderers
      if (conceptInitialized && conceptRenderer && conceptLabelRenderer && conceptScene && conceptCamera) {
          conceptRenderer.render(conceptScene, conceptCamera);
          conceptLabelRenderer.render(conceptScene, conceptCamera);
      }
 
      // Rendering for the main Syntrometry panel is handled inside updateThreeJS.
-     // Rendering for Live2D is handled by Pixi.js's internal ticker if enabled (which it is by default).
+     // Rendering for Live2D is handled by Pixi.js's internal ticker if enabled.
 }
 
 /**
@@ -451,18 +438,6 @@ function cleanup() {
 window.addEventListener('load', initialize);
 // Add cleanup on window unload
 window.addEventListener('beforeunload', cleanup);
-
-
-// Global flag indicating Live2D init status for the concept graph info panel
-// This is updated within viz-live2d.js and imported here.
-// We need to expose it globally if updateInfoPanel in viz-concepts needs it.
-// A better way is to pass the status to updateInfoPanel or have viz-concepts
-// import it. Let's import it directly in viz-concepts.js.
-// For simplicity, we could also just attach it to window:
-// window.live2dInitialized = live2dInitialized; // Or update this flag from here
-
-// The imported `live2dInitialized` variable will automatically reflect the exported value.
-// The `updateInfoPanel` function in `viz-concepts.js` imports this flag.
 
 
 // Ensure TF.js doesn't clean up tensors needed across animation frames by default
