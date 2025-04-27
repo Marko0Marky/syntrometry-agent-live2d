@@ -31,6 +31,11 @@ let emergenceCoreLabel = null;
 let live2dPlaneConcept = null; // Invisible placeholder for Live2D ref
 
 
+// --- State variables for interaction ---
+let hoveredObject = null; // Track the currently hovered object
+let selectedObject = null; // Track the currently clicked/selected object
+
+
 // Variables to hold the latest simulation data for concept graph info panel updates
 // These are updated by updateAgentSimulationVisuals and accessed by updateInfoPanel
 let latestAgentEmotions = null;
@@ -625,6 +630,10 @@ export function updateAgentSimulationVisuals(emotionsTensor, rihScore, avgAffini
     latestAvgAffinity = avgAffinity;
     latestHmLabel = hmLabel;
 
+    // **Do NOT call updateInfoPanel here anymore**
+    // The info panel state is now managed by hover/click events.
+    // This function *only* updates the internal variables (latest...) that updateInfoPanel reads.
+
 
     // --- Update Agent State Mesh (Sphere) ---
     const emotions = latestAgentEmotions; // Use stored latest emotions
@@ -665,12 +674,10 @@ export function updateAgentSimulationVisuals(emotionsTensor, rihScore, avgAffini
     agentStateMesh.scale.set(agentScale, agentScale, agentScale); // Apply scale
 
 
-    // Update the description in userData for the info panel
+    // Update the description in userData for the info panel (these descriptions are static,
+    // the dynamic info comes from the latest... variables read by updateInfoPanel)
     agentStateMesh.userData.description = `Represents the agent's emotional state.<br>` +
-        `<span class="simulated-data">Dominant Feeling: ${dominantEmotion}<br>` +
-        `Joy: ${(joyVal * 100).toFixed(1)}%, Fear: ${(fearVal * 100).toFixed(1)}%<br>` +
-        `Curiosity: ${(curiosityVal * 100).toFixed(1)}%, Frustration: ${(frustrationVal * 100).toFixed(1)}%<br>` +
-        `Calm: ${(calmVal * 100).toFixed(1)}%, Surprise: ${(surpriseVal* 100).toFixed(1)}%</span>`;
+        `<i>Dynamic details below reflect current simulation state.</i>`;
 
 
     // --- Update Emergence Core Mesh (Tetrahedron) ---
@@ -691,22 +698,16 @@ export function updateAgentSimulationVisuals(emotionsTensor, rihScore, avgAffini
 
     // Update description in userData for the info panel
     emergenceCoreMesh.userData.description = `Represents Reflexive Integration and Affinities.<br>` +
-        `<span class="simulated-data">RIH Score: ${(rihScore * 100).toFixed(1)}%<br>` +
-        `Average Affinity: ${(avgAffinity * 100).toFixed(1)}%</span>`;
+        `<i>Dynamic details below reflect current simulation state.</i>`;
 
 
     // --- Update Live2D Placeholder Info ---
      // This placeholder doesn't have visuals in this scene, just updates its userData for the info panel
      if (live2dPlaneConcept) {
-         // Check if live2dInitialized is available globally (or passed)
          const live2dStatus = live2dInitialized ? 'Active' : 'Inactive'; // Use the imported flag
-         live2dPlaneConcept.userData.description = `Live2D avatar reflecting agent's emotional state.<br>` +
-            `<span class="simulated-data">Dominant Feeling: ${dominantEmotion}<br>` +
-            `Current Action: ${hmLabel}<br>` +
-            `Agent RIH: ${(rihScore * 100).toFixed(1)}%</span>`;
-         // Update its name to reflect activity status - requires live2dInitialized status
          live2dPlaneConcept.userData.name = `Live2D Avatar (Status: ${live2dStatus})`;
-
+         live2dPlaneConcept.userData.description = `Reference point for the Live2D avatar.<br>` +
+            `<i>Dynamic details below reflect current simulation state.</i>`;
      }
 
 
@@ -729,11 +730,12 @@ function setupConceptInteraction(interactableObjects) {
     conceptMouse = new THREE.Vector2(); // 2D vector for mouse coordinates
 
     // Add event listeners for mouse movements and clicks
+    // Pass interactableObjects to the handlers
     conceptContainer.addEventListener('mousemove', (event) => onConceptMouseMove(event, interactableObjects), false);
-    conceptContainer.addEventListener('click', (event) => onConceptClick(event, interactableObjects), false); // Add click listener
+    conceptContainer.addEventListener('click', (event) => onConceptClick(event, interactableObjects), false);
 
      // Initialize info panel content
-     updateInfoPanel(null); // Call updateInfoPanel to set initial text
+     updateInfoPanel(); // Call updateInfoPanel to set initial text (showing default sim info)
 }
 
 // Handles mouse movement over the concept graph container
@@ -751,20 +753,32 @@ function onConceptMouseMove(event, interactableObjects) {
     // Find objects intersecting the ray. Intersect objects in the provided list.
     const intersects = conceptRaycaster.intersectObjects(interactableObjects, false);
 
-    let hoveredObject = null;
+    let newHoveredObject = null;
     if (intersects.length > 0) {
          // Get the first intersected object (closest to camera)
-        hoveredObject = intersects[0].object;
+        newHoveredObject = intersects[0].object;
 
-        // Change cursor to pointer
-        conceptContainer.style.cursor = 'pointer';
+        // Change cursor to pointer only if we are not currently selecting an object
+        if (!selectedObject) {
+             conceptContainer.style.cursor = 'pointer';
+        }
     } else {
-        // Restore default cursor if no object is hovered
-        conceptContainer.style.cursor = 'default';
+        // Restore default cursor if no object is hovered AND nothing is selected
+        if (!selectedObject) {
+            conceptContainer.style.cursor = 'default';
+        }
     }
 
-    // Update the info panel based on the hovered object (only on hover)
-    updateInfoPanel(hoveredObject);
+    // Only update info panel on hover if no object is currently selected by click
+    if (!selectedObject && newHoveredObject !== hoveredObject) {
+        hoveredObject = newHoveredObject;
+         updateInfoPanel(); // Call updateInfoPanel without arguments
+    } else if (!selectedObject && !newHoveredObject && hoveredObject !== null) {
+         // Case where mouse moves off all objects and nothing is selected
+         hoveredObject = null;
+         updateInfoPanel(); // Call updateInfoPanel without arguments
+    }
+     // If selectedObject exists, mousemove does NOT update the panel
 }
 
 // Handles mouse clicks on the concept graph container
@@ -795,29 +809,106 @@ function onConceptClick(event, interactableObjects) {
              // conceptCamera.position.lerp(clickedObject.position.clone().add(new THREE.Vector3(0, 5, 20)), 0.1); // Example smooth move
             conceptControls.update(); // Update controls to apply the new target
 
-             // FIX: Also update the info panel on click
-             updateInfoPanel(clickedObject);
+             // Set the selected object and update the panel
+             selectedObject = clickedObject;
+             updateInfoPanel(); // Call updateInfoPanel without arguments
+             conceptContainer.style.cursor = 'pointer'; // Keep pointer cursor while something is selected
+
         }
-         // If no object was clicked that updates the panel, we might want to clear it or revert to default info
-         // This is handled implicitly by the updateInfoPanel(null) call in the mousemove handler when no object is hovered.
-         // For click, we only update *if* an object is clicked.
     } else {
-         // Optional: Clear info panel if the click was on empty space
-         // updateInfoPanel(null); // Uncomment this line if you want clicking empty space to clear the panel
+         // Clicked on empty space - clear selection and revert to hover/default
+         selectedObject = null;
+         // Check if mouse is currently hovering over something after clearing selection
+         // We can re-run the mousemove logic or just call updateInfoPanel which checks hover
+         updateInfoPanel(); // This will now show either hover info or default sim info
+         conceptContainer.style.cursor = 'default'; // Revert to default cursor
     }
 }
 
 /**
- * Updates the content of the info panel based on the hovered object.
- * Accesses the latest simulation data stored in the module's scope.
- * @param {THREE.Object3D|null} hoveredObject The Three.js object currently hovered.
+ * Updates the content of the info panel based on the currently selected, hovered,
+ * or latest simulation data. Reads state variables (selectedObject, hoveredObject,
+ * latest...) directly from module scope.
  */
-export function updateInfoPanel(hoveredObject) {
+export function updateInfoPanel() { // No arguments needed anymore
     if (!conceptInfoPanel) return; // Ensure the info panel element exists
     // Assumes emotionNames is available in this module scope (imported)
 
-    // Clear the panel if nothing is hovered or object has no data
-    if (!hoveredObject || !hoveredObject.userData) {
+    let displayData = null; // Data to use for the panel
+
+    if (selectedObject && selectedObject.userData) {
+         displayData = selectedObject.userData;
+    } else if (hoveredObject && hoveredObject.userData) {
+         displayData = hoveredObject.userData;
+    }
+
+    // If we have specific object data (from selected or hovered)
+    if (displayData) {
+         // Special handling for simulation state objects to append dynamic data
+        let dynamicInfo = '';
+        if (displayData.type === 'simulation_state' || displayData.type === 'live2d_avatar_ref') {
+             const dominantEmotionIdx = latestAgentEmotions && latestAgentEmotions.length === Config.Agent.EMOTION_DIM ? latestAgentEmotions.indexOf(Math.max(...latestAgentEmotions)) : -1;
+             const dominantEmotion = dominantEmotionIdx !== -1 ? emotionNames[dominantEmotionIdx] : 'Unknown';
+
+             if (displayData.type === 'simulation_state' && displayData.name === 'Agent Emotional State') {
+                  const emotions = latestAgentEmotions || zeros([Config.Agent.EMOTION_DIM]);
+                  const joyVal = emotions[0] || 0;
+                  const fearVal = emotions[1] || 0;
+                  const curiosityVal = emotions[2] || 0;
+                  const frustrationVal = emotions[3] || 0;
+                  const calmVal = emotions[4] || 0;
+                  const surpriseVal = emotions[5] || 0;
+
+                  dynamicInfo = `<br><span class="simulated-data">Dominant Feeling: ${dominantEmotion}<br>` +
+                                 `Joy: ${(joyVal * 100).toFixed(1)}%, Fear: ${(fearVal * 100).toFixed(1)}%<br>` +
+                                 `Curiosity: ${(curiosityVal * 100).toFixed(1)}%, Frustration: ${(frustrationVal * 100).toFixed(1)}%<br>` +
+                                 `Calm: ${(calmVal * 100).toFixed(1)}%, Surprise: ${(surpriseVal* 100).toFixed(1)}%</span>`;
+
+             } else if (displayData.type === 'simulation_state' && displayData.name === 'Emergence Core') {
+                  dynamicInfo = `<br><span class="simulated-data">RIH Score: ${(latestRIHScore * 100).toFixed(1)}%<br>` +
+                                 `Average Affinity: ${(latestAvgAffinity * 100).toFixed(1)}%</span>`;
+             } else if (displayData.type === 'live2d_avatar_ref') {
+                 const live2dStatus = live2dInitialized ? 'Active' : 'Inactive';
+                 displayData.name = `Live2D Avatar (Status: ${live2dStatus})`; // Update name dynamically
+                 dynamicInfo = `<br><span class="simulated-data">Dominant Feeling: ${dominantEmotion}<br>` +
+                                `Current Action: ${latestHmLabel}<br>` +
+                                `Agent RIH: ${(latestRIHScore * 100).toFixed(1)}%</span>`;
+
+             }
+             // Combine static description with dynamic info
+             displayData.description = displayData.description.split('<br><i>Dynamic details')[0] + dynamicInfo; // Prevent stacking dynamic info
+
+        }
+
+
+        // Build HTML for linked concepts with tooltips
+        let linksHtml = '';
+        if (displayData.links && displayData.links.length > 0) {
+            linksHtml = '<p><b>Connected Concepts:</b></p><ul class="links-list">';
+            displayData.links.forEach(linkId => {
+                const linkData = conceptData[linkId]; // Look up linked concept data
+                if (linkData) {
+                     // Add linked concept name with its description as a title for tooltip
+                    linksHtml += `<li><span title="${linkData.description || ''}">${linkData.name}</span></li>`;
+                } else {
+                     // Fallback if linked concept data is missing
+                     linksHtml += `<li>Unknown Concept (${linkId})</li>`;
+                }
+            });
+            linksHtml += '</ul>';
+        }
+
+        // Build the info panel content
+        conceptInfoPanel.innerHTML = `
+            <h3>${displayData.name || 'Unknown'}</h3>
+             <p><b>Type:</b> ${displayData.type ? displayData.type.charAt(0).toUpperCase() + displayData.type.slice(1) : 'N/A'}</p>
+            ${displayData.chapter ? `<p><b>Chapter:</b> ${displayData.chapter}</p>` : ''}
+            <p>${displayData.description || 'No description available.'}</p>
+            ${linksHtml}
+        `;
+
+    } else {
+        // If no object is selected or hovered, display default simulation state info
         conceptInfoPanel.innerHTML = `
             <h3>Concept Information</h3>
             <p>Hover over a node or object to see details.</p>
@@ -826,44 +917,7 @@ export function updateInfoPanel(hoveredObject) {
              <p><span class="simulated-data">Latest RIH: ${(latestRIHScore * 100).toFixed(1)}%</span></p>
              <p><span class="simulated-data">Latest Avg Affinity: ${(latestAvgAffinity * 100).toFixed(1)}%</span></p>
         `;
-        return; // Stop here
     }
-
-    const data = hoveredObject.userData; // Get the stored user data
-
-    // If the hovered object is the Live2D placeholder, update its name here
-    if (data.type === 'live2d_avatar_ref') {
-         // Check if live2dInitialized is available globally (or passed)
-         const live2dStatus = live2dInitialized ? 'Active' : 'Inactive'; // Use the imported flag
-         data.name = `Live2D Avatar (Status: ${live2dStatus})`;
-    }
-
-
-    // Build HTML for linked concepts with tooltips
-    let linksHtml = '';
-    if (data.links && data.links.length > 0) {
-        linksHtml = '<p><b>Connected Concepts:</b></p><ul class="links-list">';
-        data.links.forEach(linkId => {
-            const linkData = conceptData[linkId]; // Look up linked concept data
-            if (linkData) {
-                 // Add linked concept name with its description as a title for tooltip
-                linksHtml += `<li><span title="${linkData.description || ''}">${linkData.name}</span></li>`;
-            } else {
-                 // Fallback if linked concept data is missing
-                 linksHtml += `<li>Unknown Concept (${linkId})</li>`;
-            }
-        });
-        linksHtml += '</ul>';
-    }
-
-    // Build the info panel content
-    conceptInfoPanel.innerHTML = `
-        <h3>${data.name || 'Unknown'}</h3>
-         <p><b>Type:</b> ${data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1) : 'N/A'}</p>
-        ${data.chapter ? `<p><b>Chapter:</b> ${data.chapter}</p>` : ''}
-        <p>${data.description || 'No description available.'}</p>
-        ${linksHtml}
-    `;
 }
 
 
@@ -987,8 +1041,9 @@ export function cleanupConceptVisualization() {
 
      // Remove interaction listeners
      if (conceptContainer) {
-         conceptContainer.removeEventListener('mousemove', (event) => onConceptMouseMove(event, []), false); // Pass empty array or null
-         conceptContainer.removeEventListener('click', (event) => onConceptClick(event, []), false); // Pass empty array or null
+         // Using named function references for proper removal
+         conceptContainer.removeEventListener('mousemove', handleConceptMouseMoveWrapper, false);
+         conceptContainer.removeEventListener('click', handleConceptClickWrapper, false);
      }
 
 
@@ -1074,4 +1129,25 @@ export function cleanupConceptVisualization() {
 
     conceptInitialized = false;
      console.log("Concept Graph Three.js cleanup complete.");
+}
+
+// --- Wrapper functions for event listeners to allow removal ---
+function handleConceptMouseMoveWrapper(event) {
+    // Check if interactableObjects is defined before passing it
+    const interactableObjects = Object.values(conceptNodes).map(n => n.object);
+    if (agentStateMesh) interactableObjects.push(agentStateMesh);
+    if (live2dPlaneConcept) interactableObjects.push(live2dPlaneConcept);
+    if (emergenceCoreMesh) interactableObjects.push(emergenceCoreMesh);
+
+    onConceptMouseMove(event, interactableObjects);
+}
+
+function handleConceptClickWrapper(event) {
+     // Check if interactableObjects is defined before passing it
+    const interactableObjects = Object.values(conceptNodes).map(n => n.object);
+    if (agentStateMesh) interactableObjects.push(agentStateMesh);
+    if (live2dPlaneConcept) interactableObjects.push(live2dPlaneConcept);
+    if (emergenceCoreMesh) interactableObjects.push(emergenceCoreMesh);
+
+    onConceptClick(event, interactableObjects);
 }
