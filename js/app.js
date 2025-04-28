@@ -11,7 +11,7 @@ import { initThreeJS, updateThreeJS, cleanupThreeJS, updateSyntrometryInfoPanel,
 // Import Concept viz functions and variables
 import { initConceptVisualization, updateAgentSimulationVisuals, animateConceptNodes, updateInfoPanel, cleanupConceptVisualization, conceptInitialized, conceptRenderer, conceptLabelRenderer, conceptScene, conceptCamera, conceptControls } from './viz-concepts.js';
 // Import Live2D viz functions and flags
-import { initLive2D, updateLive2DEmotions, updateLive2DHeadMovement, live2dInitialized } from './viz-live2d.js';
+import { initLive2D, updateLive2DEmotions, updateLive2DHeadMovement, live2dInitialized, cleanupLive2D } from './viz-live2d.js'; // Added cleanupLive2D import
 
 
 // Define emotionNames locally using the imported emotionKeywords (used by updateMetricsDisplay and updateInfoPanel in viz-concepts)
@@ -50,25 +50,29 @@ async function initialize() {
 
     // Initialize visualizations (Concept Graph needs the clock)
     // Syntrometry init should happen first so its DOM elements are ready for interaction setup
-    const threeSuccess = initThreeJS();
-    const conceptSuccess = initConceptVisualization(appClock);
-    const live2dSuccess = await initLive2D();
+    const threeSuccess = initThreeJS(); // Assumes initThreeJS gets the container ID itself
+    const conceptSuccess = initConceptVisualization(appClock); // Assumes initConceptVisualization gets the container ID itself
+    const live2dSuccess = await initLive2D(); // Assumes initLive2D gets the container ID itself
 
     // Check for overall initialization failures
     if (!coreInitSuccess) {
         criticalError = true;
-        displayError("Core simulation components failed to initialize (TensorFlow.js likely missing). Simulation logic disabled.", true);
+        // Use the general error div for core errors
+        displayError("Core simulation components failed to initialize (TensorFlow.js likely missing). Simulation logic disabled.", true, 'error-message');
     }
 
      // Visualizations might fail independently
      if (!threeSuccess) {
-         displayError("Syntrometry visualization failed to initialize.", false);
+         // Target the error div INSIDE the syntrometry panel
+         displayError("Syntrometry visualization failed to initialize.", false, 'syntrometry-error-message');
      }
      if (!conceptSuccess) {
+         // Target the error div INSIDE the concept panel
          displayError("Concept Graph visualization failed to initialize.", false, 'concept-error-message');
      }
      if (!live2dSuccess) {
-          displayError("Live2D avatar failed to initialize.", false);
+         // Use the general error div for Live2D errors
+          displayError("Live2D avatar failed to initialize.", false, 'error-message');
      }
 
 
@@ -110,7 +114,12 @@ async function initialize() {
      } else if (!coreInitSuccess) {
          // If core failed, ensure default global states
          currentStateVector = zeros([Config.Agent.BASE_STATE_DIM]);
-         currentAgentEmotions = tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]);
+         // Ensure a valid tensor exists even on failure for downstream checks
+         if (typeof tf !== 'undefined') {
+            currentAgentEmotions = tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]);
+         } else {
+            currentAgentEmotions = null; // Or handle appropriately if tf is missing
+         }
          currentRIHScore = 0;
          currentAvgAffinity = 0;
          currentHmLabel = "idle";
@@ -136,27 +145,35 @@ async function initialize() {
              agent ? (agent.latestCascadeHistory || []) : [], // Pass latest cascade history from agent instance if available
              currentContext // Pass current context
           );
-         // FIX: Call Syntrometry info panel update initially
-         // This will use the latest data stored by the updateThreeJS call above
+         // Call Syntrometry info panel update initially
          updateSyntrometryInfoPanel();
     }
     if (conceptInitialized) { // Use conceptInitialized flag
         // Pass initial state to update visual placeholders
-        updateAgentSimulationVisuals(currentAgentEmotions, currentRIHScore, currentAvgAffinity, currentHmLabel);
+        // Ensure currentAgentEmotions is a valid tensor or handle null case
+        if (currentAgentEmotions) {
+            updateAgentSimulationVisuals(currentAgentEmotions, currentRIHScore, currentAvgAffinity, currentHmLabel);
+        } else {
+            // Handle case where tensor couldn't be created (TF missing) - provide defaults
+            updateAgentSimulationVisuals(tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]), 0, 0, 'idle');
+        }
         // Update the concept info panel which reads these updated globals (handled by viz-concepts wrappers)
         // updateInfoPanel(); // No longer needed here, wrapper calls it initially
     }
      if (live2dInitialized) { // Use the exported flag directly
         // Pass initial state to Live2D
-        updateLive2DEmotions(currentAgentEmotions);
+        // Ensure currentAgentEmotions is a valid tensor or handle null case
+        if (currentAgentEmotions) {
+            updateLive2DEmotions(currentAgentEmotions);
+        } else {
+            // Handle case where tensor couldn't be created (TF missing) - provide defaults
+            updateLive2DEmotions(tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]));
+        }
         updateLive2DHeadMovement(currentHmLabel, 0); // Delta time is 0 for initial pose
      }
 
 
-    // Update initial metrics display (this is the small panel below chat)
-    // Note: updateSyntrometryInfoPanel now handles the main 'metrics' area content.
-    // This div could be deprecated or repurposed.
-    // Let's keep this basic metrics update for the existing small div structure.
+    // Update initial metrics display (the small panel below chat)
     updateMetricsDisplay(currentRIHScore, agent ? (agent.latestAffinities || []) : [], currentAgentEmotions, currentContext);
 
 
@@ -177,7 +194,8 @@ async function initialize() {
 function initAgentAndEnvironment() {
      // Check if TensorFlow.js is available, as Agent/Env heavily depend on it
     if (typeof tf === 'undefined') {
-         displayError("TensorFlow.js is required to initialize Agent and Environment. Simulation logic will be disabled.", true);
+         // Error is displayed in initialize() where the target ID is specified
+         console.error("TensorFlow.js is required for Agent/Environment.");
          criticalError = true; // Mark as critical error
          agent = null; // Ensure agent/env are null
          environment = null;
@@ -189,7 +207,8 @@ function initAgentAndEnvironment() {
         console.log("Agent and Environment initialized.");
         return true; // Indicate success
     } catch (e) {
-        displayError(`Error initializing Agent/Environment: ${e.message}. Simulation logic disabled.`, true); // Mark as critical
+        // Use the general error display here
+        displayError(`Error initializing Agent/Environment: ${e.message}. Simulation logic disabled.`, true, 'error-message');
         console.error('[Init] Agent/Env error:', e);
         criticalError = true; // Mark as critical
         agent = null; // Ensure agent/env are null
@@ -282,9 +301,9 @@ function setupChat() {
 }
 
 /**
- * Updates the metrics display panel (the small one below chat).
- * Note: updateSyntrometryInfoPanel now handles the main 'metrics' area content.
- * This function could be deprecated or repurposed.
+ * Updates the metrics display panel (the small one, #metrics).
+ * Note: updateSyntrometryInfoPanel now handles the main 'metrics' area content IF it exists.
+ * This function provides a default/fallback content for the #metrics div.
  * @param {number} rihScore The current RIH score (0-1).
  * @param {number[]} affinities Array of affinity scores.
  * @param {tf.Tensor|null} emotionsTensor Tensor of current emotion intensities.
@@ -292,13 +311,24 @@ function setupChat() {
  */
 function updateMetricsDisplay(rihScore, affinities, emotionsTensor, context) {
     const metricsDiv = document.getElementById('metrics');
-    // If the metrics div is being used by updateSyntrometryInfoPanel, don't overwrite it here.
-    // We can check if its content looks like the default state.
-    if (!metricsDiv || (metricsDiv.innerHTML && metricsDiv.innerHTML.includes('<h3>Dimension')) || (metricsDiv.innerHTML && metricsDiv.innerHTML.includes('<h3>Reflexive Integration'))) return; // Skip if showing dimension or RIH info
+    // Only update if the div exists
+    if (!metricsDiv) return;
 
+    // If the main viz is actively using the panel (indicated by specific content), don't overwrite
+    if (metricsDiv.innerHTML.includes('<h3>Dimension') || metricsDiv.innerHTML.includes('<h3>Reflexive Integration')) {
+        return;
+    }
 
-     // Get emotion values as array (handle potential null/undefined tensor)
-     const emotions = emotionsTensor && typeof emotionsTensor.arraySync === 'function' ? emotionsTensor.arraySync()[0] : zeros([Config.Agent.EMOTION_DIM]);
+     // Get emotion values as array (handle potential null/undefined/disposed tensor)
+     let emotions = zeros([Config.Agent.EMOTION_DIM]);
+     if (emotionsTensor && typeof emotionsTensor.arraySync === 'function' && !emotionsTensor.isDisposed) {
+        try {
+            emotions = emotionsTensor.arraySync()[0];
+        } catch (e) {
+            console.warn("Error getting emotions from tensor in updateMetricsDisplay:", e);
+            // Keep default zeros
+        }
+     }
 
      // Calculate average affinity (handle case with no affinities)
     const avgAffinity = affinities && affinities.length > 0 ? affinities.reduce((a, b) => a + b, 0) / affinities.length : 0;
@@ -315,11 +345,11 @@ function updateMetricsDisplay(rihScore, affinities, emotionsTensor, context) {
     // Update the HTML content of the metrics div (as a fallback default display)
     metricsDiv.innerHTML = `
         <h3>Simulation Overview</h3>
-        <p><i>Hover or click dimensions/RIH node for details.</i></p>
+        <p><i>Hover/click viz elements for details.</i></p>
         <p><span class="simulated-data">Current RIH: ${(rihScore * 100).toFixed(1)}%</span></p>
         <p><span class="simulated-data">Avg Affinity: ${(avgAffinity * 100).toFixed(1)}%</span></p>
-        <p><span class="simulated-data">Dominant Emotion: ${dominantEmotionName}</span></p>
-        <p>Environment Context: ${context || 'Stable'}</p>
+        <p><span class="simulated-data">Dominant Emotion: ${dominantEmotionName} (${(dominantEmotionValue * 100).toFixed(1)}%)</span></p>
+        <p>Context: ${context || 'Stable'}</p>
     `;
 }
 
@@ -334,6 +364,11 @@ function saveState() {
         appendChatMessage('System', 'Save failed: Simulation not ready.');
         return;
     }
+    if (criticalError) {
+        console.warn("Critical error detected, cannot save state.");
+        appendChatMessage('System', 'Save failed: Critical error detected.');
+        return;
+    }
     try {
         // Get serializable state from modules
         const envState = environment.getState();
@@ -346,6 +381,9 @@ function saveState() {
         // Get current global state variables needed to fully restore
         const globalState = {
              currentStateVector: [...currentStateVector],
+             // Save previous emotions (input to next agent step after load) as array
+             // agentState already contains this, but let's be explicit for global restore
+             prevEmotionsArray: agent.prevEmotions && !agent.prevEmotions.isDisposed ? agent.prevEmotions.arraySync()[0] : zeros([Config.Agent.EMOTION_DIM]),
              currentRIHScore: currentRIHScore,
              currentAvgAffinity: currentAvgAffinity,
              currentHmLabel: currentHmLabel,
@@ -356,8 +394,8 @@ function saveState() {
 
         const stateToSave = {
             environment: envState,
-            agent: agentState,
-            global: globalState, // Save global state variables
+            agent: agentState, // Agent internal state (e.g., history)
+            global: globalState, // Save global simulation variables
             ui: { // Save UI state like slider positions
                  integration: integrationParam,
                  reflexivity: reflexivityParam,
@@ -379,6 +417,7 @@ function saveState() {
     } catch (e) {
         console.error("Error saving state:", e);
         appendChatMessage('System', `Save failed: ${e.message}`);
+        displayError(`Error saving state: ${e.message}`, false, 'error-message'); // Show in general errors
     }
 }
 
@@ -391,6 +430,11 @@ function loadState(showMessages = false) {
     if (!agent || !environment) {
         console.warn("Agent or Environment not initialized, cannot load state.");
          if (showMessages) appendChatMessage('System', 'Load failed: Simulation not ready.');
+        return false;
+    }
+     if (criticalError) {
+        console.warn("Critical error detected, cannot load state.");
+        if (showMessages) appendChatMessage('System', 'Load failed: Critical error detected.');
         return false;
     }
     try {
@@ -408,19 +452,27 @@ function loadState(showMessages = false) {
              console.error("Invalid saved state format.");
              if (showMessages) appendChatMessage('System', 'Load failed: Invalid saved state format.');
              localStorage.removeItem(SAVED_STATE_KEY); // Clear potentially corrupt state
+             displayError("Load failed: Invalid saved state format.", false, 'error-message');
             return false;
         }
 
         // Load state into modules
         environment.loadState(stateToLoad.environment);
-        agent.loadState(stateToLoad.agent); // This loads prevEmotions, history, latest metrics into the agent instance
+        agent.loadState(stateToLoad.agent); // This loads agent internal state (prevEmotions, history, etc.)
 
         // Restore global state variables from loaded state
         currentStateVector = Array.isArray(stateToLoad.global.currentStateVector) ? stateToLoad.global.currentStateVector : zeros([Config.Agent.BASE_STATE_DIM]);
-        // currentAgentEmotions is the agent's prevEmotions for the *next* step.
-        // agent.loadState already set agent.prevEmotions. We can just clone that.
-        currentAgentEmotions = agent.prevEmotions ? agent.prevEmotions.clone() : tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]);
 
+        // Restore agent's previous emotions (which become currentAgentEmotions *for the next step*)
+        // Dispose the old global tensor first
+        if (currentAgentEmotions && typeof currentAgentEmotions.dispose === 'function') {
+            tf.dispose(currentAgentEmotions);
+        }
+        // Create a new tensor from the saved array in global state
+        const loadedPrevEmotionsArray = Array.isArray(stateToLoad.global.prevEmotionsArray) ? stateToLoad.global.prevEmotionsArray : zeros([Config.Agent.EMOTION_DIM]);
+        currentAgentEmotions = tensor([loadedPrevEmotionsArray], [1, Config.Agent.EMOTION_DIM]); // Restore as tensor
+
+        // Restore other global metrics
         currentRIHScore = typeof stateToLoad.global.currentRIHScore === 'number' ? stateToLoad.global.currentRIHScore : 0;
         currentAvgAffinity = typeof stateToLoad.global.currentAvgAffinity === 'number' ? stateToLoad.global.currentAvgAffinity : 0;
         currentHmLabel = typeof stateToLoad.global.currentHmLabel === 'string' ? stateToLoad.global.currentHmLabel : "idle";
@@ -468,12 +520,11 @@ function loadState(showMessages = false) {
              updateSyntrometryInfoPanel();
          }
          // Update Concept Graph placeholders (uses loaded state)
-         if (conceptInitialized) {
-             updateAgentSimulationVisuals(currentAgentEmotions, currentRIHScore, currentAvgAffinity, currentHmLabel); // updateAgentSimulationVisuals uses loaded globals
-             // Update concept info panel (handled by viz-concepts wrappers)
+         if (conceptInitialized && currentAgentEmotions) { // Check tensor exists
+             updateAgentSimulationVisuals(currentAgentEmotions, currentRIHScore, currentAvgAffinity, currentHmLabel);
          }
           // Update Live2D (emotions/HM will be updated on the next animation frame by animate())
-          if (live2dInitialized) {
+          if (live2dInitialized && currentAgentEmotions) { // Check tensor exists
               updateLive2DEmotions(currentAgentEmotions);
               // updateLive2DHeadMovement will use currentHmLabel on the next frame
           }
@@ -487,6 +538,7 @@ function loadState(showMessages = false) {
         console.error("Error loading state:", e);
          if (showMessages) appendChatMessage('System', `Load failed: ${e.message}`);
          localStorage.removeItem(SAVED_STATE_KEY); // Clear potentially corrupt state on load failure
+         displayError(`Load failed: ${e.message}`, false, 'error-message');
         return false; // Indicate failure
     }
 }
@@ -514,8 +566,8 @@ async function animate() {
     const reflexivityParam = parseFloat(document.getElementById('reflexivity-slider')?.value || 0.5);
 
     // --- Simulation Step (Environment and Agent) ---
-    // Only run simulation step if agent and environment are initialized
-    if (agent && environment && currentAgentEmotions) { // Ensure agent emotions are available for env step
+    // Only run simulation step if agent and environment are initialized AND we have a valid emotion tensor
+    if (agent && environment && currentAgentEmotions && !currentAgentEmotions.isDisposed) {
          // Step the environment. Pass agent emotions and latest RIH/Affinity for dysvariant influence.
         const envStep = await environment.step(currentAgentEmotions, currentRIHScore, currentAvgAffinity);
 
@@ -544,53 +596,66 @@ async function animate() {
          currentStateVector = envStateArray; // Update the raw state vector array
          currentCascadeHistory = agentResponse.cascadeHistory; // Store cascade history
 
-    } else {
-         // Handle case where agent/environment are not initialized (e.g., TF.js failed)
-         // Visualizations and Live2D might still run their basic animations/idle states
-         // Use default values or last known values for updates
-         if (!currentAgentEmotions || typeof currentAgentEmotions.dispose !== 'function') {
-             currentAgentEmotions = tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]);
+    } else if (!agent || !environment) {
+        // Handle case where agent/environment are not initialized (e.g., TF.js failed)
+        // Visualizations and Live2D might still run their basic animations/idle states
+        // Use default values or last known values for updates
+        if (!currentAgentEmotions || (currentAgentEmotions && currentAgentEmotions.isDisposed)) {
+            if (typeof tf !== 'undefined') {
+                currentAgentEmotions = tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]);
+            } else {
+                 currentAgentEmotions = null; // No TF, no tensor
+            }
+        }
+        // currentRIHScore, currentAvgAffinity, currentHmLabel, currentContext, currentStateVector, currentCascadeHistory
+        // retain their last valid state or initial defaults/loaded state.
+    } else if (currentAgentEmotions && currentAgentEmotions.isDisposed) {
+         console.warn("currentAgentEmotions tensor was disposed unexpectedly. Recreating default.");
+         if (typeof tf !== 'undefined') {
+            currentAgentEmotions = tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]);
+         } else {
+             currentAgentEmotions = null;
          }
-         // currentRIHScore, currentAvgAffinity, currentHmLabel, currentContext, currentStateVector, currentCascadeHistory
-         // retain their last valid state or initial defaults/loaded state.
+         // Reset metrics potentially?
+         currentRIHScore = 0;
+         currentAvgAffinity = 0;
     }
+
 
      // --- Update Visualizations ---
      // Pass current state variables and slider params to visualization update/animate functions
      // Check initialization flags before calling functions
 
-    // Update the main Syntrometry visualization (Pass deltaTime, loaded global state)
+    // Update the main Syntrometry visualization
     if (threeInitialized) { // Use threeInitialized flag
         updateThreeJS(
              deltaTime, // Pass deltaTime
-             currentStateVector ? currentStateVector.slice(0, Config.DIMENSIONS) : zeros([Config.DIMENSIONS]), // Pass only the visible state dimensions
+             currentStateVector ? currentStateVector.slice(0, Config.DIMENSIONS) : zeros([Config.DIMENSIONS]),
              currentRIHScore,
-             agent ? (agent.latestAffinities || []) : [], // Pass latest affinities from agent instance
+             agent ? (agent.latestAffinities || []) : [],
              integrationParam,
              reflexivityParam,
-             agent ? (agent.latestCascadeHistory || []) : [], // Pass latest cascade history from agent instance
-             currentContext // Pass current context
+             agent ? (agent.latestCascadeHistory || []) : [],
+             currentContext
           );
-         // FIX: Update Syntrometry info panel every frame based on state/interaction
+         // Update Syntrometry info panel every frame based on state/interaction
          updateSyntrometryInfoPanel();
     }
 
-    // Update the Concept Graph placeholders based on agent/env state (This updates base color/scale/opacity)
-    if (conceptInitialized) {
+    // Update the Concept Graph placeholders based on agent/env state
+    if (conceptInitialized && currentAgentEmotions && !currentAgentEmotions.isDisposed) {
         updateAgentSimulationVisuals(currentAgentEmotions, currentRIHScore, currentAvgAffinity, currentHmLabel);
-        // The info panel state is managed by hover/click events and updateInfoPanel
-        // updateInfoPanel(); // This call is handled by the viz-concepts wrapper and called here.
+        // updateInfoPanel is handled by viz-concepts wrappers/event listeners
     }
 
-     // Update the Live2D model (emotions and head movement)
-     if (live2dInitialized) { // Use the exported flag directly
-         updateLive2DEmotions(currentAgentEmotions); // Pass current emotion tensor
-         updateLive2DHeadMovement(currentHmLabel, deltaTime); // Pass delta time for smoothing
+     // Update the Live2D model
+     if (live2dInitialized && currentAgentEmotions && !currentAgentEmotions.isDisposed) {
+         updateLive2DEmotions(currentAgentEmotions);
+         updateLive2DHeadMovement(currentHmLabel, deltaTime);
      }
 
 
-    // Update the metrics display panel (small one below chat)
-    // This acts as a fallback/default summary if updateSyntrometryInfoPanel isn't showing anything specific.
+    // Update the fallback metrics display panel (#metrics)
     updateMetricsDisplay(currentRIHScore, agent ? (agent.latestAffinities || []) : [], currentAgentEmotions, currentContext);
 
     // --- Animate Visualizations ---
@@ -599,11 +664,8 @@ async function animate() {
         conceptControls.update();
     }
 
-     // Animate concept graph nodes (rotations, oscillations, state reactions)
-     // The animations also handle highlight state now
+     // Animate concept graph nodes
      if (conceptInitialized) {
-         // Pass slider values to animateConceptNodes for animation influence
-         // updateInfoPanel is called by the wrappers after mouse events in viz-concepts
          animateConceptNodes(deltaTime, integrationParam, reflexivityParam);
      }
 
@@ -615,7 +677,7 @@ async function animate() {
      }
 
      // Rendering for the main Syntrometry panel is handled inside updateThreeJS.
-     // Rendering for Live2D is handled by Pixi.js's internal ticker if enabled.
+     // Rendering for Live2D is handled by Pixi.js's internal ticker.
 }
 
 /**
@@ -642,7 +704,7 @@ function cleanup() {
     // Call cleanup functions for each visualization module
     if (cleanupThreeJS) cleanupThreeJS();
     if (cleanupConceptVisualization) cleanupConceptVisualization();
-    if (cleanupLive2D) cleanupLive2D();
+    if (cleanupLive2D) cleanupLive2D(); // Make sure this is imported and defined
 
     console.log("Cleanup complete.");
 }
@@ -654,9 +716,7 @@ window.addEventListener('load', initialize);
 window.addEventListener('beforeunload', cleanup);
 
 
-// Ensure TF.js doesn't clean up tensors needed across animation frames by default
-// This is generally good practice when using tf.tidy frequently in a loop,
-// manually disposing tensors returned by tidy is preferred.
-// tf.ENV.set('WEBGL_RENDER_BROWSER', true); // Might help with some issues
-// tf.enableProdMode(); // Production mode can improve performance by removing checks
-// tf.ENV.set('DEBUG', false); // Disable debug mode
+// TensorFlow.js environment settings (Optional, uncomment if needed)
+// tf.ENV.set('WEBGL_RENDER_EVEN_UPDATES', false); // Might affect performance/updates
+// tf.enableProdMode(); // Production mode can improve performance
+// tf.ENV.set('DEBUG', false); // Disable debug mode for performance
