@@ -11,10 +11,10 @@
     <!-- External CSS -->
     <link rel="stylesheet" href="style.css">
 
-    <!-- Dependencies (Keep as is, error handling seems reasonable) -->
+    <!-- Dependencies -->
     <!-- TensorFlow.js -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js"
-        onerror="handleScriptError('TensorFlow.js', null, 'Could not load TensorFlow.js.')"></script>
+        onerror="handleScriptError('TensorFlow.js', null, 'Could not load TensorFlow.js. Agent/Simulation may not work.')"></script>
     <!-- Three.js -->
     <script src="https://unpkg.com/three@0.132.2/build/three.min.js"
         onerror="handleScriptError('Three.js', 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js', 'Could not load Three.js.')"></script>
@@ -32,8 +32,10 @@
     <!-- pixi-live2d-display -->
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"
         onerror="handleScriptError('pixi-live2d-display', 'https://unpkg.com/pixi-live2d-display@0.4.0/dist/cubism4.min.js', 'Could not load pixi-live2d-display.')"></script>
+
     <!-- Basic error handling for CDNs -->
     <script>
+        // Basic fallback error handler for scripts that fail before app.js utils load
         function handleScriptError(library, fallback, message) {
             console.error(`[Early Error] Failed to load ${library}. ${message || ''}`);
             const errorBar = document.createElement('div');
@@ -76,14 +78,14 @@
         <section aria-labelledby="theory-heading">
             <h2 id="theory-heading">Syntrometric Theory</h2>
             <p>
-                Heim's Syntrometric Theory proposes a framework for understanding complex systems through higher-dimensional interactions of Syntrix and Metrons, governed by Reflexive Integration and Structural Condensation. This demo visualizes these concepts interactively, with an AI agent reflecting emotional states via a Live2D avatar.
+                Heim's Syntrometric Theory proposes a framework for understanding complex systems through higher-dimensional interactions of Syntrix and Metrons, governed by Reflexive Integration and Structural Condensation. This demo visualizes these concepts interactively, with an AI agent reflecting emotional states via a Live2D avatar. Agent parameters (Integration, Reflexivity) are now self-learned.
             </p>
             <nav aria-label="Quick Links">
                 <h3>Quick Links</h3>
                 <ul class="quick-links-list">
-                    <li><a href="https://github.com/Marko0Marky/syntrometry-agent-live2d/blob/main/syntrometrie_framework.html" title="View 2D Diagram">Syntrometrie Framework Diagram</a></li>
-                    <li><a href="https://github.com/Marko0Marky/syntrometry-agent-live2d/blob/main/conscious_agent_arch.html" title="View Agent Architecture">Conscious Agent Architecture Diagram</a></li>
-                    <li><a href="README.md" title="Go to Main Project Readme">Main Project README</a></li>
+                    <li><a href="research/syntrometrie_framework.html" title="View 2D Diagram">Syntrometrie Framework Diagram</a></li>
+                    <li><a href="research/conscious_agent_arch.html" title="View Agent Architecture">Conscious Agent Architecture Diagram</a></li>
+                    <li><a href="../README.md" title="Go to Main Project Readme">Main Project README</a></li>
                     <li><a href="https://heim-theory.com/" target="_blank" title="External Resource (Opens New Tab)">Heim Theory Resources</a></li>
                 </ul>
             </nav>
@@ -100,15 +102,15 @@
                 <!-- Live2D Canvas Container -->
                 <div id="live2d-container" aria-label="Live2D Avatar Display"></div>
 
-                <!-- Controls Panel -->
+                <!-- Controls Panel (Sliders now reflect internal state, still trigger visual pulse) -->
                 <div id="controls" class="overlay-panel controls-container" aria-label="Simulation Controls">
                     <div class="control-group">
-                        <label for="integration-slider">Integration (I(S)): <span id="integration-value">0.50</span></label>
-                        <input type="range" id="integration-slider" name="integration" min="0" max="1" step="0.01" value="0.5" aria-labelledby="integration-slider-label">
+                        <label for="integration-slider">Integration (I(S)) [Agent Learned]: <span id="integration-value">0.50</span></label>
+                        <input type="range" id="integration-slider" name="integration" min="0" max="1" step="0.01" value="0.5" aria-labelledby="integration-slider-label" title="Reflects agent's internal value. Drag to trigger visual feedback pulse.">
                     </div>
                     <div class="control-group">
-                        <label for="reflexivity-slider">Reflexivity (Ψ): <span id="reflexivity-value">0.50</span></label>
-                        <input type="range" id="reflexivity-slider" name="reflexivity" min="0" max="1" step="0.01" value="0.5" aria-labelledby="reflexivity-slider-label">
+                        <label for="reflexivity-slider">Reflexivity (Ψ) [Agent Learned]: <span id="reflexivity-value">0.50</span></label>
+                        <input type="range" id="reflexivity-slider" name="reflexivity" min="0" max="1" step="0.01" value="0.5" aria-labelledby="reflexivity-slider-label" title="Reflects agent's internal value. Drag to trigger visual feedback pulse.">
                     </div>
                     <div class="button-group">
                         <button id="save-state-button" type="button">Save State</button>
@@ -122,8 +124,18 @@
                     <input id="chat-input" type="text" placeholder="Interact with the simulation..." aria-label="Chat Input">
                 </div>
 
-                <!-- Metrics Panel (Content is dynamically updated, serves as fallback/hover info area) -->
+                <!-- Metrics Panel (Content dynamically updated) -->
                 <div id="metrics" class="overlay-panel metrics-container" aria-label="Simulation Metrics and Details">Loading metrics...</div>
+
+                <!-- NEW: Heatmap Panel -->
+                <div id="heatmap-panel" class="overlay-panel heatmap-container" aria-label="Agent Internal State Heatmap">
+                    <div class="heatmap-title">Self-State Activation</div>
+                    <div id="heatmap-content">
+                        <!-- Heatmap cells will be generated here by JS -->
+                    </div>
+                </div>
+                <!-- End Heatmap Panel -->
+
             </div>
         </section>
 
@@ -137,16 +149,12 @@
 
                 <!-- Info Panel (Displays details on hover/click) -->
                 <div id="info-panel" class="overlay-panel info-panel-container" aria-label="Concept Details">
-                    <!-- Content dynamically added -->
                      <h3>Concept Information</h3>
                      <p>Hover over or click on a concept node to see details.</p>
                 </div>
             </div>
         </section>
     </main>
-
-    <!-- Hidden canvas used by Live2D rendering process -->
-    <canvas id="live2d-offscreen-canvas" aria-hidden="true"></canvas>
 
     <!-- Main application script -->
     <script type="module" src="./js/app.js"></script>
