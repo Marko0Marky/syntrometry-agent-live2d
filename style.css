@@ -1,25 +1,62 @@
-/* style.css - Enhanced Styling for Heim's Syntrometric Theory Demo */
-
-/* Root Variables for Consistent Theming */
+/* ============================================= */
+/* == Variables & Root Styles == */
+/* ============================================= */
 :root {
-    --background-color: #1a1a1a;
-    --text-color: #e0e0e0;
-    --text-muted: #a0a0a0;
-    --accent-color: #00d4ff;
-    --accent-hover-color: #66eaff; /* Lighter accent for link hovers */
-    --button-hover-bg: #33eaff;   /* Lighter accent for button background hovers */
-    --container-background: #2a2a2a;
-    --container-border-color: #3a3a3a;
-    --shadow-color: rgba(0, 0, 0, 0.5);
-    --hover-transition: all 0.2s ease;
-    --accent-color-rgb: 0, 212, 255; /* RGB for rgba usage like box-shadow */
+    --background-color: #111122;
+    --text-color: #eeeeee;
+    --text-muted: #aaaaaa;
+    --container-background: #1e1e2a;
+    --container-border-color: #333355;
+    --overlay-background: rgba(0, 0, 0, 0.7);
+    --overlay-shadow-color: rgba(0, 0, 0, 0.5);
+    --accent-color: #00aaff;
+    --accent-color-rgb: 0, 170, 255; /* For rgba usage */
+    --link-hover-color: #66ccff;
+    --viz-background: #1a1a1a;
+    --error-color: #ff4444;
+    --error-background: #2a1e2a;
+    --error-border: #553355;
+    --input-background: #333;
+    --input-border: #555;
+    --input-text-color: #fff;
+    --scrollbar-track: #2a2a2a;
+    --scrollbar-thumb: #555;
+    --scrollbar-thumb-hover: #777;
+
+    /* Spacing */
+    --space-xs: 0.5rem;  /* 8px */
+    --space-sm: 0.75rem; /* 12px */
+    --space-md: 1rem;    /* 16px */
+    --space-lg: 1.5rem;  /* 24px */
+    --space-xl: 2rem;    /* 32px */
+
+    /* Borders */
+    --border-radius-sm: 4px;
+    --border-radius-md: 6px;
+    --border-radius-lg: 8px;
+
+    /* Fonts */
+    --font-family-base: 'Inter', sans-serif;
+    --font-size-base: 16px;
+    --font-size-sm: 0.9em;
+    --font-size-lg: 1.1rem;
+    --font-size-xl: 1.2rem;
+    --font-size-h1: 2.2rem;
+    --font-weight-normal: 400;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --line-height-base: 1.7;
 }
 
-/* Global Reset and Base Styles */
-* {
+/* ============================================= */
+/* == Base & Reset Styles == */
+/* ============================================= */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
 }
 
 html {
@@ -27,584 +64,533 @@ html {
 }
 
 body {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-family-base);
+    line-height: var(--line-height-base);
+    overflow-x: hidden;
     background-color: var(--background-color);
     color: var(--text-color);
-    line-height: 1.6;
-    overflow-x: hidden; /* Prevent horizontal scroll */
+    font-size: var(--font-size-base);
 }
 
-/* Header Styling */
-header {
-    text-align: center;
-    padding: 2rem 1rem;
-    background: linear-gradient(180deg, #222, #1a1a1a);
-    border-bottom: 1px solid var(--container-border-color);
+canvas {
+    display: block; /* Prevents extra space below canvas */
 }
 
-header h1 {
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-    color: var(--text-color); /* Header text color */
-}
-
-header p {
-    font-size: 1.1rem;
-    color: var(--text-muted);
-}
-
-/* Main Content Layout */
-main {
-    max-width: 1400px;
-    margin: 2rem auto;
-    padding: 0 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-}
-
-/* Section Styling */
-section {
-    background: var(--container-background);
-    border: 1px solid var(--container-border-color);
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 12px var(--shadow-color);
-}
-
-section h2 {
-    font-size: 1.8rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    color: var(--text-color); /* Section headers */
-}
-
-section h3 { /* Added basic h3 styling */
-    font-size: 1.2rem;
-    font-weight: 600;
-    margin-top: 1rem;
-    margin-bottom: 0.5rem;
+/* ============================================= */
+/* == Typography == */
+/* ============================================= */
+h1, h2, h3, h4, h5, h6 {
+    line-height: 1.3;
+    margin-bottom: var(--space-md);
     color: var(--accent-color);
+    font-weight: var(--font-weight-semibold);
 }
 
-
-section p {
-    font-size: 1rem;
-    margin-bottom: 1rem;
+h1 {
+    font-size: var(--font-size-h1);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--space-xs);
 }
 
-.quick-links-list {
-    list-style: none;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 0; /* Remove default ul margin */
+h2 {
+    font-size: calc(var(--font-size-base) * 1.6); /* ~25.6px */
+    margin-top: 0;
+    margin-bottom: var(--space-lg);
+    border-bottom: 2px solid var(--accent-color);
+    padding-bottom: var(--space-xs);
 }
 
-.quick-links-list li a {
+h3 {
+    font-size: calc(var(--font-size-base) * 1.3); /* ~20.8px */
+    margin-top: var(--space-lg);
+    margin-bottom: var(--space-md);
+}
+
+p {
+    margin-bottom: var(--space-md);
+}
+
+a {
     color: var(--accent-color);
     text-decoration: none;
-    font-size: 0.95rem;
-    transition: var(--hover-transition);
+    font-weight: var(--font-weight-semibold);
+    transition: color 0.3s ease;
 }
 
-.quick-links-list li a:hover {
+a:hover, a:focus {
+    color: var(--link-hover-color);
     text-decoration: underline;
-    color: var(--accent-hover-color); /* Use variable */
+    outline: none; /* Or provide a custom outline */
 }
 
-/* Visualization Container */
-.visualization-container {
-    position: relative;
-    height: 700px;
-    border-radius: 8px;
-    background: #111;
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.7);
-    overflow: hidden; /* Ensure content stays within bounds */
-}
-
-/* Ensure Three.js canvas fills container */
-.threejs-container canvas,
-.threejs-container-concept canvas {
-    width: 100% !important; /* Force size */
-    height: 100% !important; /* Force size */
-    display: block; /* Remove potential extra space */
-    position: absolute; /* Take out of flow if needed by specific viz */
-    top: 0;
-    left: 0;
-}
-
-/* Style for CSS2DRenderer labels */
-.CSS2DObject.label {
-    position: absolute; /* Needed for CSS2DRenderer */
-    color: var(--text-color);
-    font-size: 12px;
-    background: rgba(0, 0, 0, 0.7);
-    padding: 2px 6px;
-    border-radius: 3px;
-    pointer-events: none; /* Important for interaction */
-    user-select: none; /* Prevent text selection */
-    white-space: nowrap; /* Prevent wrapping */
-    /* transform: translate(-50%, -100%); /* Adjusted in JS based on node size */
-}
-
-/* Style for CSS2DRenderer tooltips (if applicable, distinct from info panel) */
-.CSS2DObject.tooltip {
-    position: absolute;
-    color: var(--text-color);
-    font-size: 14px;
-    background: linear-gradient(145deg, rgba(0, 0, 0, 0.8), rgba(20, 20, 20, 0.9));
-    padding: 6px 10px;
-    border-radius: 4px;
-    pointer-events: none;
-    z-index: 20;
-    max-width: 200px;
-    transform: translate(-50%, -120%); /* Position above element */
-}
-
-/* Info Panel for Concept Graph Tooltips */
-#info-panel {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 250px; /* Adjusted width */
-    max-height: calc(100% - 20px); /* Prevent overflow */
-    overflow-y: auto; /* Allow scroll if content exceeds height */
-    background: linear-gradient(145deg, rgba(0, 0, 0, 0.7), rgba(20, 20, 20, 0.8));
-    padding: 1rem;
-    border-radius: 8px;
-    border: 1px solid var(--container-border-color); /* Subtle border */
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-    z-index: 20; /* Ensure it's above canvas, below modals if any */
-    font-size: 0.9em;
-    color: var(--text-color);
-    display: none; /* Hidden by default */
-}
-
-#info-panel.visible {
-    display: block; /* JS will toggle this class */
-}
-
-#info-panel h3 {
-    font-size: 1.1em;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: var(--accent-color);
-    border-bottom: 1px solid rgba(var(--accent-color-rgb), 0.3); /* Subtle underline */
-    padding-bottom: 0.3rem;
-}
-
-#info-panel p {
-    margin: 0.3rem 0;
-    line-height: 1.5; /* Improve readability */
-}
-
-#info-panel b { /* Style bold text within info panel */
-    color: var(--text-muted);
-    font-weight: 600;
-}
-
-/* Styling for connected concepts list */
-#info-panel .links-list {
+ul {
     list-style: none;
-    margin-top: 0.8rem;
-    padding-top: 0.5rem;
-    border-top: 1px dashed rgba(var(--accent-color-rgb), 0.2); /* Separator */
+    padding-left: 0;
+    margin-bottom: var(--space-md);
 }
 
-#info-panel .links-list li {
-    font-size: 0.9em; /* Slightly larger for readability */
-    margin-bottom: 0.4rem;
+li {
+    margin-bottom: var(--space-sm);
     position: relative;
-    padding-left: 1.2em; /* Space for pseudo-element */
+    padding-left: var(--space-lg); /* Space for the pseudo-element */
 }
 
-#info-panel .links-list li::before { /* Add visual indicator for links */
+li::before {
     content: '→';
     position: absolute;
     left: 0;
     color: var(--accent-color);
-    opacity: 0.7;
+    font-weight: var(--font-weight-bold);
 }
 
-
-#info-panel .links-list li span { /* Target the span containing the link text */
-    color: var(--accent-color);
-    cursor: default; /* No click action defined here */
-    /* Remove hover underline if span itself isn't clickable */
-    /* text-decoration: none; */
-}
-
-#info-panel .simulated-data { /* Styling for dynamic data */
-     color: var(--accent-hover-color); /* Use lighter accent */
-}
-
-/* Error Message Styling */
-.error-message {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(200, 50, 50, 0.9); /* Slightly less harsh red */
-    color: #fff;
-    padding: 1rem 1.5rem;
-    border-radius: 4px;
-    z-index: 10000; /* High z-index */
-    display: none; /* Managed by JS */
+/* ============================================= */
+/* == Layout == */
+/* ============================================= */
+header {
+    background: linear-gradient(135deg, #1f1f2f 0%, #2c2c3f 100%);
+    color: var(--text-color);
+    padding: var(--space-xl) var(--space-md);
     text-align: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 2px 4px var(--overlay-shadow-color);
 }
 
-/* General error div outside viz containers */
-#error-message {
-    position: relative; /* Override absolute positioning for general errors */
-    top: auto;
-    left: auto;
-    transform: none;
-    margin: 1rem auto; /* Center it */
-    max-width: 90%;
+header p {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    color: var(--text-muted);
 }
 
-
-/* --- Overlay Panels Common Style --- */
-.overlay-panel { /* Shared style for controls, metrics, chat */
-    position: absolute;
-    background: linear-gradient(145deg, rgba(0, 0, 0, 0.7), rgba(20, 20, 20, 0.8));
-    padding: 1.2rem;
-    border-radius: 8px;
-    border: 1px solid var(--container-border-color);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-    z-index: 10; /* Below info panel/tooltips */
-    transition: transform 0.3s ease, box-shadow 0.3s ease; /* Add shadow transition */
-}
-
-.overlay-panel:hover {
-    transform: translateY(-5px); /* Lift effect */
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7); /* Enhance shadow on hover */
-}
-
-/* Controls Container Specifics */
-.controls-container {
-    top: 10px;
-    right: 10px;
-    width: 260px;
+main {
+    max-width: 1400px; /* Increased width from inline style */
+    margin: var(--space-xl) auto;
+    padding: 0 var(--space-md);
     display: flex;
     flex-direction: column;
-    gap: 1.2rem;
+    gap: var(--space-xl); /* Consistent gap */
+}
+
+section {
+    background: var(--container-background);
+    border: 1px solid var(--container-border-color);
+    border-radius: var(--border-radius-lg);
+    padding: var(--space-lg); /* Adjusted from inline style */
+    box-shadow: 0 4px 12px var(--overlay-shadow-color);
+}
+
+/* Previous .container style, can be reused if needed for other general containers */
+.content-container {
+    max-width: 1200px;
+    margin: var(--space-xl) auto;
+    padding: var(--space-xl);
+    background: var(--container-background);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--container-border-color);
+    box-shadow: 0 4px 12px var(--overlay-shadow-color);
+}
+
+/* ============================================= */
+/* == Components == */
+/* ============================================= */
+
+/* --- Visualization Containers --- */
+.visualization-container {
+    position: relative; /* Needed for absolute positioning of children */
+    height: 700px; /* From inline style */
+    width: 100%;
+    margin: var(--space-xl) 0;
+    background-color: var(--viz-background);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--container-border-color);
+    box-shadow: inset 0 0 10px var(--overlay-shadow-color);
+}
+
+
+.threejs-container-concept > canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    /* pointer-events: none; /* Usually leave commented out */
+}
+
+/* --- Overlay Panels (Common styles) --- */
+.overlay-panel {
+    position: absolute;
+    background: var(--overlay-background);
+    padding: var(--space-md); /* Consolidated from inline style */
+    border-radius: var(--border-radius-lg);
+    box-shadow: 0 2px 10px var(--overlay-shadow-color);
+    z-index: 10;
+    font-size: var(--font-size-sm);
+    color: var(--text-color);
+    border: 1px solid var(--container-border-color); /* Added consistency */
+    max-height: calc(100% - (2 * var(--space-md))); /* Prevent overflow */
+    overflow-y: auto; /* Allow scrolling if needed */
+    overflow-x: hidden;
+}
+
+/* Specific positioning and sizing for overlay panels */
+#metrics {
+    top: var(--space-md);
+    left: var(--space-md);
+    width: 250px;
+}
+
+#controls {
+    /* Positioned by inline style in HTML for now, can be moved here if static */
+    /* top: var(--space-md);  Example if needed */
+    /* right: var(--space-md); Example if needed */
+    /* left: auto; */
+    width: 250px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md); /* Consistent gap */
+}
+
+#chat-container {
+    bottom: var(--space-md);
+    left: var(--space-md);
+    width: 350px;
+}
+
+#info-panel {
+    top: var(--space-md);
+    right: var(--space-md);
+    width: 300px;
+}
+
+#live2d-container {
+    position: absolute;
+    bottom: var(--space-md);
+    right: var(--space-md);
+    width: 300px;
+    height: 400px;
+    z-index: 5; /* Lower than other overlays? Adjust if needed */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.1); /* Lighter background? */
+    border-radius: var(--border-radius-md);
+    overflow: hidden;
+}
+
+/* --- Chat Interface --- */
+#chat-output {
+    max-height: 150px; /* From inline style */
+    overflow-y: auto;
+    color: var(--text-muted);
+    margin-bottom: var(--space-sm); /* From inline style */
+    border: 1px solid var(--input-border);
+    padding: var(--space-xs);
+    background: var(--scrollbar-track); /* Match scrollbar track */
+    border-radius: var(--border-radius-sm);
+}
+
+#chat-output div {
+    margin-bottom: var(--space-xs);
+    line-height: 1.4;
+}
+
+#chat-output div b {
+    color: var(--link-hover-color); /* Use a variable */
+}
+
+#chat-input {
+    width: 100%;
+    padding: var(--space-xs);
+    background: var(--input-background);
+    color: var(--input-text-color);
+    border: 1px solid var(--input-border);
+    border-radius: var(--border-radius-sm);
+    transition: border-color 0.3s;
+}
+
+#chat-input:hover,
+#chat-input:focus {
+    border-color: var(--accent-color);
+    outline: none;
+}
+
+/* --- Controls --- */
+.control-group { /* Class from inline style structure */
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
 }
 
 .control-group label {
-    display: block; /* Ensure label takes full width */
-    font-size: 0.9em;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
-    font-weight: 500;
-    margin-bottom: 0.3rem; /* Space below label */
+    display: block; /* Ensure label takes full width if needed */
+    margin-bottom: 0; /* Override default p margin */
 }
 
 .control-group input[type="range"] {
     width: 100%;
+    margin-bottom: var(--space-xs);
     accent-color: var(--accent-color); /* Modern way to style range */
     cursor: pointer;
-    margin-top: 0.2rem; /* Space above slider */
 }
 
-/* Optional: Style slider track/thumb for better cross-browser look */
-.control-group input[type="range"]::-webkit-slider-runnable-track {
-    background: #555;
-    height: 4px;
-    border-radius: 2px;
-}
-.control-group input[type="range"]::-moz-range-track {
-    background: #555;
-    height: 4px;
-    border-radius: 2px;
-}
-.control-group input[type="range"]::-webkit-slider-thumb {
-    appearance: none;
-    -webkit-appearance: none;
-    background: var(--accent-color);
-    height: 16px;
-    width: 16px;
-    border-radius: 50%;
-    border: 2px solid #fff;
-    margin-top: -6px; /* Center thumb on track */
-    transition: transform 0.2s ease;
-}
-.control-group input[type="range"]::-moz-range-thumb {
-    background: var(--accent-color);
-    height: 16px;
-    width: 16px;
-    border-radius: 50%;
-    border: 2px solid #fff;
-}
-.control-group input[type="range"]:hover::-webkit-slider-thumb {
-    transform: scale(1.15);
-}
-.control-group input[type="range"]:hover::-moz-range-thumb {
-    transform: scale(1.15); /* May not work consistently */
+.control-group span { /* For slider value display */
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    margin-left: var(--space-xs);
 }
 
-.button-group {
+/* --- Buttons --- */
+.button-group { /* Class from inline style structure */
     display: flex;
-    gap: 0.8rem; /* Slightly more space */
-    margin-top: 0.5rem; /* Space above buttons */
+    gap: var(--space-sm);
+    margin-top: var(--space-xs); /* Add some space above buttons */
 }
 
 .button-group button {
-    flex: 1;
-    padding: 0.6rem; /* Slightly larger padding */
-    background: var(--accent-color);
-    color: #fff;
+    flex: 1; /* Make buttons take equal width */
+    padding: var(--space-xs) var(--space-sm);
+    background-color: var(--accent-color);
+    color: var(--background-color); /* Dark text on accent */
     border: none;
-    border-radius: 4px;
-    font-size: 0.9em;
-    font-weight: 600; /* Bolder text */
+    border-radius: var(--border-radius-sm);
     cursor: pointer;
-    transition: var(--hover-transition), transform 0.2s ease;
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    transition: background-color 0.3s ease, opacity 0.3s ease;
+    text-align: center;
 }
 
 .button-group button:hover {
-    background: var(--button-hover-bg); /* Use variable */
-    transform: translateY(-2px); /* Lift effect */
+    background-color: var(--link-hover-color);
 }
 
 .button-group button:active {
-    transform: translateY(0px); /* Press effect */
+    opacity: 0.8;
 }
 
+.button-group button:disabled {
+    background-color: var(--input-border); /* Use existing color */
+    cursor: not-allowed;
+    opacity: 0.6;
+}
 
-.button-group button.has-saved-state { /* Style for load button when state exists */
-    border: 2px solid var(--accent-color);
-    background: transparent;
+/* --- Lists --- */
+.quick-links-list li::before {
+    content: '🔗';
+    font-weight: normal; /* Link icon doesn't need bold */
+}
+
+/* --- Info/Metrics Panel Specifics --- */
+#info-panel h3,
+#metrics h3 {
+    margin: 0 0 var(--space-sm) 0;
+    font-size: var(--font-size-xl);
     color: var(--accent-color);
+    border-bottom: 1px solid rgba(var(--accent-color-rgb), 0.5);
+    padding-bottom: var(--space-xs);
 }
 
-.button-group button.has-saved-state:hover {
-    background: var(--accent-color);
-    color: #fff;
+#info-panel p,
+#metrics p {
+    margin: var(--space-xs) 0;
+    font-size: var(--font-size-sm); /* Consistent font size */
 }
 
-/* Metrics Container Specifics */
-.metrics-container {
-    top: 10px;
-    left: 10px;
-    width: 260px;
-    font-size: 0.85em;
+#info-panel ul,
+#metrics ul {
+    list-style: none;
+    padding: 0;
+    margin-top: var(--space-sm);
 }
 
-.metrics-container h3 {
-    font-size: 1.1em;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: var(--accent-color);
-    border-bottom: 1px solid rgba(var(--accent-color-rgb), 0.3);
-    padding-bottom: 0.3rem;
+#info-panel li,
+#metrics li {
+    margin-bottom: var(--space-xs);
+    padding-left: 1.2em; /* Adjust as needed */
+    position: relative;
+    font-size: var(--font-size-sm); /* Consistent font size */
 }
 
-.metrics-container p {
-    margin: 0.3rem 0;
-    color: var(--text-muted);
-    line-height: 1.5;
-}
-
-.metrics-container .simulated-data {
-    color: var(--text-color);
-    font-weight: 500;
-}
-
-/* Chat Container Specifics */
-.chat-container {
-    bottom: 10px;
-    left: 10px;
-    width: 340px;
-}
-
-.chat-output {
-    max-height: 160px;
-    overflow-y: auto;
-    margin-bottom: 0.8rem;
-    padding: 0.5rem;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 4px;
-    border: 1px solid #444; /* Add subtle border */
-}
-
-/* Custom Scrollbar for Chat Output */
-.chat-output::-webkit-scrollbar {
-    width: 6px;
-}
-.chat-output::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 3px;
-}
-.chat-output::-webkit-scrollbar-thumb {
-    background: var(--accent-color);
-    border-radius: 3px;
-    opacity: 0.7;
-}
-.chat-output::-webkit-scrollbar-thumb:hover {
-    opacity: 1.0;
-}
-/* Firefox scrollbar */
-.chat-output {
-    scrollbar-width: thin;
-    scrollbar-color: var(--accent-color) rgba(0, 0, 0, 0.1);
-}
-
-
-.chat-output div {
-    font-size: 0.9em; /* Slightly larger chat text */
-    margin-bottom: 0.5rem;
-    line-height: 1.4;
-    color: var(--text-color); /* Ensure default text color */
-}
-
-.chat-output div b { /* Style sender name */
-    color: var(--accent-hover-color); /* Use lighter accent */
-    font-weight: 600;
-    margin-right: 0.3em;
-}
-
-
-.chat-input {
-    background: #333;
-    border: 1px solid #555;
-    color: var(--text-color);
-    padding: 0.6rem;
-    border-radius: 4px;
-    width: 100%;
-    font-size: 0.9em;
-    transition: var(--hover-transition);
-}
-
-.chat-input:focus {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 8px rgba(var(--accent-color-rgb), 0.3);
-    outline: none;
-}
-
-/* Live2D Container */
-#live2d-container {
+#info-panel li::before {
+    content: '→'; /* Standard arrow for info links */
     position: absolute;
-    bottom: 10px;
-    right: 10px;
-    width: 300px;
-    height: 400px;
-    z-index: 10; /* Ensure it's below info panel if overlapping */
-    overflow: hidden;
-    border-radius: 8px;
-    /* Optional: Add a very subtle background or border */
-    /* background: rgba(0,0,0,0.1); */
-    /* border: 1px solid rgba(255,255,255,0.1); */
+    left: 0;
+    color: var(--accent-color);
+    font-weight: normal;
 }
 
-/* Hidden Offscreen Canvas */
+#metrics li::before {
+    content: '•'; /* Simple bullet for metrics */
+    position: absolute;
+    left: 0;
+    color: var(--accent-color);
+    font-weight: var(--font-weight-bold);
+}
+
+.simulated-data {
+    color: var(--link-hover-color); /* Use link hover color for visibility */
+}
+
+/* --- Labels (e.g., Three.js CSS2DLabel) --- */
+.label {
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    font-size: 12px; /* Keep specific size for labels */
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* --- Error Messages --- */
+.error-message {
+    color: var(--error-color);
+    background-color: var(--error-background);
+    border: 1px solid var(--error-border);
+    padding: var(--space-md);
+    border-radius: var(--border-radius-md);
+    text-align: center;
+    font-weight: var(--font-weight-bold);
+    margin-top: var(--space-md);
+    z-index: 10000; /* Ensure it's on top */
+    display: none; /* Initially hidden */
+}
+
+/* Error message inside visualization containers */
+.visualization-container .error-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 80%;
+    margin-top: 0; /* Reset margin */
+}
+
+/* --- Utilities --- */
 #live2d-offscreen-canvas {
     position: fixed;
     top: -9999px;
     left: -9999px;
-    width: 512px;
+    width: 512px; /* Or desired offscreen render size */
     height: 512px;
     opacity: 0;
     pointer-events: none;
     visibility: hidden;
 }
 
+/* ============================================= */
+/* == Scrollbar Styles == */
+/* ============================================= */
+/* Apply scrollbar styles to elements that might scroll */
+#chat-output::-webkit-scrollbar,
+.overlay-panel::-webkit-scrollbar {
+    width: 8px;
+}
 
-/* Responsive Design */
+#chat-output::-webkit-scrollbar-track,
+.overlay-panel::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: var(--border-radius-sm);
+}
+
+#chat-output::-webkit-scrollbar-thumb,
+.overlay-panel::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: var(--border-radius-sm);
+}
+
+#chat-output::-webkit-scrollbar-thumb:hover,
+.overlay-panel::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+/* Firefox scrollbar styling (optional, less customizable) */
+#chat-output,
+.overlay-panel {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* ============================================= */
+/* == Responsiveness == */
+/* ============================================= */
 @media (max-width: 1024px) {
-    body { font-size: 15px; } /* Slightly adjust base size */
-
     .visualization-container {
-        height: 600px;
+        height: 600px; /* Adjust height */
     }
 
-    /* Adjust overlay positioning and sizing */
+    /* Stack overlays or adjust positioning for smaller screens */
     .overlay-panel {
-        max-width: 240px; /* Slightly narrower on medium screens */
-        padding: 1rem; /* Adjust padding */
+        /* Example: Make them wider, potentially stack */
+        /* width: calc(100% - (2 * var(--space-md))); */
+        /* position: relative; /* If stacking instead of absolute */
+        /* top: auto; left: auto; right: auto; bottom: auto; */
+        /* margin-bottom: var(--space-md); */
+        max-width: 90%; /* Ensure they don't touch edges completely */
     }
 
-    .controls-container { width: 240px; top: 10px; right: 10px; }
-    .metrics-container { width: 240px; top: 10px; left: 10px; }
-    .chat-container { width: 300px; bottom: 10px; left: 10px; }
-    #info-panel { width: 240px; right: 10px; top: 10px; }
-
-    #live2d-container {
-        width: 200px; /* Smaller Live2D */
-        height: 280px;
-        right: 10px;
-        bottom: 10px;
+     /* Simplified example from your inline style - keeping absolute positioning */
+    #metrics, #controls, #chat-container, #info-panel {
+        width: calc(100% - 40px); /* 20px padding on each side */
+        left: 20px;
+        right: 20px;
+        max-width: 400px; /* Limit max width on smaller screens */
+        margin-left: auto; /* Center if max-width applies */
+        margin-right: auto;
+    }
+    #metrics { top: 20px; left: 20px; right: auto; width: 250px; /* Keep fixed width perhaps? */}
+    #controls { top: 20px; right: 20px; left: auto; width: 250px; }
+    #chat-container { bottom: 20px; left: 20px; right: 20px; width: auto; /* Full width */}
+    #info-panel { top: calc(20px + 100px); /* Example: Position below metrics/controls */ right: 20px; left: auto; width: 250px; }
+    #live2d-container { /* Maybe hide or shrink on small screens */
+        width: 150px;
+        height: 200px;
+        bottom: calc(20px + 180px); /* Above chat */
+        right: 20px;
     }
 
-    .CSS2DObject.label {
-        font-size: 10px;
-    }
+    header h1 { font-size: 1.8rem; }
+    header p { font-size: 1rem; }
+    main { gap: var(--space-lg); }
 }
 
-@media (max-width: 768px) { /* Tablet portrait / Small Laptop */
-     body { font-size: 14px; }
-     header h1 { font-size: 2rem; }
-     section h2 { font-size: 1.5rem; }
-     main { gap: 1.5rem; padding: 0 0.8rem;}
-     section { padding: 1.2rem; }
+@media (max-width: 768px) {
+    body { font-size: 15px; } /* Slightly smaller base font */
 
-    .visualization-container {
-        height: 550px;
-    }
+    header { padding: var(--space-lg) var(--space-sm); }
+    main { padding: 0 var(--space-sm); }
+    section { padding: var(--space-md); }
 
-     /* Stack overlays or adjust drastically */
+    .visualization-container { height: 500px; }
+
+    /* Adjust overlay positions more drastically if needed */
+    /* Example: Force stacking */
     .overlay-panel {
-        width: calc(100% - 30px); /* Near full width */
-        left: 15px;
-        right: 15px;
-        max-width: none; /* Remove max-width */
-        box-shadow: 0 2px 10px rgba(0,0,0,0.5); /* Less intense shadow */
+        position: relative; /* Disable absolute */
+        width: 100%;
+        max-width: none;
+        margin-bottom: var(--space-md);
+        left: 0; top: 0; right: 0; bottom: 0;
+        max-height: 300px; /* Limit height when stacked */
     }
-     .overlay-panel:hover { transform: none; box-shadow: 0 2px 10px rgba(0,0,0,0.5); } /* Disable hover lift */
+    /* Re-add parent container for overlays if stacking */
+    /* .visualization-container { display: flex; flex-direction: column; } */
+    /* Add order property if needed */
 
-    .metrics-container { top: 10px; height: auto; max-height: 100px; overflow-y: auto; font-size: 0.8em;} /* Limit height */
-    .controls-container { top: 120px; height: auto; } /* Position below metrics */
-    #info-panel { top: 260px; height: auto; max-height: 150px; overflow-y: auto; font-size: 0.8em;} /* Position below controls */
-    .chat-container { bottom: 10px; width: calc(100% - 30px); left: 15px; }
-
-    #live2d-container {
-        width: 120px; /* Much smaller */
-        height: 180px;
-        bottom: 160px; /* Position above chat */
-        right: 15px;
-        z-index: 11; /* Ensure it's above overlays if necessary */
-    }
-
-     .button-group { flex-direction: column; gap: 0.5rem; } /* Stack buttons */
-
-}
-
-@media (max-width: 480px) { /* Mobile phones */
-     body { font-size: 13px; }
-     header { padding: 1.5rem 0.5rem;}
-     header h1 { font-size: 1.8rem; }
-     header p { font-size: 0.9rem; }
-     section h2 { font-size: 1.3rem; }
-     section { padding: 1rem; }
-
-     .visualization-container { height: 450px; }
-
-     .metrics-container { top: 5px; max-height: 80px; }
-     .controls-container { top: 95px; padding: 0.8rem; gap: 0.8rem; }
-     #info-panel { top: 215px; max-height: 100px; padding: 0.8rem; }
-     .chat-container { bottom: 5px; left: 5px; right: 5px; width: auto; padding: 0.8rem; }
-     .chat-output { max-height: 80px; }
-
-     #live2d-container {
-        width: 90px;
-        height: 130px;
-        bottom: 130px; /* Adjust based on chat height */
+    /* Or adjust absolute positions for small screens */
+     #metrics { top: 10px; left: 10px; width: calc(50% - 15px); max-height: 150px; }
+     #controls { top: 10px; right: 10px; width: calc(50% - 15px); max-height: 150px;}
+     #chat-container { bottom: 10px; left: 10px; right: 10px; width: auto; max-height: 120px; }
+     #info-panel { display: none; /* Hide less critical info panel */ }
+     #live2d-container { /* Make smaller or hide */
+        width: 100px;
+        height: 133px;
+        bottom: 140px; /* Above chat */
         right: 10px;
+        z-index: 11; /* Above controls if overlapping */
      }
 
-    .CSS2DObject.label {
-        display: none; /* Hide labels on very small screens */
-    }
+    .button-group { flex-direction: column; } /* Stack buttons */
 }
