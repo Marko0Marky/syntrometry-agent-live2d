@@ -242,6 +242,17 @@ canvas {
     pointer-events: none;
     visibility: hidden;
 }
+.threejs-container-concept > canvas {
+    display: block;     /* Ensure block display */
+    position: absolute; /* Take out of normal flow, position relative to parent */
+    top: 0;
+    left: 0;
+    width: 100%;        /* Fill parent container */
+    height: 100%;       /* Fill parent container */
+    z-index: 1;         /* << IMPORTANT: Set z-index lower than #info-panel (z-index: 10) */
+    /* pointer-events: none; */ /* Optional: If ONLY interaction is via raycaster */
+                                /* Usually leave this off or 'auto' */
+}
 #info-panel {
     position: absolute;
     top: 10px;
@@ -279,4 +290,120 @@ canvas {
 }
 .simulated-data {
     color: #66ccff;
+}
+/* Add to your existing style.css */
+
+.control-buttons {
+    margin-top: 15px; /* Add space above buttons */
+    display: flex; /* Arrange buttons side-by-side */
+    gap: 10px; /* Space between buttons */
+}
+
+.control-buttons button {
+    flex: 1; /* Make buttons take equal width */
+    padding: 8px 12px;
+    background-color: var(--accent-color);
+    color: var(--background-color); /* Dark text on accent */
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9em;
+    font-weight: 600;
+    transition: background-color 0.3s ease, opacity 0.3s ease;
+}
+
+.control-buttons button:hover {
+    background-color: var(--link-hover-color);
+}
+
+.control-buttons button:active {
+    opacity: 0.8;
+}
+
+.control-buttons button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Optional: Style for the info panel links list */
+#info-panel ul.links-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 8px;
+}
+
+#info-panel ul.links-list li {
+    margin-bottom: 4px;
+    padding-left: 1em; /* Indent linked concepts */
+    position: relative;
+}
+
+#info-panel ul.links-list li::before {
+    content: '→'; /* Or '🔗' */
+    position: absolute;
+    left: 0;
+    color: var(--accent-color);
+    font-weight: normal; /* Don't bold the arrow */
+}
+/* Add or modify these styles in your style.css */
+
+#metrics {
+    position: absolute; /* Keep position absolute */
+    top: 10px; /* Keep top position */
+    left: 10px; /* Keep left position */
+    background: rgba(0, 0, 0, 0.7); /* Keep background */
+    padding: 15px; /* Keep padding */
+    border-radius: 8px; /* Keep border-radius */
+    z-index: 10; /* Keep z-index */
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5); /* Keep box-shadow */
+    font-size: 0.9em; /* Keep font-size */
+    color: var(--text-color); /* Keep text color */
+    width: 250px; /* Give it a fixed width */
+    max-height: calc(100% - 40px); /* Limit height to prevent overflow */
+    overflow-y: auto; /* Add scroll if content exceeds max height */
+    border: 1px solid var(--container-border-color); /* Add border */
+}
+
+/* Add styling for content within the metrics panel if needed, e.g.: */
+#metrics h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.2em;
+    color: var(--accent-color);
+    border-bottom: 1px solid rgba(var(--accent-color-rgb, 0, 170, 255), 0.5); /* Subtle underline */
+    padding-bottom: 5px;
+}
+
+#metrics p {
+    margin: 5px 0;
+}
+
+#metrics .simulated-data {
+     color: #66ccff; /* Keep style for simulated data */
+}
+
+/* Optional: Styles for potential lists in the metrics panel */
+#metrics ul {
+    list-style: none;
+    padding-left: 0;
+    margin-top: 10px;
+}
+#metrics li {
+     margin-bottom: 5px;
+     position: relative;
+     padding-left: 1.2em;
+}
+#metrics li::before {
+    content: '•'; /* Simple bullet point */
+    position: absolute;
+    left: 0;
+    color: var(--accent-color);
+    font-weight: bold;
+}
+
+/* Add a variable for accent color RGB if not defined */
+:root {
+    /* ... existing variables ... */
+    --accent-color-rgb: 0, 170, 255; /* Add this if you use rgba based on it */
 }
