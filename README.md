@@ -1,219 +1,231 @@
-
 # Heim's Syntrometric Theory & Live2D Agent Demo
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-View_Now-brightgreen)](https://marko0marky.github.io/syntrometry-agent-live2d/)
 [![GitHub Issues](https://img.shields.io/github/issues/marko0marky/syntrometry-agent-live2d)](https://github.com/marko0marky/syntrometry-agent-live2d/issues)
 [![GitHub Stars](https://img.shields.io/github/stars/marko0marky/syntrometry-agent-live2d)](https://github.com/marko0marky/syntrometry-agent-live2d/stargazers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-A dynamic web application that brings Heim's Syntrometric Theory to life through interactive 3D visualizations and an AI-driven Live2D avatar. Explore complex system dynamics via a Syntrometry state graph, a concept map, and a responsive agent reflecting emotional states in real-time.
+**Visualize the abstract concepts of Heim's Syntrometric Theory through dynamic 3D simulations and an AI-driven Live2D avatar, bridging theory with interactivity.**
 
-## Table of Contents
-
-- ✨ [Features](#features)
-- 📚 [Concepts Explored](#concepts-explored)
-- ▶️ [Demo](#demo)
-- 🚀 [Getting Started](#getting-started)
-- 📂 [Project Structure](#project-structure)
-- 🔧 [Technologies Used](#technologies-used)
-- 💡 [Future Enhancements](#future-enhancements)
-- 👋 [Contributing](#contributing)
-- 📄 [License](#license)
-- 🙏 [Acknowledgments](#acknowledgments)
-- ❓ [Troubleshooting](#troubleshooting)
+This project presents an interactive web application designed to bring Burkhard Heim's Syntrometric Theory closer to experiential understanding. It combines real-time syntrometric state-space visualizations, an evolving emotional environment, and an expressive Live2D agent.
 
 ---
 
-## ✨ Features
+## ✨ Table of Contents
 
-- **Syntrometry State Visualization**: A 3D graph powered by Three.js, displaying 12 abstract dimensions, Reflexive Integration Hierarchy (RIH) scores, and affinities, updated dynamically based on simulation parameters.
-- **Concept Graph Visualization**: An interactive 3D concept map showcasing relationships between Syntrometric constructs, with hover tooltips and click-to-focus functionality.
-- **AI Agent Simulation**: A TensorFlow.js-based agent processes environmental states, computes RIH and affinities, and predicts emotional states and head movements.
-- **Live2D Avatar Integration**: A Live2D avatar (Hiyori model) mirrors the agent’s emotions (e.g., Joy, Fear) and head movements (nod, shake), enhancing user engagement.
-- **Real-time Metrics Panel**: Displays RIH score, average affinity, dominant emotion, and simulation context for immediate feedback.
-- **Interactive Controls**: Sliders adjust Integration and Reflexivity parameters, directly influencing the simulation’s behavior.
-- **Chat Interface**: Users can input text to influence the environment’s emotional state, with the agent responding dynamically.
+- [🚀 Live Demo & Screenshots](#-live-demo--screenshots)
+- [⭐ Features](#-features)
+- [📚 Concepts Explored](#-concepts-explored)
+- [🛠️ Getting Started](#-getting-started)
+- [📂 Project Structure](#-project-structure)
+- [💡 Technologies Used](#-technologies-used)
+- [📈 Future Enhancements](#-future-enhancements)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
+- [🙏 Acknowledgments](#-acknowledgments)
+- [❓ Troubleshooting](#-troubleshooting)
+
+---
+
+## 🚀 Live Demo & Screenshots
+
+**[➡️ View the Live Demo Here](https://marko0marky.github.io/syntrometry-agent-live2d/)**
+
+*(Screenshots & GIFs coming soon!)*
+
+---
+
+## ⭐ Features
+
+- **Real-Time Syntrometry Graph**  
+  3D visualization of a 12-dimensional synthetic space, reflexive hierarchy (RIH), and dynamic affinity fields.
+
+- **Interactive Concept Graph**  
+  Explore and interact with theoretical constructs of Syntrometric Theory through node-link visualizations.
+
+- **AI-Driven Agent Simulation**  
+  Using TensorFlow.js, an agent adapts its emotional states based on environment inputs and structural condensation processes.
+
+- **Expressive Live2D Avatar**  
+  The Live2D model mirrors predicted emotions (joy, fear, curiosity, etc.) and corresponding subtle head movements.
+
+- **Metrics and Info Panels**  
+  Live display of system metrics: dominant emotion, RIH value, average affinity, and environmental context.
+
+- **Dynamic User Controls**  
+  Modify system integration (I(S)) and reflexivity (Ψ) in real-time to influence the simulation.
+
+- **Lightweight Chat Interface**  
+  Inject emotional cues into the environment by typing phrases that modify the emotional space.
+
+- **State Persistence**  
+  Save and reload simulation states using browser localStorage.
 
 ---
 
 ## 📚 Concepts Explored
 
-This demo offers an accessible, interactive interpretation of Heim's Syntrometric Theory, focusing on:
+The simulation models and visualizes several Syntrometric Theory concepts, **translated for accessibility**:
 
-- **Syntrometry**: A framework for modeling complex systems through higher-dimensional interactions.
-- **Syntrix / Metrons**: Core structural units and their elemental components.
-- **Structural Condensation**: Recursive processes that build complex structures from simpler elements.
-- **Reflexive Integration Hierarchy (RIH)**: A metric of system coherence based on internal correlations.
-- **Affinities**: Measures of similarity between structural components.
-- **Enyphansyntrix**: State transformation processes within the system.
+- **Syntrometry** — Unified field of abstract and physical interaction via multidimensional systems.
+- **Syntrix & Metrons** — The foundational entities of Heim’s structure.
+- **Structural Condensation** — Recursive construction of higher-complexity structures from lower-order components.
+- **Reflexive Integration Hierarchy (RIH)** — A coherence metric symbolizing internal systemic awareness.
+- **Affinities** — Strength of coupling between states across condensation levels.
+- **Enyphansyntrix** — Perturbative state transformations simulating discretization and dynamic change.
+- **Subjective/Emotional Layer** — Environmental emotional fields influencing agent behavior.
 
-*Note: This is a conceptual demonstration and not a mathematically rigorous implementation of the full theory.*
-
----
-
-## ▶️ Demo
-
-[Link to Live Demo](https://marko0marky.github.io/syntrometry-agent-live2d/)
-
-Replace placeholders with actual screenshots or a short demo video for visual appeal.
+*Note: This implementation is conceptual and intended as an educational exploration rather than a mathematically complete model.*
 
 ---
 
-## 🚀 Getting Started
+## 🛠️ Getting Started
 
-Follow these steps to run the project locally. A modern web browser (e.g., Chrome, Firefox) with WebGL and ES Module support is required.
+### Requirements
 
-### Prerequisites
+- Modern Web Browser (Chrome, Firefox, Edge — with WebGL + ES Modules support)
+- Internet connection (for CDN asset loading)
+- **Recommended**: Run through a local web server to avoid CORS issues (e.g., Python, Node.js http-server, or VSCode Live Server)
 
-- Node.js (optional, for local server setup).
-- A web browser with WebGL enabled.
-- Internet connection (for loading CDN-hosted libraries like TensorFlow.js and Three.js).
+### Running Locally
 
-### Installation
+1. **Clone the Repository**
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/<Your GitHub Username>/<Your Repository Name>.git
-   ```
+```bash
+git clone https://github.com/marko0marky/syntrometry-agent-live2d.git
+cd syntrometry-agent-live2d
+```
 
-2. Navigate to the project directory:
-   ```bash
-   cd <Your Repository Name>
-   ```
+2. **Serve Locally**
 
-3. Serve the project:
-   - **Option 1: Simple file access**  
-     Open `index.html` directly in your browser.  
-     *Note: Some features (e.g., Live2D model loading) may fail due to CORS restrictions.*
-   - **Option 2: Local web server (recommended)**  
-     Use a local server to avoid CORS issues:
-     - With Python:
-       ```bash
-       python -m http.server 8000
-       ```
-     - With Node.js (e.g., using `http-server`):
-       ```bash
-       npm install -g http-server
-       http-server -p 8000
-       ```
-     - With VS Code: Use the "Live Server" extension.
+- Python 3
+  ```bash
+  python -m http.server 8000
+  ```
+- Node.js
+  ```bash
+  npm install -g http-server
+  http-server -p 8000 .
+  ```
+- VSCode: Install the Live Server extension → Click "Go Live"
 
-4. Access the app at `http://localhost:8000` in your browser.
+Then open your browser to [http://localhost:8000](http://localhost:8000).
 
 ---
 
 ## 📂 Project Structure
 
-The project is organized for modularity and maintainability:
-
 ```
-<Your Repository Name>/
-├── index.html           # Main HTML file with UI and visualization containers
-├── LICENSE              # MIT License file
-├── README.md            # Project documentation
-├── screenshots/         # Folder for demo images or videos
-│   ├── syntrometry.png
-│   ├── concept-graph.png
-│   └── live2d-agent.png
-└── js/                  # JavaScript modules
-    ├── app.js           # Orchestrates initialization and animation loop
-    ├── config.js        # Configuration (emotions, dimensions, simulation parameters)
-    ├── utils.js         # Utility functions (tensor creation, clamping, error handling)
-    ├── syntrometry-core.js # Implements core Syntrometric concepts
-    ├── agent.js         # SyntrometricAgent class for AI logic
-    ├── environment.js   # EmotionalSpace class for simulation state
-    ├── viz-syntrometry.js # Three.js logic for Syntrometry visualization
-    ├── viz-concepts.js  # Three.js logic for Concept Graph visualization
-    └── viz-live2d.js    # Pixi.js and Live2D integration
+syntrometry-agent-live2d/
+├── index.html           # Main structure, panels, visualization containers
+├── LICENSE
+├── README.md
+├── style.css            # Styling and responsive layout
+├── screenshots/         # Demo screenshots
+└── js/
+    ├── app.js           # Main application initializer and loop
+    ├── config.js        # Constants and parameters
+    ├── utils.js         # Common helper utilities
+    ├── syntrometry-core.js # Core syntrometric transformations
+    ├── agent.js         # The AI agent, emotion prediction, trust adaptation
+    ├── environment.js   # Environmental emotion dynamics
+    ├── viz-syntrometry.js # 3D Syntrometry visualization
+    ├── viz-concepts.js  # Conceptual graph visualization
+    └── viz-live2d.js    # Live2D avatar initialization and updates
 ```
 
 ---
 
-## 🔧 Technologies Used
+## 💡 Technologies Used
 
-- **HTML5, CSS3, JavaScript (ES Modules)**: Foundation of the web application.
-- **Three.js**: Powers 3D visualizations for Syntrometry and Concept Graph panels.
-- **OrbitControls.js**: Enables interactive camera controls.
-- **CSS2DRenderer.js**: Renders HTML labels in 3D scenes.
-- **TensorFlow.js**: Drives the agent’s emotion and head movement prediction models.
-- **Pixi.js**: Facilitates 2D rendering for the Live2D avatar.
-- **Live2D Cubism Core**: Core engine for Live2D model rendering.
-- **pixi-live2d-display**: Bridges Live2D models with Pixi.js.
-- **Google Fonts (Inter)**: Provides clean, modern typography.
-
----
-
-## 💡 Future Enhancements
-
-- Advanced Agent Models: Integrate pre-trained TensorFlow.js models for more nuanced emotional responses.
-- Dynamic Environment: Add complex events and user-configurable simulation scenarios.
-- Enhanced Interactivity: Enable clicking on visualization elements (e.g., cascade layers) for detailed insights.
-- Expanded Concept Graph: Include more concepts and dynamic updates based on simulation state.
-- Custom Live2D Models: Allow users to upload or select different Live2D models.
-- State Persistence: Implement save/load functionality for simulation states.
-- Mobile Optimization: Improve responsiveness and touch controls for mobile devices.
-- Theoretical Fidelity: Deepen the connection to Syntrometric Theory with more rigorous mathematical modeling.
+| Technology              | Purpose |
+| ------------------------ | ------- |
+| **HTML5 & CSS3**         | Layout, interface styling |
+| **JavaScript (ES Modules)** | Core application architecture |
+| **Three.js (r132)**      | 3D Syntrometry and Concept visualizations |
+| **TensorFlow.js (4.21.0)** | Neural agent emotion/head motion prediction |
+| **Pixi.js (7.3.3)**      | Live2D rendering |
+| **Live2D Cubism Core**   | Official SDK runtime for avatar models |
+| **pixi-live2d-display (0.4.0)** | Integration of Live2D models into Pixi.js |
+| **Google Fonts (Inter)** | Clean and modern typography |
 
 ---
 
-## 👋 Contributing
+## 📈 Future Enhancements
 
-We welcome contributions to enhance this project! To contribute:
+- **Smarter Emotional Dynamics**  
+  More nuanced, context-sensitive agent modeling via larger or recurrent networks.
 
-1. Fork the repository.
-2. Create a feature branch:
-   ```bash
-   git checkout -b feature/YourFeature
-   ```
-3. Commit changes using Conventional Commits:
-   ```bash
-   git commit -m "feat: add YourFeature description"
-   ```
-4. Push to your branch:
-   ```bash
-   git push origin feature/YourFeature
-   ```
-5. Open a Pull Request with a clear description of your changes.
+- **Deepened Concept Graph Integration**  
+  Dynamic evolution of concepts linked to real-time system states.
 
-Please ensure code follows the existing style and includes comments for clarity.
+- **Cascade-Level Visualization**  
+  3D unfolding of the condensation process over time.
+
+- **Natural Language Chatbot**  
+  Lightweight on-device language models for richer interactions.
+
+- **Theoretical Fidelity Expansion**  
+  Closer mapping to Heim’s original tensor-based syntrometric structures.
+
+- **Live2D Customization Options**  
+  Model switching, user-uploaded avatars, real-time facial morphs.
+
+- **Performance Optimizations**  
+  Instancing, GPU acceleration improvements for smoother 3D rendering.
+
+---
+
+## 🤝 Contributing
+
+Contributions are warmly welcomed!
+
+1. Fork the repo
+2. Create a new branch: `feature/YourFeature`
+3. Commit your changes: `git commit -m "feat: Add YourFeature"`
+4. Push the branch
+5. Open a Pull Request
+
+For larger proposals, please open an issue to discuss first.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+Distributed under the **MIT License**.  
+See [`LICENSE`](./LICENSE) for details.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- **Live2D Co., Ltd.**: For the Cubism SDK and Hiyori sample model used in this demo.
-- **Burkhard Heim**: For pioneering Syntrometric Theory, inspiring this interactive exploration.
-- **Norbert Wiener**: For foundational work in Cybernetics, influencing systems thinking.
-- **Three.js, TensorFlow.js, and Pixi.js Communities**: For robust libraries enabling this project.
+- **Burkhard Heim** — Pioneer of Syntrometric Theory.
+- **Live2D Inc.** — For the Cubism SDK and sample models.
+- Communities and contributors of **Three.js**, **TensorFlow.js**, and **Pixi.js**.
+- Resources at [heim-theory.com](https://heim-theory.com/).
 
 ---
 
 ## ❓ Troubleshooting
 
-- **CORS Issues with Live2D Model**:  
-  Ensure you’re running the project via a local web server (e.g., `python -m http.server`) to load external assets correctly.
+**Live2D Model Won't Load**  
+→ Always run with a local server to avoid browser security restrictions (CORS).
 
-- **Library Loading Failures**:  
-  Check your internet connection, as the app relies on CDN-hosted libraries (TensorFlow.js, Three.js, etc.).  
-  Verify the CDN URLs in `index.html` are accessible and up-to-date.
+**Visualizations Blank**  
+→ Check WebGL availability: [get.webgl.org](https://get.webgl.org/).  
+→ Check browser console for errors.
 
-- **Performance Issues**:  
-  Use a modern browser with WebGL support.  
-  Reduce the browser window size or disable animations for low-end devices.
+**Library CDN Errors**  
+→ Ensure an active internet connection and inspect the network tab.
 
-- **TensorFlow.js Errors**:  
-  Ensure WebGL is enabled in your browser.  
-  If errors persist, check the console for specific messages and report them in an issue.
+**Performance Drops**  
+→ Use a dedicated GPU, close heavy browser tabs, or reduce canvas resolution.
 
-- **General Bugs**:  
-  Open an issue on GitHub with details (browser, OS, error messages, steps to reproduce).
-
-For additional support, check the [Issues](https://github.com/marko0marky/syntrometry-agent-live2d/issues) page or create a new issue.
+**Other Issues**  
+→ Check [GitHub Issues](https://github.com/marko0marky/syntrometry-agent-live2d/issues) or open a new report.
 
 ---
 
-Star the repository if you find this project interesting! 🌟 Contributions and feedback are greatly appreciated.
+🌟 **If you enjoy this project, please consider starring the repository!** 🌟
+
+---
