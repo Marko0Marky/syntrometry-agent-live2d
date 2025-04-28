@@ -1,6 +1,7 @@
 // js/agent.js
 
 import { Config, emotionNames, HEAD_MOVEMENT_LABELS, NUM_HEAD_MOVEMENTS } from './config.js';
+// Import updated core classes
 import { Enyphansyntrix, Affinitaetssyndrom, Strukturkondensation, ReflexiveIntegration, Synkolator } from './syntrometry-core.js';
 import { zeros, tensor, clamp, displayError } from './utils.js'; // Assuming tf is global
 
@@ -23,6 +24,7 @@ export class SyntrometricAgent {
         // Core Syntrometry Modules
         this.enyphansyntrix = new Enyphansyntrix('continuous');
         this.affinitaetssyndrom = new Affinitaetssyndrom();
+        // Cascade processes tensors of size CASCADE_INPUT_DIM (e.g., 12)
         this.strukturkondensation = new Strukturkondensation(Config.CASCADE_LEVELS, Config.CASCADE_STAGE || 2);
         this.reflexiveIntegration = new ReflexiveIntegration();
 
@@ -38,7 +40,7 @@ export class SyntrometricAgent {
         // --- TF.js Models & Variables ---
         if (typeof tf === 'undefined') {
             console.error("CRITICAL: TensorFlow.js not loaded. Agent cannot initialize.");
-            return;
+            return; // Stop constructor
         }
 
         try {
@@ -82,7 +84,7 @@ export class SyntrometricAgent {
             }
             this.optimizer = tf.train.adam(learningRate);
 
-            if (!this.emotionalModule || !this.headMovementHead || !this.beliefNetwork ||
+             if (!this.emotionalModule || !this.headMovementHead || !this.beliefNetwork ||
                  !this.cascadeInputLayer || !this.valueHead || !this.feedbackHead || !this.optimizer) {
                  throw new Error("One or more core TF components failed to initialize.");
              }
@@ -185,26 +187,70 @@ export class SyntrometricAgent {
 
     /**
      * Heuristic learning rule for self-adjusting parameters based on trust and RIH.
+     * @param {number} trustScore The agent's current trust score (0-1).
+     * @param {number} rihScore The agent's current RIH score (0-1).
+     * @param {number} cascadeVariance The variance of the final cascade level.
      */
     _learnParameters(trustScore, rihScore, cascadeVariance) {
-        if (typeof tf === 'undefined' || !this.integrationParam || !this.reflexivityParam || this.integrationParam.isDisposed || this.reflexivityParam.isDisposed) return;
+        // Ensure TF is loaded and parameters are valid, non-disposed tf.variable objects
+        if (typeof tf === 'undefined' || !this.integrationParam || !this.reflexivityParam || this.integrationParam.isDisposed || this.reflexivityParam.isDisposed) {
+            // console.warn("Parameter learning skipped: TF not ready or params invalid."); // Optional warning
+            return;
+        }
 
         tf.tidy(() => {
             const learningRate = 0.005;
             let integrationDelta = 0.0;
             let reflexivityDelta = 0.0;
 
-            if (rihScore > 0.7 && trustScore > 0.7) { integrationDelta += 1.0; reflexivityDelta -= 1.0; }
-            else if (rihScore < 0.3 || trustScore < 0.4) { integrationDelta -= 1.0; reflexivityDelta += 1.0; }
-            if (cascadeVariance > 0.1) { integrationDelta += 0.5 * cascadeVariance; }
+            // --- Heuristic Rules based on Trust and RIH ---
+            // High RIH (>0.7) & High Trust (>0.7): System is stable and predictable.
+            // Enhance stability: Increase Integration (I), Decrease Reflexivity (Psi)
+            if (rihScore > 0.7 && trustScore > 0.7) {
+                integrationDelta += 1.0; // Encourage more integration
+                reflexivityDelta -= 1.0; // Reduce self-feedback/noise sensitivity
+            }
+            // Low RIH (<0.3) OR Low Trust (<0.4): System is unstable or unpredictable.
+            // Encourage exploration/adaptation: Decrease Integration (I), Increase Reflexivity (Psi)
+            else if (rihScore < 0.3 || trustScore < 0.4) {
+                integrationDelta -= 1.0; // Discourage strong integration if unstable/untrusted
+                reflexivityDelta += 1.0; // Increase self-feedback/noise sensitivity for adaptation
+            }
 
+            // --- Cascade Variance Influence ---
+            // High variance suggests poor condensation/information loss
+            // -> Increase Integration slightly to try and improve condensation
+            if (cascadeVariance > 0.1) { // Threshold for "high" variance (needs tuning)
+                integrationDelta += 0.5 * clamp(cascadeVariance, 0, 1); // Increase I proportionally, capped
+            }
+
+            // --- Add slight decay towards center (0.5) ---
+            // This prevents parameters from getting stuck at the limits indefinitely
+            let currentIntegrationValue = 0.5; // Default fallback
+            let currentReflexivityValue = 0.5; // Default fallback
+            try {
+                 // *** CORRECTED: Get JS value using dataSync() ***
+                 currentIntegrationValue = this.integrationParam.dataSync()[0];
+                 currentReflexivityValue = this.reflexivityParam.dataSync()[0];
+            } catch(e) {
+                 console.error("Error reading param values for decay in _learnParameters:", e);
+                 // Use defaults if read fails
+            }
+            integrationDelta += (0.5 - currentIntegrationValue) * 0.05; // Nudge towards 0.5
+            reflexivityDelta += (0.5 - currentReflexivityValue) * 0.05; // Nudge towards 0.5
+            // ************************************************
+
+            // --- Apply deltas to calculate new parameter values ---
+            // Note: We are adding reflexivityDelta now
             const newIntegration = this.integrationParam.add(tf.scalar(integrationDelta * learningRate));
             const newReflexivity = this.reflexivityParam.add(tf.scalar(reflexivityDelta * learningRate));
 
+            // --- Assign updated values, clipped to valid range ---
             this.integrationParam.assign(newIntegration.clipByValue(0.05, 0.95));
             this.reflexivityParam.assign(newReflexivity.clipByValue(0.05, 0.95));
-        });
+        }); // End tf.tidy
     }
+
 
      /**
      * Updates the internal self-state model based on current belief embedding and trust.
@@ -221,7 +267,8 @@ export class SyntrometricAgent {
              const baseDecay = 0.95;
              const baseLearnRate = 0.1;
              const effectiveLearnRate = baseLearnRate * (0.5 + integrationParamValue);
-             const effectiveDecay = 1.0 - effectiveLearnRate;
+             // Ensure decay doesn't go below a minimum threshold
+             const effectiveDecay = clamp(1.0 - effectiveLearnRate, 0.85, 0.99);
              const trustFactor = tf.scalar(trustScore * effectiveLearnRate);
 
              const newState = this.selfState.mul(effectiveDecay).add(currentBeliefEmbedding.mul(trustFactor));
@@ -247,8 +294,8 @@ export class SyntrometricAgent {
         } catch (e) { console.error("Error reading agent parameters:", e); }
 
         let results = {};
-        let beliefNormValue = 0.0; // Initialize here
-        let feedbackNormValue = 0.0; // Initialize here
+        let beliefNormValue = 0.0;
+        let feedbackNormValue = 0.0;
 
         try {
             results = tf.tidy(() => {
@@ -257,9 +304,7 @@ export class SyntrometricAgent {
                 while(stateArray.length < Config.Agent.BASE_STATE_DIM) stateArray.push(0);
                 const coreStateTensor = tf.tensor(stateArray.slice(0, Config.DIMENSIONS));
                 const graphFeaturesTensor = tf.tensor(graphFeatures);
-                // --- CORRECTED: Use this.selfState variable directly ---
-                const currentSelfState = this.selfState;
-                // ------------------------------------------------------
+                const currentSelfState = this.selfState; // Use variable directly
 
                 // 2. Recursive Reflexivity
                 const rihModulation = this.lastRIH * (currentReflexivity * 2 - 1);
@@ -273,7 +318,7 @@ export class SyntrometricAgent {
                 const beliefNetInput = tf.concat([
                     perturbedInput.reshape([1, Config.DIMENSIONS]),
                     graphFeaturesTensor.reshape([1, NUM_GRAPH_FEATURES]),
-                    currentSelfState.reshape([1, BELIEF_EMBEDDING_DIM]) // Use variable directly
+                    currentSelfState.reshape([1, BELIEF_EMBEDDING_DIM])
                 ], 1);
                  if (beliefNetInput.shape[1] !== BELIEF_NETWORK_INPUT_DIM) { throw new Error(`Belief network input dim mismatch: expected ${BELIEF_NETWORK_INPUT_DIM}, got ${beliefNetInput.shape[1]}`); }
                 const beliefEmbedding = this.beliefNetwork.apply(beliefNetInput).reshape([BELIEF_EMBEDDING_DIM]);
@@ -365,7 +410,7 @@ export class SyntrometricAgent {
             if (this.emotionalModule && this.prevEmotions && !this.prevEmotions.isDisposed) {
                  const fullStateArray = (Array.isArray(rawState) ? rawState : zeros([Config.Agent.BASE_STATE_DIM])).slice(0, Config.Agent.BASE_STATE_DIM);
                  while(fullStateArray.length < Config.Agent.BASE_STATE_DIM) fullStateArray.push(0);
-                const emotionPrediction = await tf.tidy(() => { /* ... prediction logic using currentIntegration ... */
+                const emotionPrediction = await tf.tidy(() => {
                     const stateTensor = tf.tensor(fullStateArray, [1, Config.Agent.BASE_STATE_DIM]);
                     const rewardTensor = tf.tensor([[environmentContext.reward || 0]], [1, 1]);
                     const contextSignal = tf.tensor([[environmentContext.eventType ? 1 : 0]], [1, 1]);
@@ -379,8 +424,19 @@ export class SyntrometricAgent {
                  tf.dispose(this.prevEmotions);
                  this.prevEmotions = tf.keep(emotionPrediction);
                  currentEmotions = this.prevEmotions;
-            } else { /* ... Fallback logic ... */ }
-        } catch (e) { /* ... Error handling ... */ }
+            } else {
+                 console.warn("Emotional model or prevEmotions invalid. Applying decay.");
+                 if (!this.prevEmotions || this.prevEmotions.isDisposed) { this.prevEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM])); }
+                 const decayedEmotions = tf.tidy(() => this.prevEmotions.mul(0.98).clipByValue(0,1));
+                 tf.dispose(this.prevEmotions);
+                 this.prevEmotions = tf.keep(decayedEmotions);
+                 currentEmotions = this.prevEmotions;
+             }
+        } catch (e) {
+             displayError(`TF Error during emotion prediction: ${e.message}`, false, 'error-message');
+             if (!this.prevEmotions || this.prevEmotions.isDisposed) { this.prevEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM])); }
+             currentEmotions = this.prevEmotions;
+        }
 
 
         // --- Head Movement Head ---
@@ -390,10 +446,10 @@ export class SyntrometricAgent {
              if (this.headMovementHead && currentEmotions && !currentEmotions.isDisposed) {
                  const emotionArray = currentEmotions.arraySync()[0];
                  const dominantEmotionIndex = emotionArray.length > 0 ? emotionArray.indexOf(Math.max(...emotionArray)) : -1;
-                 dominantEmotionName = emotionNames[dominantEmotionIndex] || 'Unknown'; // Get name here
+                 dominantEmotionName = emotionNames[dominantEmotionIndex] || 'Unknown';
 
                  if (dominantEmotionIndex !== -1) {
-                     const hmLogits = tf.tidy(() => { /* ... prediction logic ... */
+                     const hmLogits = tf.tidy(() => {
                          const rihTensor = tf.tensor([[this.latestRihScore]], [1, 1]);
                          const avgAffinityTensor = tf.tensor([[results.currentAvgAffinity ?? 0]], [1, 1]);
                          const dominantEmotionTensor = tf.tensor([[dominantEmotionIndex]], [1, 1]);
@@ -407,8 +463,15 @@ export class SyntrometricAgent {
                          tf.dispose(hmLogits);
                      }
                  }
-             } else { /* ... Fallback logic ... */ }
-        } catch (e) { /* ... Error handling ... */ }
+             } else {
+                 if (this.latestRihScore > 0.7) hmLabel = "nod";
+                 else if ((results.currentAvgAffinity ?? 0) < 0.2) hmLabel = "shake";
+                 else hmLabel = "idle";
+             }
+        } catch (e) {
+             displayError(`TF Error during head movement prediction: ${e.message}`, false, 'error-message');
+             hmLabel = "idle";
+        }
 
 
         // --- Generate text response ---
@@ -426,7 +489,7 @@ export class SyntrometricAgent {
             cascadeHistory: results.cascadeHistoryArrays || [],
             rihScore: this.latestRihScore ?? 0,
             affinities: this.latestAffinities || [],
-            emotions: currentEmotions, // Persistent tensor
+            emotions: currentEmotions,
             hmLabel: hmLabel,
             responseText: responseText,
             trustScore: this.latestTrustScore ?? 0.5,
@@ -444,12 +507,14 @@ export class SyntrometricAgent {
             tensor && !tensor.isDisposed ? tensor.arraySync() : []
         );
         const prevEmotionsArray = this.prevEmotions && !this.prevEmotions.isDisposed ? this.prevEmotions.arraySync()[0] : zeros([Config.Agent.EMOTION_DIM]);
-        // Use dataSync for variable tensor
-        const selfStateArray = this.selfState && !this.selfState.isDisposed ? this.selfState.dataSync() : zeros([BELIEF_EMBEDDING_DIM]);
+
+        let selfStateArray = zeros([BELIEF_EMBEDDING_DIM]); // Default if disposed/missing
+        try { if (this.selfState && !this.selfState.isDisposed) selfStateArray = Array.from(this.selfState.dataSync()); }
+        catch (e) { console.error("Error getting selfState in getState:", e); }
+
         const integrationVal = this.integrationParam && !this.integrationParam.isDisposed ? this.integrationParam.dataSync()[0] : 0.5;
         const reflexivityVal = this.reflexivityParam && !this.reflexivityParam.isDisposed ? this.reflexivityParam.dataSync()[0] : 0.5;
 
-        // Helper to safely get weights as arrays
         const getWeightsSafe = (model) => {
             try { return model ? model.getWeights().map(w => w.arraySync()) : []; }
             catch (e) { console.error(`Error getting weights for ${model?.name}:`, e); return []; }
@@ -457,13 +522,12 @@ export class SyntrometricAgent {
 
         return {
             prevEmotions: prevEmotionsArray,
-            memoryBuffer: memoryArrays, // Stores belief embeddings now
+            memoryBuffer: memoryArrays,
             lastRIH: this.lastRIH,
             latestTrustScore: this.latestTrustScore,
             integrationParam: integrationVal,
             reflexivityParam: reflexivityVal,
-            selfState: Array.from(selfStateArray), // Ensure standard array
-            // Save network weights
+            selfState: selfStateArray, // Saved as standard array
             beliefNetworkWeights: getWeightsSafe(this.beliefNetwork),
             cascadeInputLayerWeights: getWeightsSafe(this.cascadeInputLayer),
             valueHeadWeights: getWeightsSafe(this.valueHead),
@@ -474,7 +538,7 @@ export class SyntrometricAgent {
 
     loadState(state) {
         if (!state || typeof state !== 'object' || typeof tf === 'undefined') return;
-        console.log("Loading agent state V2.3..."); // Add log
+        console.log("Loading agent state V2.3...");
         // --- Dispose existing tensors ---
         if (this.prevEmotions && !this.prevEmotions.isDisposed) tf.dispose(this.prevEmotions);
         if (this.selfState && !this.selfState.isDisposed) tf.dispose(this.selfState);
@@ -494,8 +558,6 @@ export class SyntrometricAgent {
                      if (Array.isArray(memArray) && memArray.length === BELIEF_EMBEDDING_DIM) {
                          try { this.memoryBuffer.push(tf.keep(tf.tensor(memArray))); }
                          catch(e) { console.warn("Error creating tensor from memory buffer array on load."); }
-                     } else {
-                         // console.warn("Skipping invalid memory buffer item on load."); // Reduce noise
                      }
                 });
                 while (this.memoryBuffer.length > this.memorySize) { tf.dispose(this.memoryBuffer.shift()); }
@@ -553,16 +615,12 @@ export class SyntrometricAgent {
         } catch(loadError) {
             console.error("CRITICAL ERROR during agent state loading:", loadError);
             displayError(`Agent Load Error: ${loadError.message}. Resetting agent state.`, true);
-            // Attempt to reset to a clean state if loading fails badly
-            this.cleanup(); // Dispose potentially partially loaded tensors
-            this._set_tf_members_null(); // Ensure all members are null
-            this.memoryBuffer = []; // Clear buffer array
-            // Re-initialize essential non-TF state
+            this.cleanup();
+            this._set_tf_members_null();
+            this.memoryBuffer = [];
             this.lastRIH = 0.0; this.latestTrustScore = 1.0;
             this.latestCascadeHistoryArrays = []; this.latestRihScore = 0; this.latestAffinities = [];
-            // Attempt to re-initialize TF components (might fail again if TF itself is the issue)
-            try { this.constructor(); } // Re-run constructor logic
-            catch(reinitError) { console.error("Failed to re-initialize agent after load error:", reinitError); }
+            try { this.constructor(); } catch(reinitError) { console.error("Failed to re-initialize agent after load error:", reinitError); }
         }
     }
 
@@ -570,26 +628,20 @@ export class SyntrometricAgent {
      cleanup() {
          console.log("Cleaning up Agent tensors (V2.3)...");
          if (typeof tf === 'undefined') return;
-         // Helper to safely dispose models/tensors
          const safeDispose = (item) => {
              if (item) {
-                 if (typeof item.dispose === 'function' && !(item.isDisposedInternal ?? item.isDisposed) ) { // Check TF dispose and not disposed
+                 if (typeof item.dispose === 'function' && !(item.isDisposedInternal ?? item.isDisposed) ) {
                      try { item.dispose(); } catch (e) { console.error("Dispose error:", e); }
-                 } else if (Array.isArray(item)) {
-                     item.forEach(subItem => safeDispose(subItem));
-                 }
+                 } else if (Array.isArray(item)) { item.forEach(subItem => safeDispose(subItem)); }
              }
          };
-         // Dispose models
          safeDispose(this.emotionalModule); safeDispose(this.headMovementHead);
          safeDispose(this.beliefNetwork); safeDispose(this.cascadeInputLayer);
          safeDispose(this.valueHead); safeDispose(this.feedbackHead);
-         // Dispose variables/tensors
          safeDispose(this.prevEmotions); safeDispose(this.selfState);
          safeDispose(this.integrationParam); safeDispose(this.reflexivityParam);
-         safeDispose(this.memoryBuffer); // Dispose tensors within the buffer
+         safeDispose(this.memoryBuffer);
 
-         // Nullify references
          this._set_tf_members_null();
          this.memoryBuffer = [];
          console.log("Agent TensorFlow tensors disposed (V2.3).");
