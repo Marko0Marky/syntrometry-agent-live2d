@@ -1,4 +1,4 @@
-// js/config.js
+// Configuration constants here// js/config.js
 
 /**
  * Global configuration settings for the simulation and visualizations.
@@ -7,32 +7,27 @@ export const Config = {
     METRON_TAU: 0.1,
     DIMENSIONS: 12, // Number of dimensions in the visible Syntrometry state vector
     CASCADE_LEVELS: 4,
-    CASCADE_STAGE: 2, // Stage for Synkolator (used in agent and core)
-    TELE_THRESHOLD: 0.85, // Not used currently
+    TELE_THRESHOLD: 0.85, // Not used in this version
     DYSVARIANT_PROB: 0.02,
     RIH_SCALE: 0.5,
     Agent: {
+        // STATE_DIM: 524, // Complex theoretical state dimension (not used directly in this simplified demo)
         BASE_STATE_DIM: 18, // Config.DIMENSIONS + Config.Agent.EMOTION_DIM
         EMOTION_DIM: 6,
-        HIDDEN_DIM: 64, // Used for Belief Embedding size
-        HISTORY_SIZE: 10, // Used for agent memory buffer size
-        TAU: 0.1, // Primarily used by environment lattice now
-        ATTENTION_THRESHOLD: 0.7 // Not used currently
+        HIDDEN_DIM: 64, // For potential future TF models
+        HISTORY_SIZE: 10,
+        TAU: 0.01, // Not used in this version
+        ATTENTION_THRESHOLD: 0.7 // Not used in this version
     },
     Env: {
-        EVENT_FREQ: 0.01,
-        EVENT_DURATION: 120, // Frames
-        EVENT_GAP: 180 // Frames
-    },
-    RL: { // Ensure this sub-object and LR exist
-        LR: 0.001, // Base learning rate (example, currently used only by optimizer init)
-        // Add other RL params if needed by agent heuristics later
+        EVENT_FREQ: 0.01, // Reduced frequency for continuous sim
+        EVENT_DURATION: 120, // Longer duration for continuous sim (frames)
+        EVENT_GAP: 180 // Longer gap for continuous sim (frames)
     }
 };
 
 // Ensure BASE_STATE_DIM matches the intended state vector size
 Config.Agent.BASE_STATE_DIM = Config.DIMENSIONS + Config.Agent.EMOTION_DIM;
-
 
 /**
  * Defines emotion keywords and their properties for text analysis and environmental impact.
