@@ -253,7 +253,7 @@ section {
     top: var(--space-md);
     left: var(--space-md);
     width: 260px; /* Slightly wider */
-    max-height: 170px; /* Reduced height to make space for heatmap */
+    max-height: 170px; /* Space for heatmap */
 }
 
 #controls {
@@ -267,10 +267,9 @@ section {
 
 #chat-container {
     bottom: var(--space-md);
-    /* Position next to heatmap */
-    left: calc(var(--space-md) + 200px + var(--space-md)); /* Adjusted left position */
-    width: 350px; /* Keep width */
-    max-height: 220px; /* Keep height */
+    left: calc(var(--space-md) + 260px + var(--space-md)); /* Beside heatmap */
+    width: 350px;
+    max-height: 220px;
 }
 
 #info-panel { /* Concept Graph Info Panel */
@@ -286,7 +285,6 @@ section {
     visibility: visible;
     opacity: 1;
 }
-
 
 #live2d-container {
     position: absolute;
@@ -367,20 +365,39 @@ section {
     width: 100%;
     accent-color: var(--accent-color);
     cursor: pointer;
-    background: transparent;
+    background: transparent; /* Needed for Firefox custom track */
     margin-top: var(--space-xs);
     margin-bottom: var(--space-xs);
 }
-/* Style for sliders reflecting internal state (optional subtle difference) */
-/* .read-only-slider {
-    opacity: 0.8;
-    cursor: default;
-} */
 /* Basic range track styling */
-.control-group input[type="range"]::-webkit-slider-runnable-track { background: var(--input-border); height: 4px; border-radius: 2px; }
-.control-group input[type="range"]::-moz-range-track { background: var(--input-border); height: 4px; border-radius: 2px; }
-.control-group input[type="range"]::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; margin-top: -5px; background: var(--accent-color); height: 14px; width: 14px; border-radius: 50%; border: 1px solid var(--background-color); }
-.control-group input[type="range"]::-moz-range-thumb { background: var(--accent-color); height: 14px; width: 14px; border-radius: 50%; border: 1px solid var(--background-color); cursor: pointer; }
+.control-group input[type="range"]::-webkit-slider-runnable-track {
+    background: var(--input-border);
+    height: 4px;
+    border-radius: 2px;
+}
+.control-group input[type="range"]::-moz-range-track {
+    background: var(--input-border);
+    height: 4px;
+    border-radius: 2px;
+}
+.control-group input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    margin-top: -5px;
+    background: var(--accent-color);
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--background-color);
+}
+.control-group input[type="range"]::-moz-range-thumb {
+    background: var(--accent-color);
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--background-color);
+    cursor: pointer;
+}
 
 .control-group span { /* Slider value display */
     color: var(--accent-color-hover);
@@ -390,145 +407,404 @@ section {
 }
 
 /* --- Buttons --- */
-.button-group { display: flex; gap: var(--space-sm); margin-top: var(--space-sm); }
-.button-group button { flex: 1; padding: var(--space-sm) var(--space-md); background-color: var(--accent-color); color: var(--background-color); border: none; border-radius: var(--border-radius-sm); cursor: pointer; font-family: var(--font-family-base); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); transition: background-color var(--transition-default), opacity var(--transition-default); text-align: center; line-height: 1; }
-.button-group button:hover, .button-group button:focus { background-color: var(--accent-color-hover); outline: none; }
-.button-group button:active { opacity: 0.85; }
-.button-group button:disabled { background-color: var(--input-border); color: var(--text-muted); cursor: not-allowed; opacity: 0.6; }
-.button-group button.has-saved-state { box-shadow: 0 0 8px 2px rgba(var(--accent-color-rgb), 0.4); }
+.button-group {
+    display: flex;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm); /* More space above buttons */
+}
+
+.button-group button {
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--accent-color);
+    color: var(--background-color);
+    border: none;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    transition: background-color var(--transition-default), opacity var(--transition-default);
+    text-align: center;
+    line-height: 1; /* Ensure text aligns vertically */
+}
+
+.button-group button:hover,
+.button-group button:focus {
+    background-color: var(--accent-color-hover);
+    outline: none;
+}
+
+.button-group button:active {
+    opacity: 0.85;
+}
+
+.button-group button:disabled {
+    background-color: var(--input-border);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+/* Style for Load button when state exists */
+.button-group button.has-saved-state {
+    box-shadow: 0 0 8px 2px rgba(var(--accent-color-rgb), 0.4);
+}
 
 /* --- Lists --- */
-.quick-links-list li::before { content: '🔗'; font-weight: normal; }
-.links-list li { padding-left: 1.8em; }
-.links-list li::before { content: '↪'; font-weight: normal; color: var(--accent-color-hover); }
+/* Specific list styles */
+.quick-links-list li::before {
+    content: '🔗'; /* Link icon */
+    font-weight: normal;
+}
+.links-list li { /* Links within info panels */
+    padding-left: 1.8em; /* More space */
+}
+.links-list li::before {
+    content: '↪'; /* Different arrow */
+    font-weight: normal;
+    color: var(--accent-color-hover);
+}
 
 /* --- Info/Metrics Panel Specifics --- */
 #info-panel h3,
 #metrics h3,
-.heatmap-container .heatmap-title { /* Include heatmap title */
-    margin: 0 0 var(--space-md) 0;
-    font-size: var(--font-size-lg);
+.heatmap-container .heatmap-title {
+    margin: 0 0 var(--space-md) 0; /* Consistent margin */
+    font-size: var(--font-size-lg); /* Smaller heading for panels */
     color: var(--accent-color);
     border-bottom: var(--border-width) solid rgba(var(--accent-color-rgb), 0.5);
-    padding-bottom: var(--space-sm);
+    padding-bottom: var(--space-sm); /* More padding */
     line-height: var(--line-height-heading);
 }
-.heatmap-container .heatmap-title { margin-bottom: var(--space-sm); } /* Adjust heatmap title margin */
+.heatmap-container .heatmap-title {
+    margin-bottom: var(--space-sm);
+}
 
 #info-panel p,
 #metrics p {
-    margin: var(--space-sm) 0;
+    margin: var(--space-sm) 0; /* Consistent vertical spacing */
     font-size: var(--font-size-sm);
-    line-height: 1.6;
+    line-height: 1.6; /* Slightly tighter line height in panels */
 }
-#info-panel p:first-of-type,
+#info-panel p:first-of-type, /* Reduce top margin for first p after h3 */
 #metrics p:first-of-type {
     margin-top: var(--space-xs);
 }
 
-#info-panel ul, #metrics ul { list-style: none; padding: 0; margin: var(--space-md) 0 0 0; }
-#info-panel li, #metrics li { margin-bottom: var(--space-xs); padding-left: 1.5em; position: relative; font-size: var(--font-size-sm); }
-#info-panel li::before { content: '↪'; position: absolute; left: 0; color: var(--accent-color-hover); font-weight: normal; line-height: 1.6; }
-#metrics li::before { content: '•'; position: absolute; left: 0; color: var(--accent-color); font-weight: var(--font-weight-bold); line-height: 1.6; }
+#info-panel ul,
+#metrics ul {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-md) 0 0 0; /* Add margin top */
+}
 
-.simulated-data { color: var(--accent-color-hover); font-weight: var(--font-weight-semibold); }
+#info-panel li,
+#metrics li {
+    margin-bottom: var(--space-xs);
+    padding-left: 1.5em; /* Adjust as Immigration needed */
+    position: relative;
+    font-size: var(--font-size-sm);
+}
 
-/* --- Labels (Three.js CSS2DLabel) --- */
-.label { color: var(--label-text); background: var(--label-background); padding: 3px 8px; border-radius: var(--border-radius-sm); font-size: 12px; font-weight: var(--font-weight-semibold); white-space: nowrap; pointer-events: none; user-select: none; }
+#info-panel li::before {
+    /* Use styles from .links-list li::before */
+    content: '↪';
+    position: absolute;
+    left: 0;
+    color: var(--accent-color-hover);
+    font-weight: normal;
+    line-height: 1.6;
+}
+
+#metrics li::before {
+    content: '•'; /* Simple bullet for metrics */
+    position: absolute;
+    left: 0;
+    color: var(--accent-color);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.6;
+}
+
+.simulated-data {
+    color: var(--accent-color-hover); /* More visible */
+    font-weight: var(--font-weight-semibold);
+}
+
+/* --- Labels (e.g., Three.js CSS2DLabel) --- */
+.label {
+    color: var(--label-text);
+    background: var(--label-background);
+    padding: 3px 8px; /* Slightly more padding */
+    border-radius: var(--border-radius-sm);
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+    /* Optional: slight text shadow for readability */
+    /* text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8); */
+}
 
 /* --- Error Messages --- */
-.error-message { display: none; color: var(--error-color); background-color: var(--error-background); border: var(--border-width) solid var(--error-border); padding: var(--space-md) var(--space-lg); border-radius: var(--border-radius-md); text-align: center; font-weight: var(--font-weight-semibold); margin: var(--space-md) auto; max-width: 80%; z-index: 10000; transition: opacity var(--transition-default); }
-.error-message strong { font-weight: var(--font-weight-bold); margin-right: var(--space-xs); }
-.visualization-container .error-message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: auto; max-width: 80%; margin: 0; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6); }
+.error-message {
+    display: none; /* Controlled by JS */
+    color: var(--error-color);
+    background-color: var(--error-background);
+    border: var(--border-width) solid var(--error-border);
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--border-radius-md);
+    text-align: center;
+    font-weight: var(--font-weight-semibold);
+    margin: var(--space-md) auto; /* Center general errors */
+    max-width: 80%;
+    z-index: 10000; /* Ensure it's on top */
+    transition: opacity var(--transition-default);
+}
+.error-message strong {
+    font-weight: var(--font-weight-bold);
+    margin-right: var(--space-xs);
+}
 
-/* --- Utilities --- */
-/* Hidden canvas logic removed as it wasn't used */
+/* Error message inside visualization containers */
+.visualization-container .error-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: auto; /* Auto width based on content */
+    max-width: 80%;
+    margin: 0; /* Reset margin */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+}
 
 /* --- Heatmap Visualization --- */
 .heatmap-container {
-    /* Position below metrics panel */
-    top: calc(var(--space-md) + 170px + var(--space-sm)); /* metrics top + metrics max-height + gap */
+    top: calc(var(--space-md) + 170px + var(--space-sm)); /* Below metrics */
     left: var(--space-md);
     width: 260px; /* Match metrics width */
-    height: 200px; /* Adjust height as needed */
+    height: 200px;
     padding: var(--space-sm);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    z-index: 5; /* Between canvas and overlay panels */
+    background: var(--overlay-background);
+    border: var(--border-width) solid var(--overlay-border-color);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--overlay-shadow);
 }
 
 #heatmap-content {
     display: grid;
-    /* Grid columns/rows set by JS */
     gap: 1px;
     width: 100%;
     height: 100%;
     flex-grow: 1;
-    background-color: #111; /* Dark bg for grid */
+    background-color: #111;
     border: 1px solid var(--input-border);
     overflow: hidden;
-    border-radius: var(--border-radius-sm); /* Match cell radius slightly */
+    border-radius: var(--border-radius-sm);
 }
 
 .heatmap-cell {
-    /* background-color set by JS */
-    min-width: 2px; /* Absolute minimum */
+    min-width: 2px;
     min-height: 2px;
-    width: 100%; /* Fill grid area */
+    width: 100%;
     height: 100%;
     border-radius: 1px;
     transition: background-color 0.1s ease-in-out;
 }
 .heatmap-cell:hover {
-     outline: 1px solid rgba(255, 255, 255, 0.5); /* Add hover outline */
-     z-index: 1; /* Bring to front on hover */
-     position: relative; /* Needed for z-index */
+    outline: 1px solid rgba(255, 255, 255, 0.5);
+    z-index: 1;
+    position: relative;
 }
 
+/* --- Utilities --- */
+#live2d-offscreen-canvas {
+    position: fixed;
+    top: -9999px;
+    left: -9999px;
+    width: 1px; /* Minimal size offscreen */
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+}
 
 /* ============================================= */
 /* == Scrollbar Styles == */
 /* ============================================= */
+/* Apply scrollbar styles to elements that might scroll */
 #chat-output::-webkit-scrollbar,
-.overlay-panel::-webkit-scrollbar { width: 8px; }
+.overlay-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
 #chat-output::-webkit-scrollbar-track,
-.overlay-panel::-webkit-scrollbar-track { background: var(--scrollbar-track); border-radius: var(--border-radius-sm); }
+.overlay-panel::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: var(--border-radius-sm);
+}
+
 #chat-output::-webkit-scrollbar-thumb,
-.overlay-panel::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: var(--border-radius-sm); border: 2px solid var(--scrollbar-track); }
+.overlay-panel::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: var(--border-radius-sm);
+    border: 2px solid var(--scrollbar-track); /* Creates padding effect */
+}
+
 #chat-output::-webkit-scrollbar-thumb:hover,
-.overlay-panel::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
-#chat-output, .overlay-panel { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); }
+.overlay-panel::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+/* Firefox scrollbar styling */
+#chat-output,
+.overlay-panel {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
 
 /* ============================================= */
 /* == Responsiveness == */
 /* ============================================= */
+
+/* --- Tablet (Medium Screens) --- */
 @media (max-width: 1024px) {
-    body { font-size: calc(var(--font-size-base) * 0.95); }
-    main { padding: 0 var(--space-sm); gap: var(--space-lg); }
-    .visualization-container { height: 600px; }
-    #metrics { width: 220px; max-height: 150px; }
-    #controls { width: 220px; }
-    #chat-container { width: calc(100% - (2 * var(--space-md))); max-width: 450px; left: var(--space-md); right: auto; max-height: 180px; bottom: var(--space-md); }
-    #info-panel { width: 250px; top: calc(var(--space-md) + 50px); }
-    #live2d-container { width: 200px; height: calc(200px * 4 / 3); bottom: var(--space-md); right: var(--space-md); z-index: 11; }
-    .heatmap-container { width: 220px; height: 150px; top: calc(var(--space-md) + 150px + var(--space-sm)); left: var(--space-md); } /* Adjust heatmap position */
-    #chat-container { left: calc(var(--space-md) + 220px + var(--space-md)); width: calc(100% - 260px - 3 * var(--space-md)); } /* Adjust chat next to heatmap */
+    body {
+        font-size: calc(var(--font-size-base) * 0.95); /* Slightly smaller base */
+    }
+
+    main {
+        padding: 0 var(--space-sm);
+        gap: var(--space-lg);
+    }
+
+    .visualization-container {
+        height: 600px; /* Reduce height */
+    }
+
+    /* Adjust overlay positions and sizes */
+    #metrics {
+        width: 220px; /* Narrower */
+        max-height: 150px; /* Space for heatmap */
+    }
+    #controls {
+        width: 220px; /* Narrower */
+    }
+    #chat-container {
+        left: calc(var(--space-md) + 220px + var(--space-md)); /* Beside heatmap */
+        width: calc(100% - 260px - 3 * var(--space-md)); /* Adjust width */
+        max-width: 450px; /* Limit max width */
+        max-height: 180px; /* Less max height */
+    }
+    #info-panel { /* Concept Info */
+        width: 250px; /* Narrower */
+        top: calc(var(--space-md) + 50px);
+    }
+    #live2d-container {
+        width: 200px; /* Smaller */
+        height: calc(200px * 4 / 3); /* Maintain aspect ratio */
+        bottom: var(--space-md); /* Keep bottom right */
+        right: var(--space-md);
+        z-index: 11; /* Ensure it's above controls if overlap occurs */
+    }
+    .heatmap-container {
+        width: 220px;
+        height: 150px;
+        top: calc(var(--space-md) + 150px + var(--space-sm)); /* Adjusted for smaller metrics */
+        left: var(--space-md);
+    }
+
+    header h1 {
+        font-size: 1.9rem;
+    }
+    header p {
+        font-size: var(--font-size-md);
+    }
 }
+
+/* --- Mobile (Small Screens) --- */
 @media (max-width: 768px) {
-    body { font-size: calc(var(--font-size-base) * 0.9); }
-    header { padding: var(--space-md) var(--space-sm); }
-    main { gap: var(--space-md); }
-    section { padding: var(--space-md); }
-    h2 { font-size: 1.4rem; margin-bottom: var(--space-md); }
-    h3 { font-size: 1.1rem; margin-bottom: var(--space-xs); }
-    .visualization-container { height: 500px; }
-    .overlay-panel { max-height: 150px; font-size: calc(var(--font-size-sm) * 0.95); }
-    #metrics { top: var(--space-sm); left: var(--space-sm); width: calc(50% - var(--space-md)); max-height: 100px; padding: var(--space-sm); }
-    #controls { top: var(--space-sm); right: var(--space-sm); left: auto; width: calc(50% - var(--space-md)); max-height: 130px; padding: var(--space-sm); }
-    #chat-container { bottom: var(--space-sm); left: var(--space-sm); right: var(--space-sm); width: auto; max-height: 110px; z-index: 12; }
-    #info-panel { display: none; }
-    #live2d-container { width: 120px; height: calc(120px * 4 / 3); bottom: calc(var(--space-sm) + 120px); right: var(--space-sm); z-index: 11; }
-    .heatmap-container { top: calc(var(--space-sm) + 100px + var(--space-xs)); left: var(--space-sm); width: calc(50% - var(--space-md)); height: 100px; padding: var(--space-xs); } /* Adjust heatmap for mobile */
-    .button-group { flex-direction: column; gap: var(--space-xs); }
-    .button-group button { padding: var(--space-sm); }
+    body {
+        font-size: calc(var(--font-size-base) * 0.9); /* Even smaller base */
+    }
+
+    header {
+        padding: var(--space-md) var(--space-sm);
+    }
+    main {
+        gap: var(--space-md);
+    }
+    section {
+        padding: var(--space-md);
+    }
+    h2 {
+        font-size: 1.4rem;
+        margin-bottom: var(--space-md);
+    }
+    h3 {
+        font-size: 1.1rem;
+        margin-bottom: var(--space-xs);
+    }
+
+    .visualization-container {
+        height: 500px; /* Further reduce height */
+    }
+
+    /* Stack overlays or drastically adjust */
+    .overlay-panel {
+        max-height: 150px; /* Limit height significantly */
+        font-size: calc(var(--font-size-sm) * 0.95); /* Smaller text in panels */
+    }
+
+    #metrics {
+        top: var(--space-sm);
+        left: var(--space-sm);
+        width: calc(50% - var(--space-md)); /* Half width minus gap */
+        max-height: 100px;
+        padding: var(--space-sm);
+    }
+    #controls {
+        top: var(--space-sm);
+        right: var(--space-sm);
+        left: auto; /* Reset left */
+        width: calc(50% - var(--space-md)); /* Half width minus gap */
+        max-height: 130px;
+        padding: var(--space-sm);
+    }
+    #chat-container {
+        bottom: var(--space-sm);
+        left: var(--space-sm);
+        right: var(--space-sm); /* Span across */
+        width: auto; /* Auto width */
+        max-height: 110px;
+        z-index: 12; /* Above metrics/controls potentially */
+    }
+    #info-panel { /* Concept Info */
+        display: none; /* Hide concept info panel */
+    }
+    #live2d-container {
+        width: 120px; /* Very small */
+        height: calc(120px * 4 / 3);
+        bottom: calc(var(--space-sm) + 120px); /* Position above chat */
+        right: var(--space-sm);
+        z-index: 11; /* Above controls */
+    }
+    .heatmap-container {
+        top: calc(var(--space-sm) + 100px + var(--space-xs)); /* Adjusted for smaller metrics */
+        left: var(--space-sm);
+        width: calc(50% - var(--space-md));
+        height: 100px;
+        padding: var(--space-xs);
+    }
+
+    .button-group {
+        flex-direction: column; /* Stack buttons */
+        gap: var(--space-xs);
+    }
+    .button-group button {
+        padding: var(--space-sm); /* Adjust padding */
+    }
 }
