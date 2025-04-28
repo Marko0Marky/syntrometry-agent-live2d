@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conscious Agent Architecture Diagram</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+    </script>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --accent-color: #A569BD;
+            --card-bg: #2a2a2a;
+            --border-color: #444;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 40px 20px;
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--accent-color);
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        p {
+            font-size: 1rem;
+            font-weight: 300;
+            margin-bottom: 24px;
+            text-align: center;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 24px 0;
+        }
+
+        .mermaid {
+            background-color: #222;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        .mermaid svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        p.note {
+            font-size: 0.9rem;
+            font-style: italic;
+            color: #b0b0b0;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 20px 10px;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            p {
+                font-size: 0.9rem;
+            }
+
+            .mermaid {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Conscious Agent Architecture (Syntrometrie/RIH Implementation)</h1>
+        <p>This diagram illustrates the data flow and component interactions within the `ConsciousAgent` implementation, including state processing, GNN-based Syntrix simulation, RIH metric calculation, value prediction, learning loop, and interaction with the environment and avatar.</p>
+        <hr>
+        <div class="mermaid">
+graph TB
+    %% Global Styling
+    classDef agent fill:#E8DAEF,stroke:#A569BD,stroke-width:2px,color:black,font-size:14px
+    classDef module fill:#D5F5E3,stroke:#58D68D,stroke-width:2px,color:black,font-size:14px
+    classDef metric fill:#FCF3CF,stroke:#F4D03F,stroke-width:2px,color:black,font-size:14px
+    classDef state fill:#D6EAF8,stroke:#5DADE2,stroke-width:1px,color:black,font-size:14px
+    classDef io fill:#FADBD8,stroke:#EC7063,stroke-width:2px,color:black,font-size:14px
+    classDef data fill:#FEF9E7,stroke:#F8C471,stroke-width:1px,color:black,font-size:12px
+
+    %% Inputs
+    subgraph "Inputs"
+        In_State["State (s_t, 12D)"]:::state
+        In_Reward["Reward (r)"]:::data
+        In_History["State History (H_t)"]:::state
+    end
+
+    %% Agent Core Processing (Forward Pass)
+    subgraph "Agent Core (Forward Pass)"
+        Agent["ConsciousAgent.forward"]:::agent
+        In_State --> Encoder["Encoder (Linear)"]:::module
+        Encoder --> GNN_Input["Encoded State"]:::state
+        GNN_Input --> BuildGraph["Build Graph"]:::module
+        BuildGraph --> GraphData["Graph Data (Nodes, Edges)"]:::data
+        GraphData --> RunGNN["Run GNN (Layers)"]:::module
+        GNN_Input --> RunGNN
+        RunGNN --> BeliefEmb["Belief Embedding"]:::state
+        BeliefEmb --> SelfReflect["Self Reflect Layer"]:::module
+        SelfReflect --> TranscendentEmb["Transcendent Embedding"]:::state
+
+        %% Metric Calculation Branch
+        TranscendentEmb --> ComputeMetrics["Compute Metrics"]:::metric
+        In_History --> ComputeMetrics
+        ComputeMetrics --> GeoMetrics["g_ik, Gamma, R"]:::data
+        ComputeMetrics --> RIHMetrics["I(S), rho, tau_t"]:::data
+        ComputeMetrics --> OtherMetrics["Stability, Zeta, t, dA/dt, Consistency"]:::data
+        GeoMetrics & RIHMetrics & OtherMetrics --> AllMetrics["Forward Metrics"]:::data
+
+        %% Value Prediction Branch
+        BeliefEmb --> ValueHead["Online Value Head"]:::module
+        ValueHead --> ValuePredS["Value V(s)"]:::data
+
+        %% Emotion Branch
+        In_State --> EmoState["Emotion State (R1-6)"]:::state
+        EmoState & In_Reward --> EmoModule["Emotional Module"]:::module
+        EmoModule --> Emotions["Updated Emotions (R1-6)"]:::state
+
+        %% Qualia Branch
+        TranscendentEmb --> QualiaHead["Qualia Output Head"]:::module
+        QualiaHead --> QualiaFeatures["Qualia Features (R7-12)"]:::state
+
+        %% Assembly & Feedback
+        Emotions & QualiaFeatures --> AssembleState["Assemble Full State"]:::module
+        AssembleState --> FullStateOut["New Full State (12D)"]:::state
+        TranscendentEmb --> FeedbackNet["Feedback Network"]:::module
+        FeedbackNet --> FeedbackSignal["Feedback Signal"]:::data
+    end
+
+    %% Outputs & Interactions
+    subgraph "Outputs & Interactions"
+        ForwardResult["Forward Result (Tuple)"]:::data
+        Emotions --> ForwardResult
+        BeliefEmb --> ForwardResult
+        RIHMetrics --> ForwardResult
+        OtherMetrics --> ForwardResult
+        GeoMetrics --> ForwardResult
+        FeedbackSignal --> ForwardResult
+        FullStateOut --> ForwardResult
+        ValuePredS --> ForwardResult
+        ForwardResult --"Emotions"--> Avatar["Avatar Expressions"]:::io
+        ForwardResult --"Attention Score"--> GenerateResponse["agent.generate_response"]:::agent
+        GenerateResponse --"Context"--> GPT["TransformerGPT"]:::module
+        GPT --> DialogueOut["Dialogue Response"]:::io
+        ForwardResult --"Qualia (R7-12)"--> EnvFeedback["env.update_qualia_feedback"]:::io
+    end
+
+    %% Learning Loop (Conceptual)
+    subgraph "Learning Loop (Async)"
+        Memory["Replay Memory (PER)"]:::data
+        LearnTask["_run_learn_task"]:::agent --"Samples Batch"--> Memory
+        BatchData["Batch (s, b, r, s', d)"]:::data --> Learn["Agent.learn"]:::agent
+        Indices["Indices"]:::data --> Learn
+        Weights["PER Weights"]:::data --> Learn
+        Learn --"Uses Online Nets (s)"--> AgentCore["Agent Core"]
+        Learn --"Uses Target Value Net (s')"--> TargetNet["Target Value Head"]:::module
+        Learn --"Calculates"--> Loss["Combined Loss (Value + RIH)"]:::metric
+        Learn --"Updates"--> AgentCore
+        Learn --"Updates"--> TargetNet
+        Learn --"Updates"--> Memory[("PER Priorities")]
+        Learn --"Adds Processed Batch"--> Memory
+    end
+
+    %% Connect Inputs to Agent
+    In_State --> Agent
+    In_Reward --> Agent
+    In_History --> Agent
+        </div>
+        <hr>
+        <p class="note"><em>Note: This diagram illustrates the internal data flow and component interactions of the ConsciousAgent during its forward pass and learning update.</em></p>
+    </div>
+</body>
+</html>
