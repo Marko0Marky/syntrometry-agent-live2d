@@ -1,7 +1,7 @@
 // js/viz-syntrometry.js
 
 import { Config } from './config.js';
-import { clamp, displayError, zeros } from './utils.js';
+import { clamp, displayError, zeros, lerp } from './utils.js'; // Import lerp
 
 // Assumes THREE, OrbitControls, CSS2DRenderer are available globally via CDN
 // We need CSS2DRenderer for labels here too
@@ -107,8 +107,8 @@ export function initThreeJS() {
 
 
             // Store original material properties and position for animation/highlighting
-            node.userData.originalColor = node.material.color.getHex();
-            node.userData.originalEmissive = node.material.emissive ? node.material.emissive.getHex() : null; // Handle materials without emissive
+            node.userData.originalColor = material.color.getHex();
+            node.userData.originalEmissive = material.emissive ? material.emissive.getHex() : 0x000000; // Default black emissive
             node.userData.originalPosition = new THREE.Vector3(x, y, z); // Store original position
             node.userData.dimensionIndex = i; // Store the index for identification
             node.userData.type = 'dimension'; // Add type for consistency
@@ -136,10 +136,11 @@ export function initThreeJS() {
         rihNode.position.copy(rihPosition);
 
         // Store original material properties and position for highlighting
-        rihNode.userData.originalColor = rihNode.material.color.getHex();
-        rihNode.userData.originalEmissive = rihNode.material.emissive ? rihNode.material.emissive.getHex() : null; // Handle materials without emissive
+        rihNode.userData.originalColor = rihMaterial.color.getHex();
+        rihNode.userData.originalEmissive = rihMaterial.emissive ? rihMaterial.emissive.getHex() : 0x000000; // Default black emissive
         rihNode.userData.originalPosition = rihPosition.clone(); // Store original position
         rihNode.userData.type = 'rih_node'; // Identify type for interaction
+        rihNode.userData.label = null; // No label
 
 
         scene.add(rihNode); // Add RIH node to scene
@@ -190,8 +191,7 @@ function setupSyntrometryInteraction() {
     syntrometryContainer.addEventListener('click', handleSyntrometryClickWrapper, false);
 
      // Initial call to update info panel (will show default state)
-     // This will be called from the app.js initialize function now.
-     // updateSyntrometryInfoPanel(); // Removed redundant call here
+     updateSyntrometryInfoPanel();
 
      console.log("Syntrometry interaction setup complete.");
 }
@@ -220,7 +220,7 @@ function onSyntrometryMouseMove(event, interactableObjects) {
     if (intersects.length > 0) {
          // Get the first intersected object (closest to camera) that has userData
          for(let i = 0; i < intersects.length; i++) {
-             if(intersects[i].object.userData) {
+             if(intersects[i].object?.userData) { // Safety check
                  newHoveredObject = intersects[i].object;
                  break; // Found a valid interactive object
              }
@@ -269,7 +269,7 @@ function onSyntrometryClick(event, interactableObjects) {
          // Get the first intersected object that has userData
         let clickedObject = null;
          for(let i = 0; i < intersects.length; i++) {
-             if(intersects[i].object.userData) {
+             if(intersects[i].object?.userData) { // Safety check
                  clickedObject = intersects[i].object;
                  break; // Found a valid interactive object
              }
@@ -333,9 +333,9 @@ export function updateSyntrometryInfoPanel() { // No arguments needed anymore
     let displayObject = null; // The object whose data we will display
 
     // Prioritize selected object over hovered object
-    if (selectedDimension && selectedDimension.userData) {
+    if (selectedDimension?.userData) { // Safety check userData
          displayObject = selectedDimension;
-    } else if (hoveredDimension && hoveredDimension.userData) {
+    } else if (hoveredDimension?.userData) { // Safety check userData
          displayObject = hoveredDimension;
     }
 
@@ -358,7 +358,7 @@ export function updateSyntrometryInfoPanel() { // No arguments needed anymore
         } else if (data.type === 'dimension' && data.dimensionIndex !== undefined) { // Check type and index
              // Display info for a dimension node
              const dimIndex = data.dimensionIndex;
-             const currentValue = (latestStateVector && latestStateVector.length > dimIndex) ? latestStateVector[dimIndex] : 0;
+             const initialValue = (latestStateVector && latestStateVector.length > dimIndex) ? latestStateVector[dimIndex] : 0;
              // Assuming affinities array matches dimension count and represents affinity from this dim to the *next* level's corresponding position
              // In the current sim, affinity is calculated BETWEEN levels, so affinities[i] is the affinity from level i to i+1.
              // Let's try to display the value of this dimension's state across the *last* cascade level it participated in.
@@ -367,7 +367,8 @@ export function updateSyntrometryInfoPanel() { // No arguments needed anymore
                  // Find the latest level where this dimension's original index is valid
                  for(let levelIndex = latestCascadeHistory.length - 1; levelIndex >= 0; levelIndex--) {
                      const level = latestCascadeHistory[levelIndex];
-                     if (level && level.length > dimIndex && level[dimIndex] !== undefined && level[dimIndex] !== null) {
+                     // Ensure level is valid array and index is within bounds
+                     if (level && Array.isArray(level) && level.length > dimIndex && level[dimIndex] !== undefined && level[dimIndex] !== null) {
                           finalCascadeValue = level[dimIndex];
                           break; // Found the latest valid value
                      }
@@ -381,14 +382,15 @@ export function updateSyntrometryInfoPanel() { // No arguments needed anymore
                 <p>An abstract dimension in the state vector.</p>
                 <p>Value influenced by environment emotions and internal dynamics.</p>
                 <p><i>Updates dynamically based on simulation.</i></p>
-                <p><span class="simulated-data">Initial Value: ${currentValue.toFixed(3)}</span></p>
+                <p><span class="simulated-data">Initial Value: ${initialValue.toFixed(3)}</span></p>
                 <p><span class="simulated-data">Final Cascade Value: ${finalCascadeValueDisplay}</span></p>
              `;
              // Optional: Add info about this dimension's value in all cascade levels
              if (latestCascadeHistory && latestCascadeHistory.length > 0) {
                   infoHtml += `<p><b>Cascade Values:</b></p><ul>`;
                   latestCascadeHistory.forEach((level, levelIndex) => {
-                       if (level && level.length > dimIndex && level[dimIndex] !== undefined && level[dimIndex] !== null) {
+                       // Ensure level is valid array and index is within bounds
+                       if (level && Array.isArray(level) && level.length > dimIndex && level[dimIndex] !== undefined && level[dimIndex] !== null) {
                            infoHtml += `<li>Level ${levelIndex}: ${level[dimIndex].toFixed(3)}</li>`;
                        }
                   });
@@ -443,14 +445,17 @@ export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, inte
     latestCascadeHistory = cascadeHistory; // Store cascade history
     latestContext = context; // Store context
 
+    const avgAffinity = (affinities && affinities.length > 0 ? affinities.reduce((a,b)=>a+b,0)/affinities.length : 0);
+
 
     // Clear old edges BEFORE creating new ones
     // Use `dispose()` on geometry and material to free up GPU memory
-    edgesGroup.children.forEach(child => {
-         if (child.geometry) child.geometry.dispose();
-         if (child.material) child.material.dispose();
-    });
-    edgesGroup.children.length = 0; // Remove all edge meshes from the array
+    while(edgesGroup.children.length > 0){
+        const edge = edgesGroup.children[0];
+        if (edge.geometry) edge.geometry.dispose();
+        if (edge.material) edge.material.dispose();
+        edgesGroup.remove(edge);
+    }
 
 
     // --- Node Animation & Highlight Effects ---
@@ -468,7 +473,8 @@ export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, inte
     for (let i = 0; i < Config.DIMENSIONS; i++) {
         const node = nodes[i];
         // Ensure necessary userData exists
-        if (!node || !node.material || !node.material.color || !node.userData || !node.userData.originalPosition || node.userData.originalColor === undefined || node.userData.originalEmissive === undefined) {
+        if (!node || !node.material || !node.material.color || !node.userData || !node.userData.originalPosition || node.userData.originalColor === undefined) {
+             // Removed originalEmissive check as it might be null
              console.warn(`Missing required userData for dimension node ${i}. Skipping animation/highlight.`); // Added index to warning
              continue;
          }
@@ -480,7 +486,7 @@ export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, inte
         const originalPosition = node.userData.originalPosition;
          // Use stored original material properties for highlighting base
          const originalColor = new THREE.Color(node.userData.originalColor);
-         const originalEmissive = new THREE.Color(node.userData.originalEmissive);
+         const originalEmissive = new THREE.Color(node.userData.originalEmissive ?? 0x000000); // Default black if null
 
 
         const isSelected = selectedDimension === node;
@@ -488,7 +494,7 @@ export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, inte
          // Check if node is linked to the selected/hovered RIH node
          // A dimension node is linked to RIH if RIH is selected/hovered AND this dimension exists in the *last* cascade level (where RIH is calculated from variance)
          const lastCascadeLevel = latestCascadeHistory && latestCascadeHistory.length > 0 ? latestCascadeHistory[latestCascadeHistory.length - 1] : [];
-         const isLinkedToRih = lastCascadeLevel.length > i; // Is this dimension's value represented in the final cascade level?
+         const isLinkedToRih = Array.isArray(lastCascadeLevel) && lastCascadeLevel.length > i; // Is this dimension's value represented in the final cascade level?
 
          const isLinkedToRihSelected = selectedDimension === rihNode && isLinkedToRih;
          const isLinkedToRihHovered = !isSelected && !isLinkedToRihSelected && hoveredDimension === rihNode && isLinkedToRih;
@@ -499,6 +505,7 @@ export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, inte
         let targetScale = new THREE.Vector3(1.0, 1.0, 1.0); // Default base scale is 1.0 for dimensions
         let targetColor = originalColor.clone();
         let targetEmissive = originalEmissive.clone();
+        const lerpFactor = 0.1; // Smoothing factor
 
 
         // Apply base color/emissive based on state value (always applies unless highlighted)
@@ -507,7 +514,7 @@ export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, inte
          const saturation = 0.8;
          const lightness = 0.4 + Math.abs(value) * 0.3; // Intensity based on absolute value
          targetColor.setHSL(hue, saturation, lightness);
-         targetEmissive.copy(targetColor).multiplyScalar(0.3); // Emissive matches color intensity
+         targetEmissive.copy(targetColor).multiplyScalar(0.3 + Math.abs(value) * 0.3); // Emissive scales with value intensity
 
 
         if (isSelected || isHovered) {
@@ -516,42 +523,43 @@ export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, inte
             targetEmissive.copy(nodeHighlightEmissive);
             const highlightScaleFactor = 1.0 + (isSelected ? 0.3 : 0.15); // Bigger scale if selected
             targetScale.set(highlightScaleFactor, highlightScaleFactor, highlightScaleFactor);
+            targetPosition.z = originalPosition.z + value * 0.5 + (isSelected ? 0.1 : 0.05); // Pull forward slightly
 
         } else if (isLinkedToRihSelected || isLinkedToRihHovered) {
              // Apply subtle highlight for linked nodes (those connected to RIH)
-             targetColor.copy(linkedColor);
-             targetEmissive.copy(linkedEmissive);
-             targetScale.set(1.0, 1.0, 1.0); // No scale change for linked
+             targetColor.lerp(linkedColor, 0.5); // Blend towards linked color
+             targetEmissive.lerp(linkedEmissive, 0.5); // Blend towards linked emissive
+             targetScale.set(1.05, 1.05, 1.05); // Slightly larger if linked to RIH
+             targetPosition.z = originalPosition.z + value * 0.5; // Normal Z position
         }
         else {
             // Target State for Non-highlighted Objects (apply base animation)
-            // Animate position along Z axis based on state value
-             targetPosition.z = originalPosition.z + value * 0.5;
+            // Animate position along Z axis based on state value, influenced by reflexivity
+            targetPosition.z = originalPosition.z + value * (0.5 + reflexivityParam * 0.3);
 
-             // Scale node based on integration parameter and affinity (Using affinities for this dimension if available)
-             // Note: Affinity is calculated between cascade levels. For dim i, we use affinity at index i.
-             // The affinities array length is N-1 if comparing N levels. We need to map this.
-             // Let's use the affinity score related to this dimension's collapse in the cascade.
-             const affinityValueForNode = (affinities && affinities.length > i && affinities[i] !== undefined && affinities[i] !== null) ? affinities[i] : 0;
-             const affinityScale = Math.abs(affinityValueForNode) * 0.5; // Scale based on affinity magnitude
-             const scaleFactor = 1.0 + integrationParam * 0.5 + affinityScale; // Scale factors: base, integration param, affinity
+             // Scale node based on integration parameter and this dimension's state value magnitude
+             const valueScale = Math.abs(value) * 0.4; // Scale based on value magnitude
+             const scaleFactor = 1.0 + integrationParam * 0.3 + valueScale; // Scale factors: base, integration param, value magnitude
              targetScale.set(scaleFactor, scaleFactor, scaleFactor); // Apply scale
         }
 
         // --- Apply Interpolated State ---
         // Lerp current properties towards the determined target properties
-        node.position.lerp(targetPosition, 0.1);
-        node.scale.lerp(targetScale, 0.1);
-        node.material.color.lerp(targetColor, 0.1);
+        node.position.lerp(targetPosition, lerpFactor);
+        node.scale.lerp(targetScale, lerpFactor);
+        node.material.color.lerp(targetColor, lerpFactor);
         // Check if material has emissive before lerping emissive (MeshPhongMaterial does)
          if (node.material.emissive) {
-              node.material.emissive.lerp(targetEmissive, 0.1);
+              node.material.emissive.lerp(targetEmissive, lerpFactor);
          }
 
 
         // --- Apply Base Rotation (Always Applies unless Selected) ---
          if (!isSelected) { // Only apply base rotation if NOT selected
-             node.rotation.y += deltaTime * 0.1; // Slightly slower base rotation
+              // Rotation speed influenced by reflexivity and value magnitude
+             const rotSpeed = deltaTime * (0.05 + reflexivityParam * 0.1 + Math.abs(value) * 0.1);
+             node.rotation.y += rotSpeed;
+             node.rotation.x += rotSpeed * 0.5 * Math.sin(time + i); // Add some variation
          }
 
 
@@ -567,32 +575,35 @@ export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, inte
             const distSq = node.position.distanceToSquared(nodeJ.position);
             // Use a reasonable distance threshold for drawing edges
             if (distSq < 4.0) { // Distance threshold for connections
-                // Calculate edge opacity based on simulation state (affinity)
-                 // Assuming affinities relates to transitions between cascade levels.
-                 // The affinity at index `k` relates to the condensation from level `k` to `k+1`.
-                 // It's not a direct one-to-one mapping to dimension nodes.
-                 // A simple approach: use the average affinity for all edges.
-                 const avgAffinity = (affinities && affinities.length > 0 ? affinities.reduce((a,b)=>a+b,0)/affinities.length : 0);
-                 const baseOpacity = clamp(0.3 + Math.abs(avgAffinity) * 0.5, 0.05, 0.7); // Base opacity increases with average affinity magnitude
+                // Calculate edge base opacity based on avgAffinity and integrationParam
+                 const baseOpacity = clamp(0.15 + Math.abs(avgAffinity) * 0.4 + integrationParam * 0.2, 0.05, 0.7);
 
 
-                // Check if this edge is connected to a selected/hovered node
-                 const isEdgeHighlighted = isSelected || isHovered || selectedDimension === nodeJ || hoveredDimension === nodeJ || isLinkedToRihSelected || isLinkedToRihHovered; // Edge is highlighted if EITHER connected node OR RIH is highlighted
-
+                // Check if this edge is connected to a selected/hovered node OR the selected/hovered RIH node
+                 const isEdgeSelected = isSelected || selectedDimension === nodeJ || (selectedDimension === rihNode && (isLinkedToRih || (Array.isArray(lastCascadeLevel) && lastCascadeLevel.length > j)));
+                 const isEdgeHovered = !isEdgeSelected && (isHovered || hoveredDimension === nodeJ || (hoveredDimension === rihNode && (isLinkedToRih || (Array.isArray(lastCascadeLevel) && lastCascadeLevel.length > j))));
 
                  const edgeMaterial = baseEdgeMaterial.clone(); // Clone material for each edge (LineBasicMaterial)
-                 if (isEdgeHighlighted) {
-                      // Apply highlight color and increased opacity (no emissive for BasicMaterial)
-                      edgeMaterial.color.copy(edgeHighlightColor);
-                      edgeMaterial.opacity = clamp(baseOpacity * 1.5, 0.6, 1.0); // Increase opacity
+                 let targetEdgeColor = edgeMaterial.color.clone();
+                 let targetEdgeOpacity = baseOpacity;
+
+                 if (isEdgeSelected || isEdgeHovered) {
+                      // Apply highlight color and increased opacity
+                      targetEdgeColor.copy(edgeHighlightColor);
+                      targetEdgeOpacity = clamp(baseOpacity * 1.5 + (isEdgeSelected ? 0.2 : 0), 0.6, 1.0); // More opaque if selected
                  } else {
-                      // Use base color and opacity based on simulation state
-                      // Edge color blends between connected node colors if not highlighted
-                     const startColor = node.material.color; // Use node's current color (PhongMaterial)
-                     const endColor = nodeJ.material.color; // Use nodeJ's current color (PhongMaterial)
-                      edgeMaterial.color.lerpColors(startColor, endColor, 0.5); // Simple midpoint color
-                      edgeMaterial.opacity = baseOpacity; // Use base opacity
+                      // Blend edge color between connected node colors based on affinity
+                     const startColor = node.material.color; // Use node's current color
+                     const endColor = nodeJ.material.color; // Use nodeJ's current color
+                     // Blend factor based on affinity (closer to 1 means stronger color blend)
+                     const blendFactor = clamp(0.5 + avgAffinity * 0.5, 0, 1);
+                     targetEdgeColor.lerpColors(startColor, endColor, blendFactor);
+                     targetEdgeOpacity = baseOpacity;
                  }
+
+                // Update edge material directly (since we recreate edges each frame)
+                edgeMaterial.color = targetEdgeColor;
+                edgeMaterial.opacity = targetEdgeOpacity;
 
                 const geometry = new THREE.BufferGeometry();
                 const positions = new Float32Array(6); // 2 points * 3 coordinates (x, y, z)
@@ -600,33 +611,38 @@ export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, inte
                 nodeJ.position.toArray(positions, 3); // End point is node j position
                 geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-                 // No need for colors attribute if vertexColors is false
-
                 const edge = new THREE.Line(geometry, edgeMaterial); // Create the line segment
                 edgesGroup.add(edge); // Add to the edges group
             }
         }
 
          // Edge between this node (i) and the RIH node
-        if (rihNode && rihNode.position && rihNode.userData && rihNode.material) { // Added check for rihNode.material
+        if (rihNode?.position && rihNode.userData && rihNode.material) {
             const rihEdgeMaterial = baseEdgeMaterial.clone(); // Clone material (LineBasicMaterial)
-            // Opacity based on node's state value magnitude and overall RIH score
-           const baseOpacity = clamp(Math.abs(value) * 0.5 + rihScore * 0.3, 0.05, 0.7);
-           // Check if this edge is connected to a selected/hovered node
-           const isEdgeHighlighted = isSelected || isHovered || selectedDimension === rihNode || hoveredDimension === rihNode;
+            // Opacity based on node's value magnitude, RIH score, and reflexivity
+           const baseOpacity = clamp(Math.abs(value) * 0.3 + rihScore * 0.4 + reflexivityParam * 0.2, 0.05, 0.8);
+           // Check if this edge is connected to a selected/hovered node (node i or RIH node)
+           const isEdgeSelected = isSelected || selectedDimension === rihNode;
+           const isEdgeHovered = !isEdgeSelected && (isHovered || hoveredDimension === rihNode);
 
-            if (isEdgeHighlighted) {
-                 // Apply highlight color and increased opacity (no emissive for BasicMaterial)
-                 rihEdgeMaterial.color.copy(edgeHighlightColor);
-                 rihEdgeMaterial.opacity = clamp(baseOpacity * 1.5, 0.6, 1.0); // Increase opacity
+           let targetEdgeColor = rihEdgeMaterial.color.clone();
+           let targetEdgeOpacity = baseOpacity;
+
+            if (isEdgeSelected || isEdgeHovered) {
+                 // Apply highlight color and increased opacity
+                 targetEdgeColor.copy(edgeHighlightColor);
+                 targetEdgeOpacity = clamp(baseOpacity * 1.4 + (isEdgeSelected ? 0.2 : 0), 0.6, 1.0);
             } else {
-                 // Use base color and opacity
-                 // Blend colors between the dimension node's current color and the RIH node's current color
-                 const startColor = node.material.color; // Use dimension node's current color (PhongMaterial)
-                 const endColor = rihNode.material.color; // Use RIH node's current color (PhongMaterial)
-                  rihEdgeMaterial.color.lerpColors(startColor, endColor, 0.5); // Simple midpoint color
-                  rihEdgeMaterial.opacity = baseOpacity; // Use base opacity
+                 // Blend colors between the dimension node's current color and the RIH node's current color, weighted by RIH
+                 const startColor = node.material.color;
+                 const endColor = rihNode.material.color;
+                 targetEdgeColor.lerpColors(startColor, endColor, clamp(0.3 + rihScore * 0.7, 0.1, 0.9));
+                 targetEdgeOpacity = baseOpacity;
             }
+
+            // Update edge material directly
+            rihEdgeMaterial.color = targetEdgeColor;
+            rihEdgeMaterial.opacity = targetEdgeOpacity;
 
 
            const geometry = new THREE.BufferGeometry();
@@ -635,32 +651,32 @@ export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, inte
            rihNode.position.toArray(positions, 3); // End point is RIH node position
            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-            // No need for colors attribute if vertexColors is false
-
            const rihEdge = new THREE.Line(geometry, rihEdgeMaterial);
            edgesGroup.add(rihEdge);
         } else if (rihNode && (!rihNode.material || !rihNode.userData)) {
-             console.warn("RIH node material or userData missing for edge creation/update.");
+             // console.warn("RIH node material or userData missing for edge creation/update."); // Avoid console flood
         }
 
 
-        // Ensure labels stay correctly positioned relative to the node scale
+        // Ensure labels stay correctly positioned relative to the node scale and match opacity
         if (node.userData.label) {
              const label = node.userData.label;
              const baseOffset = nodeBaseScale * 1.5; // Keep consistent with creation
              label.position.y = baseOffset * node.scale.y; // Adjust label Y position based on current Y scale
              // Labels should also adjust visibility/opacity if the node is hidden or faded
-             // label.element.style.opacity = node.material.opacity; // Requires material opacity to be animated
+             label.element.style.opacity = clamp(node.material.opacity ?? 1.0, 0.2, 1.0); // Use node opacity (if material has it), ensure minimum visibility
+             label.element.style.display = label.element.style.opacity < 0.25 ? 'none' : 'block'; // Hide if too faint
         }
 
    } // End of dimension node loop
 
     // --- Animate and Highlight the RIH Node ---
-    if (rihNode && rihNode.material && rihNode.material.color && rihNode.userData && rihNode.userData.originalPosition) {
+    if (rihNode?.material?.color && rihNode.userData?.originalPosition) {
          const originalPosition = rihNode.userData.originalPosition;
          const originalColor = new THREE.Color(rihNode.userData.originalColor);
-         const originalEmissive = rihNode.userData.originalEmissive !== null ? new THREE.Color(rihNode.userData.originalEmissive) : new THREE.Color(0x000000); // Handle potential null emissive
+         const originalEmissive = new THREE.Color(rihNode.userData.originalEmissive ?? 0x000000);
          const baseScale = nodeBaseScale * 1.5; // Base scale from creation
+         const lerpFactor = 0.1;
 
          const isSelected = selectedDimension === rihNode;
          const isHovered = !isSelected && hoveredDimension === rihNode;
@@ -670,48 +686,47 @@ export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, inte
          let targetEmissive = originalEmissive.clone();
          let targetScale = new THREE.Vector3(baseScale, baseScale, baseScale);
 
-         // Base color/emissive based on RIH score and Avg Affinity (always applies unless highlighted)
-         targetColor.lerp(new THREE.Color(1, 1, 1), clamp(rihScore, 0, 1) * 0.5);
-         targetEmissive.copy(targetColor).multiplyScalar(clamp(rihScore * 0.8 + (affinities && affinities.length > 0 ? affinities.reduce((a,b)=>a+b,0)/affinities.length : 0) * 0.3, 0.3, 0.9)); // Emissive based on RIH and Avg Affinity
+         // Base color/emissive intensity based on RIH score and Avg Affinity
+         targetColor.lerp(new THREE.Color(1, 1, 1), clamp(rihScore, 0, 1) * 0.6); // More white with higher RIH
+         targetEmissive.copy(targetColor).multiplyScalar(clamp(rihScore * 0.7 + Math.abs(avgAffinity) * 0.3, 0.3, 0.9)); // Stronger emissive with RIH/Affinity
 
-         // Base Scale based on RIH score and Avg Affinity
-         const rihScaleFactor = baseScale * (1.0 + clamp(rihScore, 0, 1) * 0.8 + (affinities && affinities.length > 0 ? affinities.reduce((a,b)=>a+b,0)/affinities.length : 0) * 0.3);
-         targetScale.set(rihScaleFactor, rihScaleFactor, rihScaleFactor);
+         // Base Scale pulse based on RIH score and reflexivityParam
+         const rihScaleFactor = baseScale * (1.0 + clamp(rihScore, 0, 1) * 0.5 + reflexivityParam * 0.2);
+         const pulse = (Math.sin(time * (2.0 + rihScore * 3.0)) * 0.5 + 0.5) * clamp(rihScore, 0.2, 1.0) * 0.2; // Pulse stronger/faster with higher RIH
+         targetScale.set(rihScaleFactor + pulse, rihScaleFactor + pulse, rihScaleFactor + pulse);
 
 
          // Apply Highlight State - Overrides base color/emissive/scale if highlighted
          if (isSelected || isHovered) {
              targetColor.copy(nodeHighlightColor);
              targetEmissive.copy(nodeHighlightEmissive);
-             const highlightScaleFactor = baseScale * (isSelected ? 1.4 : 1.2); // Bigger scale if selected
+             const highlightScaleFactor = baseScale * (1.4 + (isSelected ? 0.2 : 0)); // Bigger scale if selected
              targetScale.set(highlightScaleFactor, highlightScaleFactor, highlightScaleFactor);
          }
 
 
          // --- Apply Interpolated State ---
          rihNode.position.copy(rihNode.userData.originalPosition); // RIH node doesn't oscillate position based on type
-         rihNode.scale.lerp(targetScale, 0.1);
-         rihNode.material.color.lerp(targetColor, 0.1);
+         rihNode.scale.lerp(targetScale, lerpFactor);
+         rihNode.material.color.lerp(targetColor, lerpFactor);
          // Check if material has emissive before lerping emissive
          if (rihNode.material.emissive) {
-              rihNode.material.emissive.lerp(targetEmissive, 0.1);
+              rihNode.material.emissive.lerp(targetEmissive, lerpFactor);
          }
 
 
-        // RIH node rotation (Always Applies unless Selected)
+        // RIH node rotation speed based on RIH and integrationParam
          if (!isSelected) {
-            rihNode.rotation.y += deltaTime * 0.15;
+             const rotSpeed = deltaTime * (0.1 + rihScore * 0.2 + integrationParam * 0.1);
+            rihNode.rotation.y += rotSpeed;
+            rihNode.rotation.x += rotSpeed * 0.6 * Math.cos(time * 0.5); // Wobble effect
          }
 
 
-        // RIH node label (if exists) - It doesn't have one currently, but good to handle if added
-         // if (rihNode.userData.label) {
-         //      const label = rihNode.userData.label;
-         //      const baseOffset = nodeBaseScale * 2.0; // Adjust offset for RIH node size
-         //      label.position.y = baseOffset * rihNode.scale.y;
-         // }
+        // RIH node label (if exists) - It doesn't have one currently
+         // ...
     } else if (rihNode) {
-        console.warn("RIH node material, userData, or originalPosition missing for animation/highlight.");
+        // console.warn("RIH node material, userData, or originalPosition missing for animation/highlight."); // Avoid console flood
     }
 
 
@@ -766,13 +781,13 @@ export function cleanupThreeJS() {
     // Dispose renderer and remove canvas
     if (renderer) {
         renderer.dispose();
-        if (syntrometryContainer && syntrometryContainer.contains(renderer.domElement)) {
+        if (syntrometryContainer?.contains(renderer.domElement)) { // Safety check
              syntrometryContainer.removeChild(renderer.domElement);
          }
         renderer = null;
     }
     // Dispose label renderer and remove its element
-     if (labelRenderer && labelRenderer.domElement) {
+     if (labelRenderer?.domElement) { // Safety check
          labelRenderer.domElement.remove();
          labelRenderer = null;
      }
@@ -781,25 +796,19 @@ export function cleanupThreeJS() {
     // Dispose geometries and materials associated with nodes and remove labels
     if (nodes) {
         nodes.forEach(node => {
+             if (!node) return; // Safety check
              if (node.geometry) node.geometry.dispose();
-             if (node.material) node.material.dispose(); // Dispose node material
+             if (node.material) node.material.dispose();
              // Remove and dispose label if it exists
-             if (node.userData && node.userData.label) {
-                 if (node.userData.label.element && node.userData.label.element.parentNode) {
-                     node.userData.label.element.parentNode.removeChild(node.userData.label.element);
+             if (node.userData?.label) { // Safety check
+                 const label = node.userData.label;
+                 if (label.element?.parentNode) { // Safety check
+                     label.element.parentNode.removeChild(label.element);
                  }
-                 // No dispose method for CSS2DObject itself, but element is removed
-                 node.remove(node.userData.label); // Remove from node hierarchy
+                 node.remove(label); // Remove from node hierarchy
                  node.userData.label = null;
              }
-             // Dispose children (reflexivity loops) geometries/materials
-             while(node.children.length > 0) {
-                 const child = node.children[0];
-                 if (child.geometry) child.geometry.dispose();
-                 if (child.material) child.material.dispose(); // Dispose child material
-                 node.remove(child); // Remove from node
-             }
-            scene.remove(node); // Remove node from scene
+            scene?.remove(node); // Remove node from scene if scene exists
         });
         nodes = []; // Clear the array
     }
@@ -808,26 +817,19 @@ export function cleanupThreeJS() {
     if (rihNode) {
         if (rihNode.geometry) rihNode.geometry.dispose();
         if (rihNode.material) rihNode.material.dispose();
-         // Dispose label if RIH node had one (it doesn't currently, but for completeness)
-         if (rihNode.userData && rihNode.userData.label) {
-              if (rihNode.userData.label.element && rihNode.userData.label.element.parentNode) {
-                 rihNode.userData.label.element.parentNode.removeChild(rihNode.userData.label.element);
-             }
-              rihNode.remove(rihNode.userData.label);
-              rihNode.userData.label = null;
-         }
-        scene.remove(rihNode);
+        scene?.remove(rihNode); // Remove from scene if scene exists
         rihNode = null;
     }
 
     // Dispose edge geometries and materials in the edges group
      if (edgesGroup) {
-        edgesGroup.children.forEach(child => {
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) child.material.dispose();
-        });
-        edgesGroup.children.length = 0; // Clear the array
-        scene.remove(edgesGroup); // Remove group from scene
+        while(edgesGroup.children.length > 0){
+            const edge = edgesGroup.children[0];
+            if (edge.geometry) edge.geometry.dispose();
+            if (edge.material) edge.material.dispose();
+            edgesGroup.remove(edge);
+        }
+        scene?.remove(edgesGroup); // Remove group from scene if scene exists
         edgesGroup = null;
      }
 
@@ -851,7 +853,7 @@ export function cleanupThreeJS() {
 
 
     // Dispose scene (optional, often not necessary unless using complex materials/textures)
-    // scene.dispose(); // Use with caution
+    // scene?.dispose(); // Use with caution if scene exists
     scene = null; // Nullify scene
 
     threeInitialized = false;
@@ -865,12 +867,16 @@ function handleSyntrometryMouseMoveWrapper(event) {
      // Create the current list of interactable objects dynamically
      const interactableObjects = [...nodes, rihNode].filter(obj => obj !== null && obj !== undefined);
      onSyntrometryMouseMove(event, interactableObjects);
-     // The animation loop calls updateSyntrometryInfoPanel every frame, reacting to state changes.
+     // After move, update info panel IF nothing is selected
+     if (!selectedDimension) {
+         updateSyntrometryInfoPanel();
+     }
 }
 
 function handleSyntrometryClickWrapper(event) {
      // Create the current list of interactable objects dynamically
      const interactableObjects = [...nodes, rihNode].filter(obj => obj !== null && obj !== undefined);
      onSyntrometryClick(event, interactableObjects);
-     // The animation loop calls updateSyntrometryInfoPanel every frame, reacting to state changes.
+     // After click, always update info panel to reflect new state
+     updateSyntrometryInfoPanel();
 }
