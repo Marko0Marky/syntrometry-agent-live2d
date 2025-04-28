@@ -5,11 +5,11 @@ import { Config, emotionKeywords } from './config.js';
 import { displayError, appendChatMessage, zeros, tensor, clamp } from './utils.js';
 import { SyntrometricAgent } from './agent.js'; // Using the updated V2.3 agent
 import { EmotionalSpace } from './environment.js';
-// --- CORRECTED IMPORT (No duplicate function below) ---
+// --- CORRECTED IMPORT ---
 import {
     initThreeJS, updateThreeJS, cleanupThreeJS, updateSyntrometryInfoPanel,
     threeInitialized, calculateGraphFeatures, // Import the function
-    rihNode // Import rihNode directly (if needed elsewhere)
+    rihNode // Import rihNode directly (if needed elsewhere, otherwise remove) - calculation func will use internal ref
 } from './viz-syntrometry.js';
 // -------------------------
 import {
@@ -36,25 +36,108 @@ let currentCascadeHistory = [];
 let currentIntegrationParam = 0.5;
 let currentReflexivityParam = 0.5;
 let currentTrustScore = 1.0;
-let currentBeliefNorm = 0.0;
+let currentBeliefNorm = 0.0; // Track norm of belief embedding
+let currentSelfStateNorm = 0.0; // Track norm of self-state
 
 const appClock = new THREE.Clock();
 const SAVED_STATE_KEY = 'syntrometrySimulationState_v2_3'; // New key for V2.3 state
 
 // Timestamps for Input Feedback
 let lastIntegrationInputTime = -1;
-let lastReflexivityInputTime = -1;
+let lastReflexivityInputTime = -1; // Correct declaration name
 let lastChatImpactTime = -1;
-const inputFeedbackDuration = 0.5;
+const inputFeedbackDuration = 0.5; // How long the feedback effect should last (seconds)
 
 
-// --- REMOVED calculateGraphFeatures function definition from here ---
+// --- Helper Function ---
+/**
+ * Calculates L2 norm (magnitude) of a plain JS array.
+ * @param {number[]} arr The input array.
+ * @returns {number} The L2 norm.
+ */
+function calculateArrayNorm(arr) {
+    if (!Array.isArray(arr) || arr.length === 0) return 0.0;
+    let sumSq = 0;
+    for (const val of arr) {
+        // Ensure value is a number before squaring
+        if (typeof val === 'number' && isFinite(val)) {
+            sumSq += val * val;
+        }
+    }
+    return Math.sqrt(sumSq);
+}
+
+/**
+ * Updates the heatmap visualization with the agent's state vector.
+ * @param {number[]} stateVector - The agent's state vector (e.g., selfState array).
+ * @param {string} targetElementId - The ID of the container element for the heatmap.
+ */
+function updateHeatmap(stateVector, targetElementId) {
+    const heatmapContainer = document.getElementById(targetElementId);
+    if (!heatmapContainer || !Array.isArray(stateVector)) {
+        return;
+    }
+
+    const vectorLength = stateVector.length;
+    if (vectorLength === 0) {
+        heatmapContainer.innerHTML = ''; // Clear if no data
+        return;
+    }
+
+    // Determine Grid Dimensions (approx square)
+    const gridDim = Math.ceil(Math.sqrt(vectorLength));
+    // Calculate cell size based on container width/height if possible, otherwise fixed size
+    const containerWidth = heatmapContainer.clientWidth;
+    const containerHeight = heatmapContainer.clientHeight;
+    // Use slightly less than 100% to account for gaps
+    const cellSizePercent = Math.max(0.1, (100 / gridDim) - (100 * (gridDim-1) / (gridDim * Math.max(containerWidth, containerHeight))) );
+
+    heatmapContainer.style.gridTemplateColumns = `repeat(${gridDim}, ${cellSizePercent}%)`;
+    heatmapContainer.style.gridTemplateRows = `repeat(${gridDim}, ${cellSizePercent}%)`;
+
+    // Generate Heatmap Cells
+    let htmlContent = '';
+    for (let i = 0; i < vectorLength; i++) {
+        const value = stateVector[i] ?? 0; // Default to 0 if undefined/null
+
+        // Simple Color Mapping (-1 Blue -> 0 Grey -> 1 Red)
+        let r = 128, g = 128, b = 128; // Start Grey
+        const intensity = Math.min(1.0, Math.abs(value)); // Intensity 0 to 1, capped at 1
+
+        if (value > 0) { // Positive -> Red
+            r = 128 + Math.round(127 * intensity);
+            g = 128 - Math.round(128 * intensity);
+            b = 128 - Math.round(128 * intensity);
+        } else if (value < 0) { // Negative -> Blue
+            r = 128 - Math.round(128 * intensity);
+            g = 128 - Math.round(128 * intensity);
+            b = 128 + Math.round(127 * intensity);
+        }
+        r = clamp(r, 0, 255); g = clamp(g, 0, 255); b = clamp(b, 0, 255);
+
+        const color = `rgb(${r}, ${g}, ${b})`;
+        const tooltip = `Value: ${value.toFixed(4)}`;
+        htmlContent += `<div class="heatmap-cell" style="background-color: ${color};" title="${tooltip}"></div>`;
+    }
+
+    // Add filler cells if vector length isn't a perfect square
+    const totalCells = gridDim * gridDim;
+    for (let i = vectorLength; i < totalCells; i++) {
+        htmlContent += `<div class="heatmap-cell" style="background-color: #181820;"></div>`; // Darker filler color
+    }
+
+    // Update DOM
+    heatmapContainer.innerHTML = htmlContent;
+}
 
 
 // --- Initialization ---
+/**
+ * Initializes all components of the application.
+ */
 async function initialize() {
     console.log("Initializing application (Agent V2.3)...");
-    const coreInitSuccess = initAgentAndEnvironment();
+    const coreInitSuccess = initAgentAndEnvironment(); // Creates the V2.3 agent
     const threeSuccess = initThreeJS();
     const conceptSuccess = initConceptVisualization(appClock);
     const live2dSuccess = await initLive2D();
@@ -72,21 +155,26 @@ async function initialize() {
      // --- Initial State Setup ---
      let initialStateLoaded = false;
      if (coreInitSuccess) {
-         initialStateLoaded = loadState(false);
+         initialStateLoaded = loadState(false); // Load V2.3 state
      }
 
-     if (!initialStateLoaded && coreInitSuccess && agent && environment) {
+     if (!initialStateLoaded && coreInitSuccess && agent && environment) { // Check agent/env exist
          const initialState = environment.reset();
-         const initialStateArray = initialState.state ? initialState.state.arraySync()[0] : zeros([Config.Agent.BASE_STATE_DIM]);
+         const initialStateArray = initialState.state ? initialState.state.arraySync()[0] : zeros([Config.Agent.BASE_STATE_DIM]); // Get initial BASE state
          currentStateVector = initialStateArray.slice(0, Config.Agent.BASE_STATE_DIM);
          while (currentStateVector.length < Config.Agent.BASE_STATE_DIM) currentStateVector.push(0);
 
-         const initialGraphFeatures = calculateGraphFeatures(); // Call imported function
-         const initialAgentResponse = await agent.process( currentStateVector, initialGraphFeatures, { eventType: null, reward: 0 } );
+         // Initial agent processing needs initial graph features
+         const initialGraphFeatures = calculateGraphFeatures(); // Call the imported function
+         const initialAgentResponse = await agent.process(
+             currentStateVector,
+             initialGraphFeatures, // Pass features
+             { eventType: null, reward: 0 } // Pass environment context
+         );
 
-         // Update global state
+         // Update global state from initial response
          if (currentAgentEmotions && !currentAgentEmotions.isDisposed) tf.dispose(currentAgentEmotions);
-         currentAgentEmotions = initialAgentResponse.emotions;
+         currentAgentEmotions = initialAgentResponse.emotions; // Keep the tensor
          currentRIHScore = initialAgentResponse.rihScore;
          currentAvgAffinity = (initialAgentResponse.affinities?.length > 0) ? initialAgentResponse.affinities.reduce((a, b) => a + b, 0) / initialAgentResponse.affinities.length : 0;
          currentHmLabel = initialAgentResponse.hmLabel;
@@ -96,6 +184,11 @@ async function initialize() {
          currentReflexivityParam = initialAgentResponse.reflexivity;
          currentTrustScore = initialAgentResponse.trustScore;
          currentBeliefNorm = initialAgentResponse.beliefNorm ?? 0.0;
+          // Calculate initial self-state norm
+         if (agent.selfState && !agent.selfState.isDisposed) {
+            try { currentSelfStateNorm = calculateArrayNorm(Array.from(agent.selfState.dataSync())); } catch (e) { currentSelfStateNorm = 0.0; }
+         } else { currentSelfStateNorm = 0.0; }
+
 
          console.log("Initialized V2.3 with new state.");
      } else if (!coreInitSuccess) {
@@ -107,11 +200,12 @@ async function initialize() {
          } else { currentAgentEmotions = null; }
          currentRIHScore = 0; currentAvgAffinity = 0; currentHmLabel = "idle";
          currentContext = "Simulation core failed to load."; currentCascadeHistory = [];
-         currentIntegrationParam = 0.5; currentReflexivityParam = 0.5; currentTrustScore = 1.0; currentBeliefNorm = 0.0;
+         currentIntegrationParam = 0.5; currentReflexivityParam = 0.5; currentTrustScore = 1.0; currentBeliefNorm = 0.0; currentSelfStateNorm = 0.0;
      }
 
+
     // --- Initial visualization updates ---
-    updateSliderDisplays(currentIntegrationParam, currentReflexivityParam);
+    updateSliderDisplays(currentIntegrationParam, currentReflexivityParam); // Use agent params
 
     if (threeInitialized) {
         updateThreeJS(0, currentStateVector, currentRIHScore, agent?.latestAffinities || [], currentIntegrationParam, currentReflexivityParam, currentCascadeHistory, currentContext);
@@ -123,7 +217,8 @@ async function initialize() {
             if (currentAgentEmotions && !currentAgentEmotions.isDisposed) { initialEmotionsForViz = currentAgentEmotions; }
             else if (typeof tf !== 'undefined') { initialEmotionsForViz = tf.zeros([1, Config.Agent.EMOTION_DIM]); }
             if (initialEmotionsForViz) {
-                updateAgentSimulationVisuals(initialEmotionsForViz, currentRIHScore, currentAvgAffinity, currentHmLabel);
+                // Pass trust score during init as well
+                updateAgentSimulationVisuals(initialEmotionsForViz, currentRIHScore, currentAvgAffinity, currentHmLabel, currentTrustScore);
                 if (initialEmotionsForViz !== currentAgentEmotions) tf.dispose(initialEmotionsForViz);
             }
         } catch (e) { console.error("Error initial concept viz update:", e); }
@@ -142,16 +237,22 @@ async function initialize() {
         updateLive2DHeadMovement(currentHmLabel, 0);
      }
 
-    updateMetricsDisplay(currentRIHScore, agent ? (agent.latestAffinities || []) : [], currentAgentEmotions, currentContext, currentTrustScore);
+    // Initial Metrics and Heatmap update
+    updateMetricsDisplay(currentRIHScore, agent?.latestAffinities || [], currentAgentEmotions, currentContext, currentTrustScore, currentBeliefNorm, currentSelfStateNorm);
+    if (agent?.selfState && !agent.selfState.isDisposed) {
+         try { updateHeatmap(Array.from(agent.selfState.dataSync()), 'heatmap-content'); } catch(e) { console.error("Initial heatmap update failed:", e); }
+    } else { updateHeatmap([], 'heatmap-content');} // Show empty heatmap
+
     setupControls();
     setupChat();
 
     console.log("Initialization complete (V2.3). Starting animation loop.");
-    animate();
+    animate(); // Start the main loop
 }
 
 /**
  * Initializes Agent and Environment instances. Sets criticalError if TF.js is missing.
+ * @returns {boolean} True if successful, false otherwise.
  */
 function initAgentAndEnvironment() {
      if (typeof tf === 'undefined') {
@@ -159,14 +260,16 @@ function initAgentAndEnvironment() {
          criticalError = true; agent = null; environment = null; return false;
     }
     try {
-        agent = new SyntrometricAgent();
+        agent = new SyntrometricAgent(); // Uses the V2.3 logic now
         environment = new EmotionalSpace();
-        if (!agent || !agent.optimizer) { // Check if agent init failed internally
-            throw new Error("Agent core components (like optimizer or TF variables) failed to initialize properly.");
+        // Check if agent init failed internally
+        if (!agent || !agent.optimizer) { // Check essential components
+            throw new Error("Agent core components failed to initialize properly.");
         }
         console.log("Agent (V2.3) and Environment initialized.");
         return true;
     } catch (e) {
+        // Use console.error here as logger might not be set up
         console.error('[Init] Agent/Env error:', e);
         displayError(`Error initializing Agent/Environment: ${e.message}. Simulation logic disabled.`, true, 'error-message');
         criticalError = true; agent = null; environment = null; return false;
@@ -248,22 +351,22 @@ function setupChat() {
              const userInput = chatInput.value.trim();
              appendChatMessage('You', userInput);
              chatInput.value = '';
-             if (environment) {
+             if (environment && agent) { // Check agent exists too
                  const impactDetected = true; // Placeholder
                  environment.getEmotionalImpactFromText(userInput);
                  if (impactDetected) {
                      lastChatImpactTime = appClock.getElapsedTime();
                      appendChatMessage('System', 'Input processed, influencing environment.');
                  } else { appendChatMessage('System', 'Input acknowledged.'); }
-             } else { appendChatMessage('System', 'Environment not initialized.'); }
+             } else { appendChatMessage('System', 'Environment/Agent not initialized.'); }
         }
     });
 }
 
 /**
- * Updates the metrics display panel (now includes trust).
+ * Updates the metrics display panel (now includes trust, belief norm, self-state norm).
  */
-function updateMetricsDisplay(rihScore, affinities, emotionsTensor, context, trustScore) {
+function updateMetricsDisplay(rihScore, affinities, emotionsTensor, context, trustScore, beliefNorm, selfStateNorm) {
     const metricsDiv = document.getElementById('metrics');
     if (!metricsDiv) return;
     if (metricsDiv.innerHTML.includes('<h3>Dimension') || metricsDiv.innerHTML.includes('<h3>Reflexive Integration')) return;
@@ -277,12 +380,13 @@ function updateMetricsDisplay(rihScore, affinities, emotionsTensor, context, tru
     const dominantEmotionName = dominantEmotionIdx !== -1 ? emotionNames[dominantEmotionIdx] : 'Unknown';
     const dominantEmotionValue = dominantEmotionIdx !== -1 ? (emotions[dominantEmotionIdx] || 0) : 0;
 
+    // Added Belief Norm and Self-State Norm
     metricsDiv.innerHTML = `
         <h3>Simulation Overview</h3>
         <p><i>Hover/click viz elements for details.</i></p>
-        <p><span class="simulated-data">Current RIH: ${(rihScore * 100).toFixed(1)}%</span></p>
-        <p><span class="simulated-data">Avg Affinity: ${(avgAffinity * 100).toFixed(1)}%</span></p>
-        <p><span class="simulated-data">Trust Score: ${(trustScore * 100).toFixed(1)}%</span></p>
+        <p><span class="simulated-data">RIH: ${(rihScore * 100).toFixed(1)}%</span> | <span class="simulated-data">Avg Aff: ${(avgAffinity * 100).toFixed(1)}%</span></p>
+        <p><span class="simulated-data">Trust: ${(trustScore * 100).toFixed(1)}%</span> | <span class="simulated-data">Belief Norm: ${beliefNorm.toFixed(3)}</span></p>
+        <p><span class="simulated-data">Self-State Norm: ${selfStateNorm.toFixed(3)}</span></p>
         <p><span class="simulated-data">Dominant Emotion: ${dominantEmotionName} (${(dominantEmotionValue * 100).toFixed(1)}%)</span></p>
         <p>Context: ${context || 'Stable'}</p>
     `;
@@ -298,7 +402,7 @@ function saveState() {
      }
     try {
         const envState = environment.getState();
-        const agentState = agent.getState(); // Agent state now includes internal params, trust, self-state etc.
+        const agentState = agent.getState(); // Gets V2.3 state
 
         const stateToSave = { environment: envState, agent: agentState, timestamp: new Date().toISOString() };
         localStorage.setItem(SAVED_STATE_KEY, JSON.stringify(stateToSave)); // Use new key
@@ -329,7 +433,6 @@ function loadState(showMessages = false) {
         }
 
         const stateToLoad = JSON.parse(stateString);
-        // Check for agent and environment state specifically
         if (!stateToLoad || !stateToLoad.environment || !stateToLoad.agent) {
              console.error("Invalid saved state format.");
              if (showMessages) appendChatMessage('System', 'Load failed: Invalid saved state format.');
@@ -344,31 +447,30 @@ function loadState(showMessages = false) {
 
         // --- Restore global variables DERIVED from loaded agent/env state ---
         currentStateVector = Array.isArray(stateToLoad.environment.currentStateVector)
-             ? stateToLoad.environment.currentStateVector.slice(0, Config.Agent.BASE_STATE_DIM) // Ensure correct size
+             ? stateToLoad.environment.currentStateVector.slice(0, Config.Agent.BASE_STATE_DIM)
              : zeros([Config.Agent.BASE_STATE_DIM]);
-        while(currentStateVector.length < Config.Agent.BASE_STATE_DIM) currentStateVector.push(0); // Pad if needed
+        while(currentStateVector.length < Config.Agent.BASE_STATE_DIM) currentStateVector.push(0);
 
 
-        // Agent's prevEmotions tensor is restored internally by agent.loadState
-        // Get a fresh reference AFTER loading
         if (currentAgentEmotions && !currentAgentEmotions.isDisposed) tf.dispose(currentAgentEmotions);
         if (agent.prevEmotions && !agent.prevEmotions.isDisposed) {
             currentAgentEmotions = tf.keep(agent.prevEmotions.clone());
-        } else { // Handle case where agent couldn't load prevEmotions
+        } else {
             console.warn("Agent prevEmotions tensor invalid after load. Resetting.");
             currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
         }
 
-
-        // Restore other globals
         currentRIHScore = agent.lastRIH ?? 0;
         currentTrustScore = agent.latestTrustScore ?? 1.0;
-        currentContext = "State loaded."; // Reset context message
-        currentHmLabel = "idle"; currentAvgAffinity = 0; currentCascadeHistory = []; // Recalculated
-        // Restore params safely from agent
+        currentContext = "State loaded.";
+        currentHmLabel = "idle"; currentAvgAffinity = 0; currentCascadeHistory = [];
         currentIntegrationParam = agent.integrationParam?.dataSync()[0] ?? 0.5;
         currentReflexivityParam = agent.reflexivityParam?.dataSync()[0] ?? 0.5;
-        currentBeliefNorm = agent.selfState?.norm().arraySync() ?? 0.0; // Get norm of loaded self-state
+        // Calculate self-state norm after load
+        if (agent.selfState && !agent.selfState.isDisposed) {
+             try { currentSelfStateNorm = calculateArrayNorm(Array.from(agent.selfState.dataSync())); } catch(e){currentSelfStateNorm = 0.0;}
+        } else { currentSelfStateNorm = 0.0;}
+        currentBeliefNorm = 0.0; // Recalculated on next step
 
         // --- Update UI Displays ---
         updateSliderDisplays(currentIntegrationParam, currentReflexivityParam);
@@ -382,14 +484,14 @@ function loadState(showMessages = false) {
              updateSyntrometryInfoPanel();
          }
          if (conceptInitialized && currentAgentEmotions && !currentAgentEmotions.isDisposed) {
-             updateAgentSimulationVisuals(currentAgentEmotions, currentRIHScore, 0, currentHmLabel);
+             updateAgentSimulationVisuals(currentAgentEmotions, currentRIHScore, 0, currentHmLabel, currentTrustScore); // Pass trust score
              animateConceptNodes(0, currentIntegrationParam, currentReflexivityParam, -1, -1, -1);
          }
           if (live2dInitialized && currentAgentEmotions && !currentAgentEmotions.isDisposed) {
               updateLive2DEmotions(currentAgentEmotions);
               updateLive2DHeadMovement(currentHmLabel, 0);
           }
-         updateMetricsDisplay(currentRIHScore, [], currentAgentEmotions, currentContext, currentTrustScore);
+         updateMetricsDisplay(currentRIHScore, [], currentAgentEmotions, currentContext, currentTrustScore, currentBeliefNorm, currentSelfStateNorm);
 
         return true;
     } catch (e) {
@@ -417,8 +519,8 @@ async function animate() {
 
     // --- Simulation Step ---
     if (agent && environment && currentAgentEmotions && !currentAgentEmotions.isDisposed) {
-        try { // Add try-catch around simulation steps
-            const envStep = await environment.step(currentAgentEmotions, currentRIHScore, currentAvgAffinity); // Env step still uses global RIH/Affinity
+        try {
+            const envStep = await environment.step(currentAgentEmotions, currentRIHScore, currentAvgAffinity);
             const envStateArray = envStep.state?.arraySync()[0] || zeros([Config.Agent.BASE_STATE_DIM]);
             currentStateVector = envStateArray.slice(0, Config.Agent.BASE_STATE_DIM);
             while (currentStateVector.length < Config.Agent.BASE_STATE_DIM) currentStateVector.push(0);
@@ -431,44 +533,48 @@ async function animate() {
             );
 
             // Update global state from agent response
-            if (currentAgentEmotions && !currentAgentEmotions.isDisposed) tf.dispose(currentAgentEmotions); // Dispose previous tensor
-            currentAgentEmotions = agentResponse.emotions; // agent.process returns the persistent tensor now
+            if (currentAgentEmotions && !currentAgentEmotions.isDisposed) tf.dispose(currentAgentEmotions);
+            currentAgentEmotions = agentResponse.emotions; // Keep new tensor
             currentRIHScore = agentResponse.rihScore;
             currentAvgAffinity = (agentResponse.affinities?.length > 0) ? agentResponse.affinities.reduce((a, b) => a + b, 0) / agentResponse.affinities.length : 0;
             currentHmLabel = agentResponse.hmLabel;
             currentContext = envStep.context;
             currentCascadeHistory = agentResponse.cascadeHistory;
-            // --- Update internal agent params FROM response ---
             currentIntegrationParam = agentResponse.integration;
             currentReflexivityParam = agentResponse.reflexivity;
             currentTrustScore = agentResponse.trustScore;
-            currentBeliefNorm = agentResponse.beliefNorm ?? 0.0;
-            // -----------------------------------------------
+            currentBeliefNorm = agentResponse.beliefNorm ?? 0.0; // Capture Belief Norm
 
-            // --- Update slider displays based on agent's internal params ---
+            // Calculate Self-State Norm AFTER agent processing
+            if (agent.selfState && !agent.selfState.isDisposed) {
+                try {
+                    const selfStateArray = Array.from(agent.selfState.dataSync());
+                    currentSelfStateNorm = calculateArrayNorm(selfStateArray);
+                } catch (e) { console.warn("Error calculating self-state norm:", e); currentSelfStateNorm = 0.0; }
+            } else { currentSelfStateNorm = 0.0; }
+
+
             updateSliderDisplays(currentIntegrationParam, currentReflexivityParam);
-            // -------------------------------------------------------------
+
         } catch (e) {
              console.error("Error during simulation step:", e);
              displayError(`Simulation Error: ${e.message}. Attempting to continue.`, false, 'error-message');
-             // Potentially try to recover or just skip this frame's update
-             // For now, we'll just log and potentially use old values
         }
-
     } else {
-         // Handle missing core components or disposed tensor
+         // Fallback logic
          if (!currentAgentEmotions || currentAgentEmotions?.isDisposed) {
-            // console.warn("Agent emotions tensor missing or disposed. Using default zero tensor."); // Reduce noise
              if (typeof tf !== 'undefined') {
-                 if (currentAgentEmotions && !currentAgentEmotions.isDisposed) tf.dispose(currentAgentEmotions); // Dispose if somehow exists but invalid
-                 currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM])); // Create and keep a new zero tensor
-             } else { currentAgentEmotions = null; } // No TF, cannot create tensor
+                 if (currentAgentEmotions && !currentAgentEmotions.isDisposed) tf.dispose(currentAgentEmotions);
+                 currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
+             } else { currentAgentEmotions = null; }
          }
+         // Ensure norms are reset if sim isn't running
+         currentBeliefNorm = 0.0;
+         currentSelfStateNorm = 0.0;
     }
 
 
      // --- Update Visualizations ---
-     // Use try-catch blocks for robustness during updates
     try {
         if (threeInitialized) {
             updateThreeJS(deltaTime, currentStateVector, currentRIHScore, agent?.latestAffinities || [], currentIntegrationParam, currentReflexivityParam, currentCascadeHistory, currentContext);
@@ -477,56 +583,53 @@ async function animate() {
     } catch(e) { console.error("Error updating Syntrometry Viz:", e); }
 
     try {
-        if (conceptInitialized && currentAgentEmotions && !currentAgentEmotions.isDisposed) {
-            updateAgentSimulationVisuals(currentAgentEmotions, currentRIHScore, currentAvgAffinity, currentHmLabel);
-        } else if (conceptInitialized && typeof tf !== 'undefined') { // Handle invalid tensor
-            updateAgentSimulationVisuals(tf.zeros([1, Config.Agent.EMOTION_DIM]), currentRIHScore, currentAvgAffinity, currentHmLabel);
+        if (conceptInitialized) {
+            let emotionsForViz = null;
+            if (currentAgentEmotions && !currentAgentEmotions.isDisposed) emotionsForViz = currentAgentEmotions;
+            else if(typeof tf !== 'undefined') emotionsForViz = tf.zeros([1, Config.Agent.EMOTION_DIM]);
+
+            if (emotionsForViz) {
+                updateAgentSimulationVisuals(emotionsForViz, currentRIHScore, currentAvgAffinity, currentHmLabel, currentTrustScore); // Pass trust
+                if (emotionsForViz !== currentAgentEmotions && typeof tf !== 'undefined') tf.dispose(emotionsForViz);
+            }
         }
     } catch (e) { console.error("Error updating Concept Viz placeholders:", e); }
 
     try {
-        if (live2dInitialized && currentAgentEmotions && !currentAgentEmotions.isDisposed) {
-             updateLive2DEmotions(currentAgentEmotions);
-             updateLive2DHeadMovement(currentHmLabel, deltaTime);
-        } else if (live2dInitialized && typeof tf !== 'undefined') { // Handle invalid tensor
-             updateLive2DEmotions(tf.zeros([1, Config.Agent.EMOTION_DIM]));
-             updateLive2DHeadMovement(currentHmLabel, deltaTime); // Use last known hmLabel
+        if (live2dInitialized) {
+             let emotionsForLive2D = null;
+             if (currentAgentEmotions && !currentAgentEmotions.isDisposed) emotionsForLive2D = currentAgentEmotions;
+             else if(typeof tf !== 'undefined') emotionsForLive2D = tf.zeros([1, Config.Agent.EMOTION_DIM]);
+
+            if (emotionsForLive2D) {
+                 updateLive2DEmotions(emotionsForLive2D);
+                 if (emotionsForLive2D !== currentAgentEmotions && typeof tf !== 'undefined') tf.dispose(emotionsForLive2D);
+            }
+            updateLive2DHeadMovement(currentHmLabel, deltaTime);
         }
     } catch (e) { console.error("Error updating Live2D:", e); }
 
-    // Update metrics display including trust
-    updateMetricsDisplay(currentRIHScore, agent?.latestAffinities || [], currentAgentEmotions, currentContext, currentTrustScore);
+    // Update metrics display including norms
+    updateMetricsDisplay(currentRIHScore, agent?.latestAffinities || [], currentAgentEmotions, currentContext, currentTrustScore, currentBeliefNorm, currentSelfStateNorm);
+
+    // --- Update Heatmap ---
+    if (agent && agent.selfState && !agent.selfState.isDisposed) {
+        try { updateHeatmap(Array.from(agent.selfState.dataSync()), 'heatmap-content'); } catch(e) { console.error("Heatmap update failed:", e); }
+    } else { updateHeatmap([], 'heatmap-content');} // Show empty heatmap if state unavailable
+
 
     // --- Animate Visualizations ---
     try {
-        if (conceptInitialized && conceptControls) {
-            conceptControls.update();
-        }
+        if (conceptInitialized && conceptControls) conceptControls.update();
         if (conceptInitialized) {
-            animateConceptNodes(
-                deltaTime,
-                currentIntegrationParam, // Use agent's value
-                currentReflexivityParam, // Use agent's value
-                // Pass Timestamps (Corrected Variable Name)
-                elapsedTime - lastIntegrationInputTime < inputFeedbackDuration ? lastIntegrationInputTime : -1,
-                elapsedTime - lastReflexivityInputTime < inputFeedbackDuration ? lastReflexivityInputTime : -1, // Corrected typo
-                elapsedTime - lastChatImpactTime < inputFeedbackDuration ? lastChatImpactTime : -1
-            );
+            animateConceptNodes(deltaTime, currentIntegrationParam, currentReflexivityParam, elapsedTime - lastIntegrationInputTime < inputFeedbackDuration ? lastIntegrationInputTime : -1, elapsedTime - lastReflexivityInputTime < inputFeedbackDuration ? lastReflexivityInputTime : -1, elapsedTime - lastChatImpactTime < inputFeedbackDuration ? lastChatImpactTime : -1 );
         }
     } catch (e) { console.error("Error animating Concept Viz nodes:", e); }
 
 
      // **Render Visualizations**
      if (conceptInitialized && conceptRenderer && conceptLabelRenderer && conceptScene && conceptCamera) {
-         try { // Add try-catch around rendering
-             conceptRenderer.render(conceptScene, conceptCamera);
-             conceptLabelRenderer.render(conceptScene, conceptCamera);
-         } catch (e) {
-             console.error("Error rendering Concept Graph:", e);
-             displayError("Error rendering Concept Graph. Check console.", false, 'concept-error-message');
-             // Potentially disable this part of rendering if errors persist
-             // conceptInitialized = false; // Drastic option
-         }
+         try { conceptRenderer.render(conceptScene, conceptCamera); conceptLabelRenderer.render(conceptScene, conceptCamera); } catch (e) { console.error("Error rendering Concept Graph:", e); }
      }
 }
 
@@ -542,7 +645,6 @@ function cleanup() {
     try { if (cleanupLive2D) cleanupLive2D(); } catch (e) { console.error("Live2D cleanup error:", e); }
 
     environment = null; agent = null;
-    // Dispose the global tensor explicitly if it exists and TF is loaded
     if (typeof tf !== 'undefined' && currentAgentEmotions && !currentAgentEmotions.isDisposed) {
          try { tf.dispose(currentAgentEmotions); } catch(e){ console.error("Error disposing global emotions tensor:", e);}
     }
