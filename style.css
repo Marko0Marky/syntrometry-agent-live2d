@@ -1,237 +1,505 @@
+/* style.css - Enhanced Styling for Heim's Syntrometric Theory Demo */
+
+/* Root Variables for Consistent Theming */
 :root {
-    --background-color: #111122;
-    --text-color: #eeeeee;
-    --container-background: #1e1e2a;
-    --container-border-color: #333355;
-    --accent-color: #00aaff;
-    --link-hover-color: #66ccff;
-    --viz-background: #1a1a1a;
+    --background-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --text-muted: #a0a0a0;
+    --accent-color: #00d4ff;
+    --accent-hover-color: #66eaff; /* Lighter accent for link hovers */
+    --button-hover-bg: #33eaff;   /* Lighter accent for button background hovers */
+    --container-background: #2a2a2a;
+    --container-border-color: #3a3a3a;
     --shadow-color: rgba(0, 0, 0, 0.5);
-    --text-muted: #aaaaaa;
+    --hover-transition: all 0.2s ease;
+    --accent-color-rgb: 0, 212, 255; /* RGB for rgba usage like box-shadow */
 }
+
+/* Global Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
 body {
     font-family: 'Inter', sans-serif;
-    line-height: 1.7;
-    margin: 0;
-    overflow-x: hidden;
     background-color: var(--background-color);
     color: var(--text-color);
-    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden; /* Prevent horizontal scroll */
 }
+
+/* Header Styling */
 header {
-    background: linear-gradient(135deg, #1f1f2f 0%, #2c2c3f 100%);
-    color: var(--text-color);
-    padding: 2rem 1rem;
     text-align: center;
-    box-shadow: 0 2px 4px var(--shadow-color);
+    padding: 2rem 1rem;
+    background: linear-gradient(180deg, #222, #1a1a1a);
+    border-bottom: 1px solid var(--container-border-color);
 }
+
 header h1 {
-    margin: 0 0 0.5rem 0;
+    font-size: 2.5rem;
     font-weight: 700;
-    font-size: 2.2rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-color); /* Header text color */
 }
+
 header p {
-    margin: 0;
     font-size: 1.1rem;
     color: var(--text-muted);
 }
-.container {
-    max-width: 1200px;
+
+/* Main Content Layout */
+main {
+    max-width: 1400px;
     margin: 2rem auto;
-    padding: 2rem;
+    padding: 0 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+/* Section Styling */
+section {
     background: var(--container-background);
-    border-radius: 8px;
     border: 1px solid var(--container-border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
     box-shadow: 0 4px 12px var(--shadow-color);
 }
-h2 {
-    color: var(--accent-color);
-    margin-top: 0;
-    margin-bottom: 1.5rem;
+
+section h2 {
+    font-size: 1.8rem;
     font-weight: 600;
-    border-bottom: 2px solid var(--accent-color);
-    padding-bottom: 0.5rem;
-}
-h3 {
-    color: var(--accent-color);
-    margin-top: 1.5rem;
     margin-bottom: 1rem;
+    color: var(--text-color); /* Section headers */
+}
+
+section h3 { /* Added basic h3 styling */
+    font-size: 1.2rem;
     font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--accent-color);
 }
-p {
-    margin: 0 0 1rem 0;
+
+
+section p {
+    font-size: 1rem;
+    margin-bottom: 1rem;
 }
-a {
+
+.quick-links-list {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 0; /* Remove default ul margin */
+}
+
+.quick-links-list li a {
     color: var(--accent-color);
     text-decoration: none;
-    font-weight: 600;
-    transition: color 0.3s ease;
+    font-size: 0.95rem;
+    transition: var(--hover-transition);
 }
-a:hover, a:focus {
-    color: var(--link-hover-color);
+
+.quick-links-list li a:hover {
     text-decoration: underline;
+    color: var(--accent-hover-color); /* Use variable */
 }
-ul {
-    list-style: none;
-    padding-left: 0;
-}
-li {
-    margin-bottom: 0.75rem;
+
+/* Visualization Container */
+.visualization-container {
     position: relative;
-    padding-left: 1.5rem;
+    height: 700px;
+    border-radius: 8px;
+    background: #111;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.7);
+    overflow: hidden; /* Ensure content stays within bounds */
 }
-li::before {
+
+/* Ensure Three.js canvas fills container */
+.threejs-container canvas,
+.threejs-container-concept canvas {
+    width: 100% !important; /* Force size */
+    height: 100% !important; /* Force size */
+    display: block; /* Remove potential extra space */
+    position: absolute; /* Take out of flow if needed by specific viz */
+    top: 0;
+    left: 0;
+}
+
+/* Style for CSS2DRenderer labels */
+.CSS2DObject.label {
+    position: absolute; /* Needed for CSS2DRenderer */
+    color: var(--text-color);
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 2px 6px;
+    border-radius: 3px;
+    pointer-events: none; /* Important for interaction */
+    user-select: none; /* Prevent text selection */
+    white-space: nowrap; /* Prevent wrapping */
+    /* transform: translate(-50%, -100%); /* Adjusted in JS based on node size */
+}
+
+/* Style for CSS2DRenderer tooltips (if applicable, distinct from info panel) */
+.CSS2DObject.tooltip {
+    position: absolute;
+    color: var(--text-color);
+    font-size: 14px;
+    background: linear-gradient(145deg, rgba(0, 0, 0, 0.8), rgba(20, 20, 20, 0.9));
+    padding: 6px 10px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 20;
+    max-width: 200px;
+    transform: translate(-50%, -120%); /* Position above element */
+}
+
+/* Info Panel for Concept Graph Tooltips */
+#info-panel {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 250px; /* Adjusted width */
+    max-height: calc(100% - 20px); /* Prevent overflow */
+    overflow-y: auto; /* Allow scroll if content exceeds height */
+    background: linear-gradient(145deg, rgba(0, 0, 0, 0.7), rgba(20, 20, 20, 0.8));
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--container-border-color); /* Subtle border */
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+    z-index: 20; /* Ensure it's above canvas, below modals if any */
+    font-size: 0.9em;
+    color: var(--text-color);
+    display: none; /* Hidden by default */
+}
+
+#info-panel.visible {
+    display: block; /* JS will toggle this class */
+}
+
+#info-panel h3 {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--accent-color);
+    border-bottom: 1px solid rgba(var(--accent-color-rgb), 0.3); /* Subtle underline */
+    padding-bottom: 0.3rem;
+}
+
+#info-panel p {
+    margin: 0.3rem 0;
+    line-height: 1.5; /* Improve readability */
+}
+
+#info-panel b { /* Style bold text within info panel */
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* Styling for connected concepts list */
+#info-panel .links-list {
+    list-style: none;
+    margin-top: 0.8rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed rgba(var(--accent-color-rgb), 0.2); /* Separator */
+}
+
+#info-panel .links-list li {
+    font-size: 0.9em; /* Slightly larger for readability */
+    margin-bottom: 0.4rem;
+    position: relative;
+    padding-left: 1.2em; /* Space for pseudo-element */
+}
+
+#info-panel .links-list li::before { /* Add visual indicator for links */
     content: '→';
     position: absolute;
     left: 0;
     color: var(--accent-color);
-    font-weight: bold;
+    opacity: 0.7;
 }
-.quick-links-list li::before {
-    content: '🔗';
+
+
+#info-panel .links-list li span { /* Target the span containing the link text */
+    color: var(--accent-color);
+    cursor: default; /* No click action defined here */
+    /* Remove hover underline if span itself isn't clickable */
+    /* text-decoration: none; */
 }
-.threejs-container, .threejs-container-concept {
-    width: 100%;
-    height: 650px;
-    margin: 2rem 0;
-    background-color: var(--viz-background);
-    position: relative;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid var(--container-border-color);
-    box-shadow: inset 0 0 10px var(--shadow-color);
+
+#info-panel .simulated-data { /* Styling for dynamic data */
+     color: var(--accent-hover-color); /* Use lighter accent */
 }
-canvas {
-    display: block;
-}
+
+/* Error Message Styling */
 .error-message {
-    color: #ff4444;
-    background-color: #2a1e2a;
-    border: 1px solid #553355;
-    padding: 1rem;
-    border-radius: 6px;
-    text-align: center;
-    font-weight: bold;
-    margin-top: 1rem;
-    z-index: 10000;
-}
-.threejs-container .error-message, .threejs-container-concept .error-message {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    max-width: 80%;
+    background: rgba(200, 50, 50, 0.9); /* Slightly less harsh red */
+    color: #fff;
+    padding: 1rem 1.5rem;
+    border-radius: 4px;
+    z-index: 10000; /* High z-index */
+    display: none; /* Managed by JS */
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
+
+/* General error div outside viz containers */
+#error-message {
+    position: relative; /* Override absolute positioning for general errors */
+    top: auto;
+    left: auto;
+    transform: none;
+    margin: 1rem auto; /* Center it */
+    max-width: 90%;
+}
+
+
+/* --- Overlay Panels Common Style --- */
+.overlay-panel { /* Shared style for controls, metrics, chat */
+    position: absolute;
+    background: linear-gradient(145deg, rgba(0, 0, 0, 0.7), rgba(20, 20, 20, 0.8));
+    padding: 1.2rem;
+    border-radius: 8px;
+    border: 1px solid var(--container-border-color);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+    z-index: 10; /* Below info panel/tooltips */
+    transition: transform 0.3s ease, box-shadow 0.3s ease; /* Add shadow transition */
+}
+
+.overlay-panel:hover {
+    transform: translateY(-5px); /* Lift effect */
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7); /* Enhance shadow on hover */
+}
+
+/* Controls Container Specifics */
+.controls-container {
+    top: 10px;
+    right: 10px;
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.control-group label {
+    display: block; /* Ensure label takes full width */
+    font-size: 0.9em;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-bottom: 0.3rem; /* Space below label */
+}
+
+.control-group input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent-color); /* Modern way to style range */
+    cursor: pointer;
+    margin-top: 0.2rem; /* Space above slider */
+}
+
+/* Optional: Style slider track/thumb for better cross-browser look */
+.control-group input[type="range"]::-webkit-slider-runnable-track {
+    background: #555;
+    height: 4px;
+    border-radius: 2px;
+}
+.control-group input[type="range"]::-moz-range-track {
+    background: #555;
+    height: 4px;
+    border-radius: 2px;
+}
+.control-group input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--accent-color);
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    margin-top: -6px; /* Center thumb on track */
+    transition: transform 0.2s ease;
+}
+.control-group input[type="range"]::-moz-range-thumb {
+    background: var(--accent-color);
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+}
+.control-group input[type="range"]:hover::-webkit-slider-thumb {
+    transform: scale(1.15);
+}
+.control-group input[type="range"]:hover::-moz-range-thumb {
+    transform: scale(1.15); /* May not work consistently */
+}
+
+.button-group {
+    display: flex;
+    gap: 0.8rem; /* Slightly more space */
+    margin-top: 0.5rem; /* Space above buttons */
+}
+
+.button-group button {
+    flex: 1;
+    padding: 0.6rem; /* Slightly larger padding */
+    background: var(--accent-color);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-weight: 600; /* Bolder text */
+    cursor: pointer;
+    transition: var(--hover-transition), transform 0.2s ease;
+}
+
+.button-group button:hover {
+    background: var(--button-hover-bg); /* Use variable */
+    transform: translateY(-2px); /* Lift effect */
+}
+
+.button-group button:active {
+    transform: translateY(0px); /* Press effect */
+}
+
+
+.button-group button.has-saved-state { /* Style for load button when state exists */
+    border: 2px solid var(--accent-color);
+    background: transparent;
+    color: var(--accent-color);
+}
+
+.button-group button.has-saved-state:hover {
+    background: var(--accent-color);
+    color: #fff;
+}
+
+/* Metrics Container Specifics */
+.metrics-container {
+    top: 10px;
+    left: 10px;
+    width: 260px;
+    font-size: 0.85em;
+}
+
+.metrics-container h3 {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--accent-color);
+    border-bottom: 1px solid rgba(var(--accent-color-rgb), 0.3);
+    padding-bottom: 0.3rem;
+}
+
+.metrics-container p {
+    margin: 0.3rem 0;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.metrics-container .simulated-data {
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+/* Chat Container Specifics */
+.chat-container {
+    bottom: 10px;
+    left: 10px;
+    width: 340px;
+}
+
+.chat-output {
+    max-height: 160px;
+    overflow-y: auto;
+    margin-bottom: 0.8rem;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    border: 1px solid #444; /* Add subtle border */
+}
+
+/* Custom Scrollbar for Chat Output */
+.chat-output::-webkit-scrollbar {
+    width: 6px;
+}
+.chat-output::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+}
+.chat-output::-webkit-scrollbar-thumb {
+    background: var(--accent-color);
+    border-radius: 3px;
+    opacity: 0.7;
+}
+.chat-output::-webkit-scrollbar-thumb:hover {
+    opacity: 1.0;
+}
+/* Firefox scrollbar */
+.chat-output {
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-color) rgba(0, 0, 0, 0.1);
+}
+
+
+.chat-output div {
+    font-size: 0.9em; /* Slightly larger chat text */
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+    color: var(--text-color); /* Ensure default text color */
+}
+
+.chat-output div b { /* Style sender name */
+    color: var(--accent-hover-color); /* Use lighter accent */
+    font-weight: 600;
+    margin-right: 0.3em;
+}
+
+
+.chat-input {
+    background: #333;
+    border: 1px solid #555;
+    color: var(--text-color);
+    padding: 0.6rem;
+    border-radius: 4px;
+    width: 100%;
+    font-size: 0.9em;
+    transition: var(--hover-transition);
+}
+
+.chat-input:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 8px rgba(var(--accent-color-rgb), 0.3);
+    outline: none;
+}
+
+/* Live2D Container */
 #live2d-container {
     position: absolute;
     bottom: 10px;
     right: 10px;
     width: 300px;
     height: 400px;
-    z-index: 10;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 5px;
-    overflow: hidden; /* Ensure Live2D doesn't overflow */
-}
-#chat-container {
-    position: absolute;
-    bottom: 10px;
-    left: 10px;
-    width: 350px;
-    background: rgba(0, 0, 0, 0.7);
-    padding: 15px;
+    z-index: 10; /* Ensure it's below info panel if overlapping */
+    overflow: hidden;
     border-radius: 8px;
-    z-index: 10;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-    font-size: 0.9em;
-    color: var(--text-color);
+    /* Optional: Add a very subtle background or border */
+    /* background: rgba(0,0,0,0.1); */
+    /* border: 1px solid rgba(255,255,255,0.1); */
 }
-#chat-output {
-    height: 150px;
-    overflow-y: auto;
-    color: #ccc;
-    margin-bottom: 10px;
-    border: 1px solid #444;
-    padding: 8px;
-    background: #2a2a2a;
-    border-radius: 4px;
-}
-#chat-output div {
-    margin-bottom: 8px;
-    line-height: 1.4;
-}
-#chat-output div b {
-    color: #8bf;
-}
-#chat-input {
-    width: calc(100% - 16px);
-    padding: 8px;
-    background: #333;
-    color: #fff;
-    border: 1px solid #555;
-    border-radius: 4px;
-    box-sizing: border-box;
-    transition: border-color 0.3s;
-}
-#chat-input:hover, #chat-input:focus {
-    border-color: #8bf;
-    outline: none;
-}
-#controls {
-    position: absolute;
-    top: 180px;
-    left: 10px;
-    background: rgba(0, 0, 0, 0.7);
-    padding: 15px;
-    border-radius: 8px;
-    z-index: 10;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-    font-size: 0.9em;
-    color: var(--text-color);
-    width: 250px;
-}
-#metrics {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    background: rgba(0, 0, 0, 0.7);
-    padding: 15px;
-    border-radius: 8px;
-    z-index: 10;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-    font-size: 0.9em;
-    color: var(--text-color);
-}
-#controls label {
-    display: block;
-    margin-bottom: 8px;
-}
-#controls input[type="range"] {
-    width: 100%;
-    margin-bottom: 10px;
-}
-#controls input[type="range"]:hover {
-    cursor: pointer;
-}
-#controls span {
-    color: #aaa;
-    font-size: 0.9em;
-    margin-left: 8px;
-}
-#chat-output::-webkit-scrollbar {
-    width: 8px;
-}
-#chat-output::-webkit-scrollbar-track {
-    background: #2a2a2a;
-}
-#chat-output::-webkit-scrollbar-thumb {
-    background: #555;
-    border-radius: 4px;
-}
-#chat-output::-webkit-scrollbar-thumb:hover {
-    background: #777;
-}
+
+/* Hidden Offscreen Canvas */
 #live2d-offscreen-canvas {
     position: fixed;
     top: -9999px;
@@ -242,168 +510,101 @@ canvas {
     pointer-events: none;
     visibility: hidden;
 }
-.threejs-container-concept > canvas {
-    display: block;     /* Ensure block display */
-    position: absolute; /* Take out of normal flow, position relative to parent */
-    top: 0;
-    left: 0;
-    width: 100%;        /* Fill parent container */
-    height: 100%;       /* Fill parent container */
-    z-index: 1;         /* << IMPORTANT: Set z-index lower than #info-panel (z-index: 10) */
-    /* pointer-events: none; */ /* Optional: If ONLY interaction is via raycaster */
-                                /* Usually leave this off or 'auto' */
-}
-#info-panel {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 300px;
-    background: rgba(0, 0, 0, 0.7);
-    padding: 15px;
-    border-radius: 8px;
-    z-index: 10;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-    font-size: 0.9em;
-    color: var(--text-color);
-    border: 1px solid var(--container-border-color);
-}
-#info-panel h3 {
-    margin: 0 0 10px 0;
-    font-size: 1.2em;
-    color: var(--accent-color);
-}
-#info-panel p {
-    margin: 5px 0;
-}
-#info-panel .links-list {
-    margin-top: 10px;
-}
-.label {
-    color: #ffffff;
-    background: rgba(0, 0, 0, 0.6);
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 12px;
-    white-space: nowrap;
-    pointer-events: none;
-    user-select: none;
-}
-.simulated-data {
-    color: #66ccff;
-}
-/* Add to your existing style.css */
 
-.control-buttons {
-    margin-top: 15px; /* Add space above buttons */
-    display: flex; /* Arrange buttons side-by-side */
-    gap: 10px; /* Space between buttons */
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    body { font-size: 15px; } /* Slightly adjust base size */
+
+    .visualization-container {
+        height: 600px;
+    }
+
+    /* Adjust overlay positioning and sizing */
+    .overlay-panel {
+        max-width: 240px; /* Slightly narrower on medium screens */
+        padding: 1rem; /* Adjust padding */
+    }
+
+    .controls-container { width: 240px; top: 10px; right: 10px; }
+    .metrics-container { width: 240px; top: 10px; left: 10px; }
+    .chat-container { width: 300px; bottom: 10px; left: 10px; }
+    #info-panel { width: 240px; right: 10px; top: 10px; }
+
+    #live2d-container {
+        width: 200px; /* Smaller Live2D */
+        height: 280px;
+        right: 10px;
+        bottom: 10px;
+    }
+
+    .CSS2DObject.label {
+        font-size: 10px;
+    }
 }
 
-.control-buttons button {
-    flex: 1; /* Make buttons take equal width */
-    padding: 8px 12px;
-    background-color: var(--accent-color);
-    color: var(--background-color); /* Dark text on accent */
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: 'Inter', sans-serif;
-    font-size: 0.9em;
-    font-weight: 600;
-    transition: background-color 0.3s ease, opacity 0.3s ease;
+@media (max-width: 768px) { /* Tablet portrait / Small Laptop */
+     body { font-size: 14px; }
+     header h1 { font-size: 2rem; }
+     section h2 { font-size: 1.5rem; }
+     main { gap: 1.5rem; padding: 0 0.8rem;}
+     section { padding: 1.2rem; }
+
+    .visualization-container {
+        height: 550px;
+    }
+
+     /* Stack overlays or adjust drastically */
+    .overlay-panel {
+        width: calc(100% - 30px); /* Near full width */
+        left: 15px;
+        right: 15px;
+        max-width: none; /* Remove max-width */
+        box-shadow: 0 2px 10px rgba(0,0,0,0.5); /* Less intense shadow */
+    }
+     .overlay-panel:hover { transform: none; box-shadow: 0 2px 10px rgba(0,0,0,0.5); } /* Disable hover lift */
+
+    .metrics-container { top: 10px; height: auto; max-height: 100px; overflow-y: auto; font-size: 0.8em;} /* Limit height */
+    .controls-container { top: 120px; height: auto; } /* Position below metrics */
+    #info-panel { top: 260px; height: auto; max-height: 150px; overflow-y: auto; font-size: 0.8em;} /* Position below controls */
+    .chat-container { bottom: 10px; width: calc(100% - 30px); left: 15px; }
+
+    #live2d-container {
+        width: 120px; /* Much smaller */
+        height: 180px;
+        bottom: 160px; /* Position above chat */
+        right: 15px;
+        z-index: 11; /* Ensure it's above overlays if necessary */
+    }
+
+     .button-group { flex-direction: column; gap: 0.5rem; } /* Stack buttons */
+
 }
 
-.control-buttons button:hover {
-    background-color: var(--link-hover-color);
-}
+@media (max-width: 480px) { /* Mobile phones */
+     body { font-size: 13px; }
+     header { padding: 1.5rem 0.5rem;}
+     header h1 { font-size: 1.8rem; }
+     header p { font-size: 0.9rem; }
+     section h2 { font-size: 1.3rem; }
+     section { padding: 1rem; }
 
-.control-buttons button:active {
-    opacity: 0.8;
-}
+     .visualization-container { height: 450px; }
 
-.control-buttons button:disabled {
-    background-color: #555;
-    cursor: not-allowed;
-    opacity: 0.6;
-}
+     .metrics-container { top: 5px; max-height: 80px; }
+     .controls-container { top: 95px; padding: 0.8rem; gap: 0.8rem; }
+     #info-panel { top: 215px; max-height: 100px; padding: 0.8rem; }
+     .chat-container { bottom: 5px; left: 5px; right: 5px; width: auto; padding: 0.8rem; }
+     .chat-output { max-height: 80px; }
 
-/* Optional: Style for the info panel links list */
-#info-panel ul.links-list {
-    list-style: none;
-    padding: 0;
-    margin-top: 8px;
-}
+     #live2d-container {
+        width: 90px;
+        height: 130px;
+        bottom: 130px; /* Adjust based on chat height */
+        right: 10px;
+     }
 
-#info-panel ul.links-list li {
-    margin-bottom: 4px;
-    padding-left: 1em; /* Indent linked concepts */
-    position: relative;
-}
-
-#info-panel ul.links-list li::before {
-    content: '→'; /* Or '🔗' */
-    position: absolute;
-    left: 0;
-    color: var(--accent-color);
-    font-weight: normal; /* Don't bold the arrow */
-}
-/* Add or modify these styles in your style.css */
-
-#metrics {
-    position: absolute; /* Keep position absolute */
-    top: 10px; /* Keep top position */
-    left: 10px; /* Keep left position */
-    background: rgba(0, 0, 0, 0.7); /* Keep background */
-    padding: 15px; /* Keep padding */
-    border-radius: 8px; /* Keep border-radius */
-    z-index: 10; /* Keep z-index */
-    box-shadow: 0 2px 10px rgba(0,0,0,0.5); /* Keep box-shadow */
-    font-size: 0.9em; /* Keep font-size */
-    color: var(--text-color); /* Keep text color */
-    width: 250px; /* Give it a fixed width */
-    max-height: calc(100% - 40px); /* Limit height to prevent overflow */
-    overflow-y: auto; /* Add scroll if content exceeds max height */
-    border: 1px solid var(--container-border-color); /* Add border */
-}
-
-/* Add styling for content within the metrics panel if needed, e.g.: */
-#metrics h3 {
-    margin: 0 0 10px 0;
-    font-size: 1.2em;
-    color: var(--accent-color);
-    border-bottom: 1px solid rgba(var(--accent-color-rgb, 0, 170, 255), 0.5); /* Subtle underline */
-    padding-bottom: 5px;
-}
-
-#metrics p {
-    margin: 5px 0;
-}
-
-#metrics .simulated-data {
-     color: #66ccff; /* Keep style for simulated data */
-}
-
-/* Optional: Styles for potential lists in the metrics panel */
-#metrics ul {
-    list-style: none;
-    padding-left: 0;
-    margin-top: 10px;
-}
-#metrics li {
-     margin-bottom: 5px;
-     position: relative;
-     padding-left: 1.2em;
-}
-#metrics li::before {
-    content: '•'; /* Simple bullet point */
-    position: absolute;
-    left: 0;
-    color: var(--accent-color);
-    font-weight: bold;
-}
-
-/* Add a variable for accent color RGB if not defined */
-:root {
-    /* ... existing variables ... */
-    --accent-color-rgb: 0, 170, 255; /* Add this if you use rgba based on it */
+    .CSS2DObject.label {
+        display: none; /* Hide labels on very small screens */
+    }
 }
