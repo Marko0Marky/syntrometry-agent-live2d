@@ -11,6 +11,7 @@
     <!-- External CSS -->
     <link rel="stylesheet" href="style.css">
 
+    <!-- Dependencies (Keep as is, error handling seems reasonable) -->
     <!-- TensorFlow.js -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js"
         onerror="handleScriptError('TensorFlow.js', null, 'Could not load TensorFlow.js.')"></script>
@@ -33,16 +34,14 @@
         onerror="handleScriptError('pixi-live2d-display', 'https://unpkg.com/pixi-live2d-display@0.4.0/dist/cubism4.min.js', 'Could not load pixi-live2d-display.')"></script>
     <!-- Basic error handling for CDNs -->
     <script>
-        // Fallback error handler for very early script load failures
         function handleScriptError(library, fallback, message) {
             console.error(`[Early Error] Failed to load ${library}. ${message || ''}`);
-            // Attempt to display directly in the body as a fallback
             const errorBar = document.createElement('div');
-            errorBar.style.cssText = 'position:fixed; top:0; left:0; width:100%; background:red; color:white; padding:10px; z-index:9999; text-align:center;';
-            errorBar.innerHTML = `[Error] Failed to load ${library}. Please check console. ${message || ''}`;
-            document.body.prepend(errorBar); // Add to top of body
+            errorBar.style.cssText = 'position:fixed; top:0; left:0; width:100%; background:red; color:white; padding:10px; z-index:9999; text-align:center; font-family: sans-serif;';
+            errorBar.innerHTML = `<strong>[Error] Failed to load ${library}.</strong> Please check console. ${message || ''}`;
+            // Use prepend to ensure it's at the top, even if body isn't fully parsed
+            (document.body || document.documentElement).prepend(errorBar);
 
-            // Try fallback
             if (fallback) {
                 console.log(`[Early Error] Attempting to load fallback: ${fallback}`);
                 const script = document.createElement('script');
@@ -51,7 +50,7 @@
                 document.head.appendChild(script);
             }
         }
-        // Suppress specific D3D compiler warning if needed
+        // Suppress specific D3D compiler warning if needed (Keep as is)
         const originalConsoleWarn = console.warn;
         console.warn = function (...args) {
             if (typeof args[0] === 'string' && args[0].includes('gl.getProgramInfoLog') && args[0].includes('X3557')) {
@@ -62,85 +61,92 @@
     </script>
 </head>
 <body>
-    <header>
+    <header role="banner">
         <h1>Heim's Syntrometric Theory & Live2D Agent Demo</h1>
         <p>Interactive visualization of Syntrometric concepts with an AI-driven Live2D agent.</p>
     </header>
 
     <!-- General Error Message Container -->
-    <div id="error-message" class="error-message" style="display: none; text-align: center; margin: 1rem auto; max-width: 80%; border-color: var(--error-border); background-color: var(--error-background); color: var(--error-color);">
+    <div id="error-message" class="error-message" role="alert" aria-live="assertive" style="display: none;">
         <!-- General errors will be displayed here by displayError utility -->
     </div>
 
-    <main>
+    <main role="main">
         <!-- Syntrometric Theory Section -->
-        <section>
-            <h2>Syntrometric Theory</h2>
+        <section aria-labelledby="theory-heading">
+            <h2 id="theory-heading">Syntrometric Theory</h2>
             <p>
                 Heim's Syntrometric Theory proposes a framework for understanding complex systems through higher-dimensional interactions of Syntrix and Metrons, governed by Reflexive Integration and Structural Condensation. This demo visualizes these concepts interactively, with an AI agent reflecting emotional states via a Live2D avatar.
             </p>
-            <h3>Quick Links</h3>
-            <ul class="quick-links-list">
-                <li><a href="research/syntrometrie_framework.html" title="View 2D Diagram">Syntrometrie Framework Diagram</a></li>
-                <li><a href="research/conscious_agent_arch.html" title="View Agent Architecture">Conscious Agent Architecture Diagram</a></li>
-                <li><a href="../README.md" title="Go to Main Project Readme">Main Project README</a></li>
-                <li><a href="https://heim-theory.com/" target="_blank" title="External Resource (Opens New Tab)">Heim Theory Resources</a></li>
-            </ul>
+            <nav aria-label="Quick Links">
+                <h3>Quick Links</h3>
+                <ul class="quick-links-list">
+                    <li><a href="research/syntrometrie_framework.html" title="View 2D Diagram">Syntrometrie Framework Diagram</a></li>
+                    <li><a href="research/conscious_agent_arch.html" title="View Agent Architecture">Conscious Agent Architecture Diagram</a></li>
+                    <li><a href="../README.md" title="Go to Main Project Readme">Main Project README</a></li>
+                    <li><a href="https://heim-theory.com/" target="_blank" title="External Resource (Opens New Tab)">Heim Theory Resources</a></li>
+                </ul>
+            </nav>
         </section>
 
         <!-- Interactive Visualization Section -->
-        <section>
-            <h2>Interactive Visualization</h2>
+        <section aria-labelledby="syntrometry-viz-heading">
+            <h2 id="syntrometry-viz-heading">Interactive Visualization</h2>
             <p>Explore the Syntrometric simulation with real-time agent responses.</p>
-            <!-- *** UPDATED ID HERE *** -->
-            <div class="visualization-container threejs-container" id="syntrometry-panel">
+            <div class="visualization-container threejs-container" id="syntrometry-panel" aria-label="Syntrometric Simulation Panel">
                 <!-- Error message specific to this container -->
                 <div id="syntrometry-error-message" class="error-message"></div>
+
                 <!-- Live2D Canvas Container -->
-                <div id="live2d-container"></div>
+                <div id="live2d-container" aria-label="Live2D Avatar Display"></div>
+
                 <!-- Controls Panel -->
-                <div id="controls" class="overlay-panel controls-container">
+                <div id="controls" class="overlay-panel controls-container" aria-label="Simulation Controls">
                     <div class="control-group">
                         <label for="integration-slider">Integration (I(S)): <span id="integration-value">0.50</span></label>
-                        <input type="range" id="integration-slider" min="0" max="1" step="0.01" value="0.5">
+                        <input type="range" id="integration-slider" name="integration" min="0" max="1" step="0.01" value="0.5" aria-labelledby="integration-slider-label">
                     </div>
                     <div class="control-group">
                         <label for="reflexivity-slider">Reflexivity (Ψ): <span id="reflexivity-value">0.50</span></label>
-                        <input type="range" id="reflexivity-slider" min="0" max="1" step="0.01" value="0.5">
+                        <input type="range" id="reflexivity-slider" name="reflexivity" min="0" max="1" step="0.01" value="0.5" aria-labelledby="reflexivity-slider-label">
                     </div>
                     <div class="button-group">
-                        <button id="save-state-button">Save State</button>
-                        <button id="load-state-button">Load State</button>
+                        <button id="save-state-button" type="button">Save State</button>
+                        <button id="load-state-button" type="button">Load State</button>
                     </div>
                 </div>
+
                 <!-- Chat Panel -->
-                <div id="chat-container" class="overlay-panel chat-container">
-                    <div id="chat-output"><div><b>System:</b> Welcome to the Syntrometric Simulation.</div></div>
-                    <input id="chat-input" type="text" placeholder="Interact with the simulation...">
+                <div id="chat-container" class="overlay-panel chat-container" aria-label="Simulation Chat">
+                    <div id="chat-output" aria-live="polite"><div><b>System:</b> Welcome to the Syntrometric Simulation.</div></div>
+                    <input id="chat-input" type="text" placeholder="Interact with the simulation..." aria-label="Chat Input">
                 </div>
-                <!-- Metrics Panel -->
-                <div id="metrics" class="overlay-panel metrics-container">Loading metrics...</div>
+
+                <!-- Metrics Panel (Content is dynamically updated, serves as fallback/hover info area) -->
+                <div id="metrics" class="overlay-panel metrics-container" aria-label="Simulation Metrics and Details">Loading metrics...</div>
             </div>
         </section>
 
         <!-- Concept Graph Visualization Section -->
-        <section>
-            <h2>Concept Graph Visualization</h2>
+        <section aria-labelledby="concept-viz-heading">
+            <h2 id="concept-viz-heading">Concept Graph Visualization</h2>
             <p>Explore the relationships between Syntrometric concepts with interactive tooltips.</p>
-             <!-- *** UPDATED ID HERE *** -->
-            <div class="visualization-container threejs-container-concept" id="concept-panel">
+             <div class="visualization-container threejs-container-concept" id="concept-panel" aria-label="Concept Graph Panel">
                 <!-- Error message specific to this container -->
                 <div id="concept-error-message" class="error-message"></div>
-                <!-- Info Panel -->
-                <div id="info-panel" class="overlay-panel">
+
+                <!-- Info Panel (Displays details on hover/click) -->
+                <div id="info-panel" class="overlay-panel info-panel-container" aria-label="Concept Details">
                     <!-- Content dynamically added -->
+                     <h3>Concept Information</h3>
+                     <p>Hover over or click on a concept node to see details.</p>
                 </div>
             </div>
         </section>
     </main>
 
     <!-- Hidden canvas used by Live2D rendering process -->
-    <canvas id="live2d-offscreen-canvas"></canvas>
+    <canvas id="live2d-offscreen-canvas" aria-hidden="true"></canvas>
 
     <!-- Main application script -->
     <script type="module" src="./js/app.js"></script>
