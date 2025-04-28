@@ -1,386 +1,876 @@
-// js/environment.js
+// js/viz-syntrometry.js
 
-import { Config, emotionKeywords, emotionNames } from './config.js';
-import { zeros, tensor, clamp, displayError } from './utils.js';
+import { Config } from './config.js';
+import { clamp, displayError, zeros } from './utils.js';
 
-// Assumes tf is available globally via CDN
+// Assumes THREE, OrbitControls, CSS2DRenderer are available globally via CDN
+// We need CSS2DRenderer for labels here too
+
+export let scene = null;
+export let camera = null;
+export let renderer = null;
+export let labelRenderer = null; // Add label renderer for Syntrometry panel
+let nodes = []; // Dimension nodes
+let edgesGroup = null;
+export let rihNode = null; // Export rihNode for potential external use if needed (though not planned now)
+export let threeInitialized = false; // Export initialization flag
+
+let syntrometryContainer = null; // Store the container element
+let syntrometryInfoPanel = null; // Store the metrics/info panel element
+
+// --- State variables for interaction ---
+let hoveredDimension = null; // Track the currently hovered dimension node
+let selectedDimension = null; // Track the currently clicked/selected dimension node
+
+// Variables to hold the latest simulation data for the info panel (updated by updateThreeJS)
+let latestStateVector = null; // Full state vector array from environment
+let latestRihScore = 0;
+let latestAffinities = []; // Affinities between cascade layers
+let latestCascadeHistory = []; // Cascade history from agent (used by info panel)
+let latestContext = "Initializing..."; // Environment context string
+
+// --- Module-scoped base material for edges (initialized once) ---
+// Use LineBasicMaterial, which does NOT have 'emissive'
+let baseEdgeMaterial = null;
+
+
+const nodeBaseScale = 0.08; // Base size of the nodes
+
 
 /**
- * Represents the simulation environment, managing state, events, and rewards.
+ * Initializes the Three.js visualization for the Syntrometry panel.
+ * @returns {boolean} True if initialization was successful, false otherwise.
  */
-export class EmotionalSpace {
-    constructor() {
-        // Define potential environment events, their context, and reward
-        this.events = [
-            ["Joy", "A pleasant resonance occurs.", 1.5],
-            ["Fear", "A dissonant pattern is detected.", -1.8],
-            ["Curiosity", "An unexpected structural variation appears.", 1.2],
-            ["Frustration", "System encounters processing resistance.", -1.0],
-            ["Calm", "Patterns stabilize into harmony.", 0.8],
-            ["Surprise", "A sudden cascade shift happens.", 1.6]
-        ];
-        this.emotionNames = this.events.map(e => e[0]); // Extract emotion names from events
+export function initThreeJS() {
+    // Check if Three.js and CSS2DRenderer are loaded
+    if (typeof THREE === 'undefined' || typeof THREE.CSS2DRenderer === 'undefined') {
+        displayError("Three.js or CSS2DRenderer not loaded for Syntrometry panel.", false, 'error-message');
+        threeInitialized = false; // Ensure flag is false on failure
+        return false;
+    }
+    try {
+        // Get the container and info panel elements
+        syntrometryContainer = document.getElementById('syntrometry-panel');
+        syntrometryInfoPanel = document.getElementById('metrics'); // Repurposing the metrics div
 
-        // Base emotional tendency of the environment (starts neutral/calm)
-        // This influences the state vector over time, independent of agent emotions
-        // Initialize with a default state (zero tensor) if tf is not available
-        if (this.baseEmotions && typeof this.baseEmotions.dispose === 'function') {
-            tf.dispose(this.baseEmotions);
+
+        if (!syntrometryContainer || !syntrometryInfoPanel) {
+            displayError("Syntrometry panel container or info panel not found.", false, 'error-message');
+            threeInitialized = false; // Ensure flag is false on failure
+            return false;
         }
-         this.baseEmotions = tensor([[0.6, 0.1, 0.3, 0.1, 0.5, 0.2]], [1, Config.Agent.EMOTION_DIM])
-            || tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]);
+
+        const width = syntrometryContainer.clientWidth;
+        const height = syntrometryContainer.clientHeight;
+         if (width <= 0 || height <= 0) {
+             displayError("Syntrometry panel has zero dimensions.", false, 'error-message');
+             threeInitialized = false; // Ensure flag is false on failure
+             return false;
+         }
 
 
-        // Timers for managing event occurrences
-        this.stepCount = 0; // Total simulation steps
-        this.eventTimer = 0; // Timer for active event duration (in animation frames)
-        this.gapTimer = Config.Env.EVENT_GAP; // Timer for gap between events (in animation frames)
-        this.currentEvent = null; // Currently active event details (can be null or an array [type, context, reward])
+        // Create scene, camera, and renderers
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a); // Dark background
+        camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+        camera.position.z = 3.5; // Position camera
 
-        // The main state vector representing the environment's condition
-        // Combines abstract dimensions with raw emotional "readings"
-        // Initialize with correct size, pad with zeros
-        this.currentStateVector = zeros([Config.Agent.BASE_STATE_DIM]);
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(width, height);
+        syntrometryContainer.appendChild(renderer.domElement); // Add WebGL renderer to container
 
-        // Initialize the state vector based on the initial base emotions
-        this._updateStateVector(this.baseEmotions);
+        // CSS2D Renderer for labels
+        labelRenderer = new THREE.CSS2DRenderer(); // Use separate renderer for this panel
+        labelRenderer.setSize(width, height);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none'; // Allow clicks to pass through labels
+        syntrometryContainer.appendChild(labelRenderer.domElement); // Add label renderer
+
+        // Create nodes (representing dimensions)
+        const nodeGeometry = new THREE.SphereGeometry(nodeBaseScale, 16, 12); // Sphere geometry
+        const angleStep = (2 * Math.PI) / Config.DIMENSIONS; // Angle between nodes on a circle
+        const radius = 1.5; // Radius of the circle layout
+
+        nodes = []; // Clear nodes array just in case
+        for (let i = 0; i < Config.DIMENSIONS; i++) {
+            // Material for nodes (MeshPhongMaterial supports emissive)
+            const material = new THREE.MeshPhongMaterial({ color: 0x00ff00, emissive: 0x113311, specular: 0x555555, shininess: 30 });
+            const node = new THREE.Mesh(nodeGeometry, material);
+
+            // Position nodes in a circle
+            const x = Math.cos(i * angleStep) * radius;
+            const y = Math.sin(i * angleStep) * radius;
+            const z = 0; // Start at z=0
+            node.position.set(x, y, z);
+
+
+            // Store original material properties and position for animation/highlighting
+            node.userData.originalColor = node.material.color.getHex();
+            node.userData.originalEmissive = node.material.emissive ? node.material.emissive.getHex() : null; // Handle materials without emissive
+            node.userData.originalPosition = new THREE.Vector3(x, y, z); // Store original position
+            node.userData.dimensionIndex = i; // Store the index for identification
+            node.userData.type = 'dimension'; // Add type for consistency
+
+
+            scene.add(node); // Add node to scene
+            nodes.push(node); // Store node reference
+
+            // Create and add CSS2D label
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'label'; // Use defined CSS class
+            labelDiv.textContent = `Dim ${i + 1}`; // Initial label text
+            const label = new THREE.CSS2DObject(labelDiv);
+            const labelOffset = nodeBaseScale * 1.5; // Position label above node
+            label.position.set(0, labelOffset, 0); // Position relative to node
+            node.add(label); // Add label as child of the node
+            node.userData.label = label; // Store label reference
+        }
+
+        // Create the RIH node (central node)
+        const rihGeometry = new THREE.SphereGeometry(nodeBaseScale * 1.5, 20, 16);
+        const rihMaterial = new THREE.MeshPhongMaterial({ color: 0xff4444, emissive: 0x331111, specular: 0x888888, shininess: 50 });
+        rihNode = new THREE.Mesh(rihGeometry, rihMaterial);
+        const rihPosition = new THREE.Vector3(0, 0, 0); // Center position
+        rihNode.position.copy(rihPosition);
+
+        // Store original material properties and position for highlighting
+        rihNode.userData.originalColor = rihNode.material.color.getHex();
+        rihNode.userData.originalEmissive = rihNode.material.emissive ? rihNode.material.emissive.getHex() : null; // Handle materials without emissive
+        rihNode.userData.originalPosition = rihPosition.clone(); // Store original position
+        rihNode.userData.type = 'rih_node'; // Identify type for interaction
+
+
+        scene.add(rihNode); // Add RIH node to scene
+
+        // Group for edges to easily remove and re-add them
+        edgesGroup = new THREE.Group();
+        scene.add(edgesGroup);
+
+        // --- Initialize base edge material once ---
+         // Use LineBasicMaterial, which does NOT have 'emissive' or 'specular'
+         baseEdgeMaterial = new THREE.LineBasicMaterial({
+            vertexColors: false, // Vertex colors handled manually if needed
+            transparent: true,
+            opacity: 0.5, // Base opacity
+            color: 0x888888 // Base color (used when not highlighting)
+         });
+
+
+        // Setup interaction handlers (mousemove, click)
+        setupSyntrometryInteraction();
+
+        // Add window resize listener
+        window.addEventListener('resize', onWindowResize, false);
+
+        console.log('Syntrometry Three.js initialized successfully.');
+        threeInitialized = true;
+        return true;
+    } catch (e) {
+        displayError(`Error initializing Syntrometry Three.js: ${e.message}`, false, 'error-message');
+        console.error("Syntrometry Three.js Init Error:", e);
+        threeInitialized = false; // Ensure flag is false on failure
+        return false;
+    }
+}
+
+
+// Sets up raycasting and event listeners for interacting with Syntrometry nodes
+function setupSyntrometryInteraction() {
+    if (!syntrometryContainer || !syntrometryInfoPanel) return; // Check if elements are available
+
+    // List of objects to check for intersection (nodes + RIH node)
+    const interactableObjects = [...nodes, rihNode].filter(obj => obj !== null && obj !== undefined); // Ensure objects exist
+
+
+    // Add event listeners for mouse movements and clicks
+    // Using named functions for proper removal in cleanup
+    syntrometryContainer.addEventListener('mousemove', handleSyntrometryMouseMoveWrapper, false);
+    syntrometryContainer.addEventListener('click', handleSyntrometryClickWrapper, false);
+
+     // Initial call to update info panel (will show default state)
+     // This will be called from the app.js initialize function now.
+     // updateSyntrometryInfoPanel(); // Removed redundant call here
+
+     console.log("Syntrometry interaction setup complete.");
+}
+
+// Handles mouse movement over the Syntrometry graph container
+function onSyntrometryMouseMove(event, interactableObjects) {
+    if (!threeInitialized || !camera || !syntrometryContainer || !interactableObjects) return; // Removed raycaster, mouse params - use local ones
+
+
+    let raycaster = new THREE.Raycaster();
+    let mouse = new THREE.Vector2();
+
+
+    // Calculate mouse position in normalized device coordinates (-1 to +1)
+    const rect = syntrometryContainer.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Update the picking ray with the camera and mouse position
+    raycaster.setFromCamera(mouse, camera);
+
+    // Find objects intersecting the ray
+    const intersects = raycaster.intersectObjects(interactableObjects, false);
+
+    let newHoveredObject = null;
+    if (intersects.length > 0) {
+         // Get the first intersected object (closest to camera) that has userData
+         for(let i = 0; i < intersects.length; i++) {
+             if(intersects[i].object.userData) {
+                 newHoveredObject = intersects[i].object;
+                 break; // Found a valid interactive object
+             }
+         }
     }
 
-    // Resets the environment to its initial state
-    reset() {
-        this.stepCount = 0;
-        this.eventTimer = 0;
-        this.gapTimer = Config.Env.EVENT_GAP;
-        this.currentEvent = null;
-        // Re-initialize base emotions and state vector
-         if (this.baseEmotions && typeof this.baseEmotions.dispose === 'function') {
-             tf.dispose(this.baseEmotions);
-         }
-        this.baseEmotions = tensor([[0.6, 0.1, 0.3, 0.1, 0.5, 0.2]], [1, Config.Agent.EMOTION_DIM])
-             || tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]);
-
-        this.currentStateVector = zeros([Config.Agent.BASE_STATE_DIM]); // Reset state vector values
-        this._updateStateVector(this.baseEmotions); // Update state vector based on reset emotions
-        console.log("Environment Reset.");
-        return {
-            state: this._getState() // Return the initial state tensor
-        };
+    // Update hoveredDimension state *only if it's different* and nothing is selected
+    // We only update `hoveredDimension` here. The animation loop will call `updateSyntrometryInfoPanel`
+    // which will then react to this change in state.
+    if (!selectedDimension && newHoveredObject !== hoveredDimension) {
+        hoveredDimension = newHoveredObject;
+        // Animation loop calls updateSyntrometryInfoPanel
+    } else if (!selectedDimension && !newHoveredObject && hoveredDimension !== null) {
+         // Case where mouse moves off all objects and nothing is selected
+         hoveredDimension = null;
+         // Animation loop calls updateSyntrometryInfoPanel
     }
 
-    // Advances the environment simulation by one step
-    // Takes agent's emotions, RIH, and Affinity to influence dynamics
-    async step(agentEmotionsTensor, currentRIHScore = 0, currentAvgAffinity = 0) {
-        this.stepCount++;
-        let reward = 0; // Reward for the agent in this step
-        let context = "Ambient fluctuations."; // Textual context of the environment state
-        let triggeredEventType = null; // Type of event triggered in this step (if any)
+    // Update cursor based on whether *any* interactive object is currently hovered or selected
+    if (selectedDimension || hoveredDimension) {
+        syntrometryContainer.style.cursor = 'pointer';
+    } else {
+        syntrometryContainer.style.cursor = 'default';
+    }
+}
 
-        // Get agent's current emotion values as an array
-        const agentEmotions = agentEmotionsTensor && typeof agentEmotionsTensor.arraySync === 'function'
-            ? agentEmotionsTensor.arraySync()[0]
-            : zeros([Config.Agent.EMOTION_DIM]);
+// Handles mouse clicks on the Syntrometry graph container
+function onSyntrometryClick(event, interactableObjects) {
+    if (!threeInitialized || !camera || !syntrometryContainer || !interactableObjects) return; // Removed raycaster, mouse params
 
-        // Update the environment's base emotions, influenced by agent emotions and a tendency towards 0.5
-         const currentBaseEmotions = this.baseEmotions && typeof this.baseEmotions.arraySync === 'function'
-            ? this.baseEmotions.arraySync()[0]
-            : zeros([Config.Agent.EMOTION_DIM]); // Fallback if baseEmotions is null
+    let raycaster = new THREE.Raycaster();
+    let mouse = new THREE.Vector2();
 
-        const newBaseEmotionsArray = currentBaseEmotions.map((baseVal, i) => {
-             // Drift base emotions towards agent's emotion and a central tendency (0.5)
-            const drift = (agentEmotions[i] - baseVal) * 0.005 + (0.5 - baseVal) * 0.001;
-            return clamp(baseVal + drift, 0, 1); // Keep values within [0, 1]
-        });
-         // Dispose old tensor before replacing the reference
-         if (this.baseEmotions && typeof this.baseEmotions.dispose === 'function') {
-             tf.dispose(this.baseEmotions);
+
+     // Recalculate mouse position and ray (in case mousemove was skipped)
+     const rect = syntrometryContainer.getBoundingClientRect();
+     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+     raycaster.setFromCamera(mouse, camera);
+
+
+    // Find objects intersected by the click ray
+    const intersects = raycaster.intersectObjects(interactableObjects, false);
+
+    if (intersects.length > 0) {
+         // Get the first intersected object that has userData
+        let clickedObject = null;
+         for(let i = 0; i < intersects.length; i++) {
+             if(intersects[i].object.userData) {
+                 clickedObject = intersects[i].object;
+                 break; // Found a valid interactive object
+             }
          }
-        this.baseEmotions = tensor([newBaseEmotionsArray], [1, Config.Agent.EMOTION_DIM])
-             || tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]); // Fallback
 
 
-        // --- Event Management ---
-        if (this.eventTimer > 0) {
-            // Event is currently active
-            this.eventTimer--;
-            context = this.currentEvent.context; // Use active event's context
-            // Reward scales down as the event duration decreases
-            reward = this.currentEvent.reward * (this.eventTimer / Config.Env.EVENT_DURATION);
-            triggeredEventType = this.currentEvent.type; // Indicate event type is active
+        // If we clicked an interactive object
+        if (clickedObject) {
 
-            if (this.eventTimer === 0) {
-                // Event just ended
-                this.currentEvent = null;
-                this.gapTimer = Config.Env.EVENT_GAP; // Start the gap timer
-                context = "Event concluded. System stabilizing.";
-                 // console.log("Event concluded.");
-            }
-        } else if (this.gapTimer > 0) {
-            // Gap between events is active
-            this.gapTimer--;
-            context = "System stable."; // Indicate stable state
+             // If we clicked the object that is already selected, deselect it
+             if (selectedDimension === clickedObject) {
+                 selectedDimension = null;
+                 // Revert cursor to default if nothing is hovered either
+                 if (!hoveredDimension) {
+                      syntrometryContainer.style.cursor = 'default';
+                 }
+             } else {
+                  // Select the new object
+                  selectedDimension = clickedObject;
+                  // Keep pointer cursor while something is selected
+                  syntrometryContainer.style.cursor = 'pointer';
+             }
+
+             // Animation loop will react to the state change (selectedDimension, hoveredDimension)
+
 
         } else {
-            // Gap timer is zero, check if a new event should be triggered
-            // Event frequency can be influenced by overall emotion intensity
-            const emotionIntensity = agentEmotions.reduce((sum, val) => sum + val, 0) / Config.Agent.EMOTION_DIM; // Avg intensity
-            // Probability increases slightly with higher emotion intensity (V1 influence)
-            const triggerProb = Config.Env.EVENT_FREQ * (1 + emotionIntensity * 0.5);
-
-            if (Math.random() < triggerProb) {
-                // Trigger a new event
-                // Select event biased by agent's dominant emotion (V1 influence)
-                 // Handle case where agentEmotions is zero array
-                 const dominantEmotionIdx = agentEmotions.length > 0 ? agentEmotions.indexOf(Math.max(...agentEmotions)) : -1;
-                 const eventProbs = agentEmotions.map(e => e * 0.5 + 0.5); // Bias towards higher emotions, minimum 0.5 base
-                 const totalProb = eventProbs.reduce((a, b) => a + b, 0);
-                 const normalizedProbs = totalProb > 0 ? eventProbs.map(p => p / totalProb) : eventProbs.map(() => 1 / Config.Agent.EMOTION_DIM); // Handle zero total prob case
-
-                 let rand = Math.random();
-                 let eventIdx = 0; // Default to first event if no probabilities
-                 if (normalizedProbs.length > 0) {
-                     for (let i = 0; i < normalizedProbs.length; i++) {
-                         rand -= normalizedProbs[i];
-                         if (rand <= 0) {
-                             eventIdx = i;
-                             break;
-                         }
-                     }
-                 }
-
-
-                const eventData = this.events[eventIdx]; // Select event
-                this.currentEvent = { type: eventData[0], context: eventData[1], reward: eventData[2] }; // Store event details
-                context = this.currentEvent.context; // Set context
-                triggeredEventType = this.currentEvent.type; // Set event type
-                // Reward scales based on event's type and how much the agent feels that emotion (V1 influence)
-                const emotionIndex = this.emotionNames.indexOf(this.currentEvent.type);
-                 const agentCorrespondingEmotion = (emotionIndex !== -1 && agentEmotions.length > emotionIndex) ? agentEmotions[emotionIndex] : 0;
-                reward = this.currentEvent.reward * (agentCorrespondingEmotion * 0.7 + 0.3); // Stronger reward if agent feels the corresponding emotion
-
-                this.eventTimer = Config.Env.EVENT_DURATION; // Start event timer
-                 // console.log(`Event Triggered: ${this.currentEvent.type} - ${this.currentEvent.context}`);
-            }
-        }
-
-        // --- Update State Vector ---
-        // Update the environment's state vector based on current base emotions and event
-        this._updateStateVector(this.baseEmotions, triggeredEventType);
-
-
-        // --- Dysvariant Fluctuations ---
-        // Introduce small, random fluctuations (dysvariants)
-        // Probability and amplitude tied to RIH and Affinity (V1 influence)
-         const dysvariantProb = Config.DYSVARIANT_PROB * (1 - clamp(currentRIHScore, 0, 1)); // More likely with low RIH
-
-        if (Math.random() < dysvariantProb) {
-            const randomIndex = Math.floor(Math.random() * Config.DIMENSIONS); // Affect a random abstract dimension
-             // Amplitude related to lack of affinity
-            const amplitude = (Math.random() - 0.5) * 0.3 * (1 - clamp(currentAvgAffinity, -1, 1)); // Larger fluctuations with low affinity
-            this.currentStateVector[randomIndex] = clamp((this.currentStateVector[randomIndex] || 0) + amplitude, -1, 1); // Apply fluctuation
-            context += " (Dysvariant fluctuation detected)"; // Add context note
-        }
-
-
-        // Get the final state tensor for the agent
-        const stateTensor = this._getState();
-
-        // Determine if the simulation is done (not used for termination in this demo)
-        const done = false;
-
-        return {
-            state: stateTensor, // The environment's state vector (tensor)
-            reward,            // Reward for the agent
-            done,              // Simulation done flag
-            context,           // Textual context of this step
-            eventType: triggeredEventType // Type of event (if any)
-        };
-    }
-
-    // Updates the numerical state vector based on emotions and events
-    _updateStateVector(emotionTensor, eventType = null) {
-         // Ensure emotionTensor is valid and get emotion values as array
-         const emotions = emotionTensor && typeof emotionTensor.arraySync === 'function' ? emotionTensor.arraySync()[0] : zeros([Config.Agent.EMOTION_DIM]);
-
-        // Update the first Config.DIMENSIONS elements based on emotion combinations and dynamics (V1 logic)
-         // Ensure we don't try to access emotion indices out of bounds
-        this.currentStateVector[0] = clamp(((emotions[0] || 0) - (emotions[1] || 0)) * 0.8, -1, 1); // Joy vs. Fear
-        this.currentStateVector[1] = clamp(((emotions[4] || 0) - (emotions[3] || 0)) * 0.7, -1, 1); // Calm vs. Frustration
-        this.currentStateVector[2] = clamp((emotions[2] || 0) * 1.5 - 0.5, -1, 1); // Curiosity emphasis
-        this.currentStateVector[3] = clamp((emotions[5] || 0) * 1.2 - 0.3, -1, 1); // Surprise emphasis
-
-        // Other dimensions update based on a decay + influence from other emotions + noise
-        for (let i = 4; i < Config.DIMENSIONS; i++) {
-            const emoIdx = i % Config.Agent.EMOTION_DIM; // Map dimension to an emotion index
-            const prevVal = this.currentStateVector[i] || 0; // Get previous value, default to 0
-             const emoInfluence = ((emotions[emoIdx] || 0) - 0.5) * 0.15; // Influence from a specific emotion
-            const randomPerturbation = (Math.random() - 0.5) * 0.03; // Small random noise
-            this.currentStateVector[i] = clamp(prevVal * 0.95 + emoInfluence + randomPerturbation, -1, 1); // Decay + influence + noise
-        }
-
-        // --- Event-Specific Perturbations ---
-        // Apply specific changes to the state vector if an event was triggered
-        if (eventType) {
-            const emotionIndex = this.emotionNames.indexOf(eventType); // Get index of triggered emotion
-            if (emotionIndex !== -1) {
-                 // Apply a pulse to relevant dimensions (V1 logic)
-                 // Ensure dimension index is within bounds
-                const dim1 = emotionIndex % Config.DIMENSIONS;
-                const dim2 = (emotionIndex + 1) % Config.DIMENSIONS; // A related dimension
-
-                if (dim1 < Config.DIMENSIONS) {
-                    this.currentStateVector[dim1] = clamp(
-                        (this.currentStateVector[dim1] || 0) + 0.4, -1, 1
-                    );
-                }
-                if (dim2 < Config.DIMENSIONS) {
-                     this.currentStateVector[dim2] = clamp(
-                        (this.currentStateVector[dim2] || 0) + 0.15, -1, 1
-                     );
-                }
-
-                 // Slightly perturb other random dimensions (V1 logic)
-                 for(let k = 0; k < 3; k++) {
-                     const randDim = Math.floor(Math.random() * Config.DIMENSIONS);
-                     if (randDim < Config.DIMENSIONS) {
-                         this.currentStateVector[randDim] = clamp((this.currentStateVector[randDim] || 0) + (Math.random() - 0.5) * 0.1, -1, 1);
-                     }
-                 }
-            }
-        }
-
-        // Append raw emotion values to the end of the state vector (for agent to consume)
-        for (let i = 0; i < Config.Agent.EMOTION_DIM; i++) {
-             // Ensure emotion index is within bounds
-             const emotionVal = (emotions.length > i) ? emotions[i] : 0;
-             // Ensure dimension index is within bounds
-             const stateDimIndex = Config.DIMENSIONS + i;
-             if (stateDimIndex < Config.Agent.BASE_STATE_DIM) {
-                this.currentStateVector[stateDimIndex] = clamp(emotionVal, 0, 1); // Append emotion values (0-1)
+             // Clicked on a non-interactive Three.js object within the scene?
+             // Treat as a click on empty space: clear selection.
+             selectedDimension = null;
+             // Revert cursor to default if nothing is hovered
+             if (!hoveredDimension) {
+                 syntrometryContainer.style.cursor = 'default';
              }
+             // Animation loop will react
         }
 
-         // Ensure the state vector has the correct final size
-         while (this.currentStateVector.length < Config.Agent.BASE_STATE_DIM) {
-             this.currentStateVector.push(0.0); // Pad with zeros if undersized
+    } else {
+         // Clicked on empty space - clear selection
+         selectedDimension = null;
+         // Revert cursor to default if nothing is hovered
+         if (!hoveredDimension) {
+             syntrometryContainer.style.cursor = 'default';
          }
-         this.currentStateVector = this.currentStateVector.slice(0, Config.Agent.BASE_STATE_DIM); // Truncate if oversized
+         // Animation loop will react
+    }
+    // The animation loop calls updateSyntrometryInfoPanel and updateThreeJS every frame,
+    // which will now react to the updated `selectedDimension` state variable.
+}
+
+
+/**
+ * Updates the content of the Syntrometry info panel based on the currently selected, hovered,
+ * or latest simulation data. Reads state variables (selectedDimension, hoveredDimension,
+ * latest...) and latest simulation data stored in module scope.
+ * This function is called every frame by the main animation loop in app.js.
+ */
+export function updateSyntrometryInfoPanel() { // No arguments needed anymore
+    if (!syntrometryInfoPanel) return; // Ensure the info panel element exists
+
+    let displayObject = null; // The object whose data we will display
+
+    // Prioritize selected object over hovered object
+    if (selectedDimension && selectedDimension.userData) {
+         displayObject = selectedDimension;
+    } else if (hoveredDimension && hoveredDimension.userData) {
+         displayObject = hoveredDimension;
     }
 
-    // Returns the current state vector as a TensorFlow tensor
-    _getState() {
-         // Ensure the state vector has the correct size before creating the tensor
-         while (this.currentStateVector.length < Config.Agent.BASE_STATE_DIM) {
-             this.currentStateVector.push(0.0); // Pad with zeros if somehow undersized
-         }
-         // Make sure it doesn't exceed the expected size
-         const finalStateArray = this.currentStateVector.slice(0, Config.Agent.BASE_STATE_DIM);
+    // If we have an object to display information for
+    if (displayObject && displayObject.userData) {
+        const data = displayObject.userData; // Data stored in the object's userData
+        let infoHtml = '';
 
-        return tensor([finalStateArray], [1, Config.Agent.BASE_STATE_DIM]);
-    }
+        if (data.type === 'rih_node') {
+            // Display info for the RIH node
+             infoHtml = `
+                <h3>Reflexive Integration (RIH)</h3>
+                <p>Central coherence/awareness metric.</p>
+                <p>Based on correlations across cascade levels.</p>
+                <p><i>Updates dynamically based on simulation.</i></p>
+                <p><span class="simulated-data">Current RIH: ${(latestRihScore * 100).toFixed(1)}%</span></p>
+                <p><span class="simulated-data">Average Affinity: ${(latestAffinities && latestAffinities.length > 0 ? latestAffinities.reduce((a,b)=>a+b,0)/latestAffinities.length : 0).toFixed(2)}</span></p>
+             `;
 
-    // Processes text input and updates environment's base emotions
-    getEmotionalImpactFromText(text) {
-        const impact = zeros([Config.Agent.EMOTION_DIM]); // Initialize impact vector
-        let foundKeyword = false;
-        const lowerText = text.toLowerCase();
-
-        // Check for keywords associated with each emotion
-        for (let idx in emotionKeywords) {
-            const info = emotionKeywords[idx];
-            for (let keyword of info.keywords) {
-                if (lowerText.includes(keyword)) {
-                     // Apply impact for this emotion, taking the max if multiple keywords match
-                    impact[idx] = Math.max(impact[idx], info.strength);
-                    foundKeyword = true;
-
-                    // Directly influence the environment's base emotions
-                     const currentBase = this.baseEmotions && typeof this.baseEmotions.arraySync === 'function'
-                        ? this.baseEmotions.arraySync()[0]
-                        : zeros([Config.Agent.EMOTION_DIM]); // Fallback
-
-                    currentBase[idx] = clamp((currentBase[idx] || 0) + (info.baseChange || 0), 0, 1); // Apply base change, handle potential undefined
-                     // Dispose old tensor before replacing the reference
-                     if (this.baseEmotions && typeof this.baseEmotions.dispose === 'function') {
-                         tf.dispose(this.baseEmotions);
+        } else if (data.type === 'dimension' && data.dimensionIndex !== undefined) { // Check type and index
+             // Display info for a dimension node
+             const dimIndex = data.dimensionIndex;
+             const currentValue = (latestStateVector && latestStateVector.length > dimIndex) ? latestStateVector[dimIndex] : 0;
+             // Assuming affinities array matches dimension count and represents affinity from this dim to the *next* level's corresponding position
+             // In the current sim, affinity is calculated BETWEEN levels, so affinities[i] is the affinity from level i to i+1.
+             // Let's try to display the value of this dimension's state across the *last* cascade level it participated in.
+             let finalCascadeValue = null;
+             if (latestCascadeHistory && latestCascadeHistory.length > 0) {
+                 // Find the latest level where this dimension's original index is valid
+                 for(let levelIndex = latestCascadeHistory.length - 1; levelIndex >= 0; levelIndex--) {
+                     const level = latestCascadeHistory[levelIndex];
+                     if (level && level.length > dimIndex && level[dimIndex] !== undefined && level[dimIndex] !== null) {
+                          finalCascadeValue = level[dimIndex];
+                          break; // Found the latest valid value
                      }
-                    this.baseEmotions = tensor([currentBase], [1, Config.Agent.EMOTION_DIM])
-                         || tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]); // Update base emotions tensor, fallback
-                }
+                 }
+             }
+              const finalCascadeValueDisplay = finalCascadeValue !== null ? finalCascadeValue.toFixed(3) : 'N/A';
+
+
+             infoHtml = `
+                <h3>Dimension ${dimIndex + 1}</h3>
+                <p>An abstract dimension in the state vector.</p>
+                <p>Value influenced by environment emotions and internal dynamics.</p>
+                <p><i>Updates dynamically based on simulation.</i></p>
+                <p><span class="simulated-data">Initial Value: ${currentValue.toFixed(3)}</span></p>
+                <p><span class="simulated-data">Final Cascade Value: ${finalCascadeValueDisplay}</span></p>
+             `;
+             // Optional: Add info about this dimension's value in all cascade levels
+             if (latestCascadeHistory && latestCascadeHistory.length > 0) {
+                  infoHtml += `<p><b>Cascade Values:</b></p><ul>`;
+                  latestCascadeHistory.forEach((level, levelIndex) => {
+                       if (level && level.length > dimIndex && level[dimIndex] !== undefined && level[dimIndex] !== null) {
+                           infoHtml += `<li>Level ${levelIndex}: ${level[dimIndex].toFixed(3)}</li>`;
+                       }
+                  });
+                 infoHtml += `</ul>`;
+             }
+
+        }
+         // Update the panel only if we generated some info
+         if (infoHtml) {
+             syntrometryInfoPanel.innerHTML = infoHtml;
+         } else {
+             // Fallback if object is interactive but we don't have display logic for it
+             syntrometryInfoPanel.innerHTML = `<h3>Object Selected</h3><p>Type: ${data.type || 'Unknown'}</p><p>ID: ${data.id || 'N/A'}</p>`;
+         }
+
+
+    } else {
+        // If no object is selected or hovered, display default simulation state overview
+        syntrometryInfoPanel.innerHTML = `
+            <h3>Simulation Metrics</h3>
+            <p>Hover or click dimensions/RIH node for details.</p>
+            <p><i>Updates dynamically based on agent processing.</i></p>
+            <p><span class="simulated-data">Current RIH: ${(latestRihScore * 100).toFixed(1)}%</span></p>
+            <p><span class="simulated-data">Average Affinity: ${(latestAffinities && latestAffinities.length > 0 ? latestAffinities.reduce((a,b)=>a+b,0)/latestAffinities.length : 0).toFixed(2)}</span></p>
+            <p>Environment Context: ${latestContext || 'Stable'}</p> <!-- Use latestContext -->
+        `;
+    }
+}
+
+
+/**
+ * Updates the Three.js visualization based on simulation state and interaction.
+ * This function is called every frame by the main animation loop.
+ * @param {number} deltaTime The time elapsed since the last frame.
+ * @param {number[]} stateVector The environment's numerical state vector (full array).
+ * @param {number} rihScore The current RIH score (0-1).
+ * @param {number[]} affinities Array of affinity scores between cascade levels.
+ * @param {number} integrationParam Value from the integration slider (0-1).
+ * @param {number} reflexivityParam Value from the reflexivity slider (0-1).
+ * @param {number[][]} cascadeHistory History of elements at each cascade level (array of arrays).
+ * @param {string} context Current environment context message.
+ */
+export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, integrationParam, reflexivityParam, cascadeHistory, context) { // Added context
+    // Only update if initialized and necessary objects exist
+    if (!threeInitialized || !nodes || nodes.length === 0 || !rihNode || !edgesGroup || !renderer || !camera || !scene || !labelRenderer || !baseEdgeMaterial) return; // Check baseEdgeMaterial
+
+
+    // Store latest simulation data for the info panel access
+    latestStateVector = stateVector; // Store the full state vector array
+    latestRihScore = rihScore;
+    latestAffinities = affinities; // Store the affinities array
+    latestCascadeHistory = cascadeHistory; // Store cascade history
+    latestContext = context; // Store context
+
+
+    // Clear old edges BEFORE creating new ones
+    // Use `dispose()` on geometry and material to free up GPU memory
+    edgesGroup.children.forEach(child => {
+         if (child.geometry) child.geometry.dispose();
+         if (child.material) child.material.dispose();
+    });
+    edgesGroup.children.length = 0; // Remove all edge meshes from the array
+
+
+    // --- Node Animation & Highlight Effects ---
+    const time = performance.now() * 0.001; // Use performance.now() for time for animations
+
+    // Define highlight colors/emissive values (PhongMaterial) and colors (BasicMaterial)
+    const nodeHighlightColor = new THREE.Color(0xffffff); // White highlight
+    const nodeHighlightEmissive = new THREE.Color(0xffffff).multiplyScalar(0.5); // White emissive glow
+    const linkedColor = new THREE.Color(0xaaaaee); // Light blueish tint for linked nodes
+    const linkedEmissive = new THREE.Color(0xaaaaee).multiplyScalar(0.3);
+     const edgeHighlightColor = new THREE.Color(0x00aaff); // Accent blue for edges (BasicMaterial color)
+
+
+    // Loop through each dimension (node)
+    for (let i = 0; i < Config.DIMENSIONS; i++) {
+        const node = nodes[i];
+        // Ensure necessary userData exists
+        if (!node || !node.material || !node.material.color || !node.userData || !node.userData.originalPosition || node.userData.originalColor === undefined || node.userData.originalEmissive === undefined) {
+             console.warn(`Missing required userData for dimension node ${i}. Skipping animation/highlight.`); // Added index to warning
+             continue;
+         }
+
+        const data = node.userData; // Use userData directly
+
+
+        // Use stored original position for animation base
+        const originalPosition = node.userData.originalPosition;
+         // Use stored original material properties for highlighting base
+         const originalColor = new THREE.Color(node.userData.originalColor);
+         const originalEmissive = new THREE.Color(node.userData.originalEmissive);
+
+
+        const isSelected = selectedDimension === node;
+        const isHovered = !isSelected && hoveredDimension === node; // Only hover highlight if not selected
+         // Check if node is linked to the selected/hovered RIH node
+         // A dimension node is linked to RIH if RIH is selected/hovered AND this dimension exists in the *last* cascade level (where RIH is calculated from variance)
+         const lastCascadeLevel = latestCascadeHistory && latestCascadeHistory.length > 0 ? latestCascadeHistory[latestCascadeHistory.length - 1] : [];
+         const isLinkedToRih = lastCascadeLevel.length > i; // Is this dimension's value represented in the final cascade level?
+
+         const isLinkedToRihSelected = selectedDimension === rihNode && isLinkedToRih;
+         const isLinkedToRihHovered = !isSelected && !isLinkedToRihSelected && hoveredDimension === rihNode && isLinkedToRih;
+
+
+        // --- Determine Target State (Position, Scale, Color, Emissive) ---
+        let targetPosition = originalPosition.clone();
+        let targetScale = new THREE.Vector3(1.0, 1.0, 1.0); // Default base scale is 1.0 for dimensions
+        let targetColor = originalColor.clone();
+        let targetEmissive = originalEmissive.clone();
+
+
+        // Apply base color/emissive based on state value (always applies unless highlighted)
+         const value = (latestStateVector && latestStateVector.length > i) ? latestStateVector[i] : 0; // Get value safely
+         const hue = value > 0 ? 0.33 : (value < 0 ? 0.66 : 0.5); // Green, Blue, or Cyan/Mid
+         const saturation = 0.8;
+         const lightness = 0.4 + Math.abs(value) * 0.3; // Intensity based on absolute value
+         targetColor.setHSL(hue, saturation, lightness);
+         targetEmissive.copy(targetColor).multiplyScalar(0.3); // Emissive matches color intensity
+
+
+        if (isSelected || isHovered) {
+            // Target State for Highlighted Objects
+            targetColor.copy(nodeHighlightColor);
+            targetEmissive.copy(nodeHighlightEmissive);
+            const highlightScaleFactor = 1.0 + (isSelected ? 0.3 : 0.15); // Bigger scale if selected
+            targetScale.set(highlightScaleFactor, highlightScaleFactor, highlightScaleFactor);
+
+        } else if (isLinkedToRihSelected || isLinkedToRihHovered) {
+             // Apply subtle highlight for linked nodes (those connected to RIH)
+             targetColor.copy(linkedColor);
+             targetEmissive.copy(linkedEmissive);
+             targetScale.set(1.0, 1.0, 1.0); // No scale change for linked
+        }
+        else {
+            // Target State for Non-highlighted Objects (apply base animation)
+            // Animate position along Z axis based on state value
+             targetPosition.z = originalPosition.z + value * 0.5;
+
+             // Scale node based on integration parameter and affinity (Using affinities for this dimension if available)
+             // Note: Affinity is calculated between cascade levels. For dim i, we use affinity at index i.
+             // The affinities array length is N-1 if comparing N levels. We need to map this.
+             // Let's use the affinity score related to this dimension's collapse in the cascade.
+             const affinityValueForNode = (affinities && affinities.length > i && affinities[i] !== undefined && affinities[i] !== null) ? affinities[i] : 0;
+             const affinityScale = Math.abs(affinityValueForNode) * 0.5; // Scale based on affinity magnitude
+             const scaleFactor = 1.0 + integrationParam * 0.5 + affinityScale; // Scale factors: base, integration param, affinity
+             targetScale.set(scaleFactor, scaleFactor, scaleFactor); // Apply scale
+        }
+
+        // --- Apply Interpolated State ---
+        // Lerp current properties towards the determined target properties
+        node.position.lerp(targetPosition, 0.1);
+        node.scale.lerp(targetScale, 0.1);
+        node.material.color.lerp(targetColor, 0.1);
+        // Check if material has emissive before lerping emissive (MeshPhongMaterial does)
+         if (node.material.emissive) {
+              node.material.emissive.lerp(targetEmissive, 0.1);
+         }
+
+
+        // --- Apply Base Rotation (Always Applies unless Selected) ---
+         if (!isSelected) { // Only apply base rotation if NOT selected
+             node.rotation.y += deltaTime * 0.1; // Slightly slower base rotation
+         }
+
+
+        // --- Create Edges from this node ---
+        // Edges are created and added to the group *every frame*
+        // Their materials are updated below based on state/highlight.
+
+        // Edges between this node (i) and subsequent nodes (j)
+        for (let j = i + 1; j < Config.DIMENSIONS; j++) {
+            const nodeJ = nodes[j]; // Get the target node
+            if (!nodeJ || !nodeJ.position || !nodeJ.userData) continue;
+
+            const distSq = node.position.distanceToSquared(nodeJ.position);
+            // Use a reasonable distance threshold for drawing edges
+            if (distSq < 4.0) { // Distance threshold for connections
+                // Calculate edge opacity based on simulation state (affinity)
+                 // Assuming affinities relates to transitions between cascade levels.
+                 // The affinity at index `k` relates to the condensation from level `k` to `k+1`.
+                 // It's not a direct one-to-one mapping to dimension nodes.
+                 // A simple approach: use the average affinity for all edges.
+                 const avgAffinity = (affinities && affinities.length > 0 ? affinities.reduce((a,b)=>a+b,0)/affinities.length : 0);
+                 const baseOpacity = clamp(0.3 + Math.abs(avgAffinity) * 0.5, 0.05, 0.7); // Base opacity increases with average affinity magnitude
+
+
+                // Check if this edge is connected to a selected/hovered node
+                 const isEdgeHighlighted = isSelected || isHovered || selectedDimension === nodeJ || hoveredDimension === nodeJ || isLinkedToRihSelected || isLinkedToRihHovered; // Edge is highlighted if EITHER connected node OR RIH is highlighted
+
+
+                 const edgeMaterial = baseEdgeMaterial.clone(); // Clone material for each edge (LineBasicMaterial)
+                 if (isEdgeHighlighted) {
+                      // Apply highlight color and increased opacity (no emissive for BasicMaterial)
+                      edgeMaterial.color.copy(edgeHighlightColor);
+                      edgeMaterial.opacity = clamp(baseOpacity * 1.5, 0.6, 1.0); // Increase opacity
+                 } else {
+                      // Use base color and opacity based on simulation state
+                      // Edge color blends between connected node colors if not highlighted
+                     const startColor = node.material.color; // Use node's current color (PhongMaterial)
+                     const endColor = nodeJ.material.color; // Use nodeJ's current color (PhongMaterial)
+                      edgeMaterial.color.lerpColors(startColor, endColor, 0.5); // Simple midpoint color
+                      edgeMaterial.opacity = baseOpacity; // Use base opacity
+                 }
+
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(6); // 2 points * 3 coordinates (x, y, z)
+                node.position.toArray(positions, 0); // Start point is node i position
+                nodeJ.position.toArray(positions, 3); // End point is node j position
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+                 // No need for colors attribute if vertexColors is false
+
+                const edge = new THREE.Line(geometry, edgeMaterial); // Create the line segment
+                edgesGroup.add(edge); // Add to the edges group
             }
         }
 
-        // If no specific emotion keywords found, add a small curiosity/calm impact
-        if (!foundKeyword) {
-            // Ensure indices are within bounds
-            if (2 < Config.Agent.EMOTION_DIM) impact[2] = 0.4; // Curiosity
-            if (4 < Config.Agent.EMOTION_DIM) impact[4] = 0.3; // Calm
+         // Edge between this node (i) and the RIH node
+        if (rihNode && rihNode.position && rihNode.userData && rihNode.material) { // Added check for rihNode.material
+            const rihEdgeMaterial = baseEdgeMaterial.clone(); // Clone material (LineBasicMaterial)
+            // Opacity based on node's state value magnitude and overall RIH score
+           const baseOpacity = clamp(Math.abs(value) * 0.5 + rihScore * 0.3, 0.05, 0.7);
+           // Check if this edge is connected to a selected/hovered node
+           const isEdgeHighlighted = isSelected || isHovered || selectedDimension === rihNode || hoveredDimension === rihNode;
+
+            if (isEdgeHighlighted) {
+                 // Apply highlight color and increased opacity (no emissive for BasicMaterial)
+                 rihEdgeMaterial.color.copy(edgeHighlightColor);
+                 rihEdgeMaterial.opacity = clamp(baseOpacity * 1.5, 0.6, 1.0); // Increase opacity
+            } else {
+                 // Use base color and opacity
+                 // Blend colors between the dimension node's current color and the RIH node's current color
+                 const startColor = node.material.color; // Use dimension node's current color (PhongMaterial)
+                 const endColor = rihNode.material.color; // Use RIH node's current color (PhongMaterial)
+                  rihEdgeMaterial.color.lerpColors(startColor, endColor, 0.5); // Simple midpoint color
+                  rihEdgeMaterial.opacity = baseOpacity; // Use base opacity
+            }
+
+
+           const geometry = new THREE.BufferGeometry();
+           const positions = new Float32Array(6);
+           node.position.toArray(positions, 0); // Start point is node i position
+           rihNode.position.toArray(positions, 3); // End point is RIH node position
+           geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+            // No need for colors attribute if vertexColors is false
+
+           const rihEdge = new THREE.Line(geometry, rihEdgeMaterial);
+           edgesGroup.add(rihEdge);
+        } else if (rihNode && (!rihNode.material || !rihNode.userData)) {
+             console.warn("RIH node material or userData missing for edge creation/update.");
         }
 
-         // Return impact as a tensor (optional, mainly for debugging or if agent used it directly)
-         // For this setup, updating baseEmotions is the primary effect.
-         // Ensure the impact tensor is created correctly, fallback if needed
-        return tensor([impact], [1, Config.Agent.EMOTION_DIM])
-             || tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]);
-    }
 
-    /**
-     * Gets the savable state of the environment (plain JS object/array).
-     * Converts tensors to arrays.
-     * @returns {object} The serializable state.
-     */
-    getState() {
-        const baseEmotionsArray = this.baseEmotions ? this.baseEmotions.arraySync()[0] : zeros([Config.Agent.EMOTION_DIM]);
-
-        return {
-            currentStateVector: [...this.currentStateVector], // Clone the array
-            baseEmotions: baseEmotionsArray,
-            stepCount: this.stepCount,
-            eventTimer: this.eventTimer,
-            gapTimer: this.gapTimer,
-            currentEvent: this.currentEvent ? [...this.currentEvent] : null // Clone event array if not null
-        };
-    }
-
-    /**
-     * Loads state into the environment from a plain JS object.
-     * Converts arrays back to tensors where needed.
-     * @param {object} state The state object to load.
-     * @returns {void}
-     */
-    loadState(state) {
-        if (!state || typeof state !== 'object') {
-            console.error("Invalid state object provided for Environment load.");
-            return;
+        // Ensure labels stay correctly positioned relative to the node scale
+        if (node.userData.label) {
+             const label = node.userData.label;
+             const baseOffset = nodeBaseScale * 1.5; // Keep consistent with creation
+             label.position.y = baseOffset * node.scale.y; // Adjust label Y position based on current Y scale
+             // Labels should also adjust visibility/opacity if the node is hidden or faded
+             // label.element.style.opacity = node.material.opacity; // Requires material opacity to be animated
         }
 
-        // Dispose old tensors before creating new ones
-        if (this.baseEmotions && typeof this.baseEmotions.dispose === 'function') {
-             tf.dispose(this.baseEmotions);
-        }
+   } // End of dimension node loop
 
-        // Load values, providing defaults if state properties are missing
-        this.currentStateVector = Array.isArray(state.currentStateVector) ? [...state.currentStateVector] : zeros([Config.Agent.BASE_STATE_DIM]);
-        this.baseEmotions = Array.isArray(state.baseEmotions)
-             ? tensor([state.baseEmotions], [1, Config.Agent.EMOTION_DIM]) || tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]) // Ensure tensor created, with fallback
-             : tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]); // Default base emotions as tensor
+    // --- Animate and Highlight the RIH Node ---
+    if (rihNode && rihNode.material && rihNode.material.color && rihNode.userData && rihNode.userData.originalPosition) {
+         const originalPosition = rihNode.userData.originalPosition;
+         const originalColor = new THREE.Color(rihNode.userData.originalColor);
+         const originalEmissive = rihNode.userData.originalEmissive !== null ? new THREE.Color(rihNode.userData.originalEmissive) : new THREE.Color(0x000000); // Handle potential null emissive
+         const baseScale = nodeBaseScale * 1.5; // Base scale from creation
 
-        this.stepCount = typeof state.stepCount === 'number' ? state.stepCount : 0;
-        this.eventTimer = typeof state.eventTimer === 'number' ? state.eventTimer : 0;
-        this.gapTimer = typeof state.gapTimer === 'number' ? state.gapTimer : Config.Env.EVENT_GAP;
-        this.currentEvent = Array.isArray(state.currentEvent) ? [...state.currentEvent] : null; // Clone event array if not null
+         const isSelected = selectedDimension === rihNode;
+         const isHovered = !isSelected && hoveredDimension === rihNode;
 
-        console.log("Environment state loaded.");
-        // Note: Visualizations and metrics will be updated by the next animate frame.
-    }
+         // Determine Target State (Position, Scale, Color, Emissive)
+         let targetColor = originalColor.clone();
+         let targetEmissive = originalEmissive.clone();
+         let targetScale = new THREE.Vector3(baseScale, baseScale, baseScale);
 
-     /**
-      * Optional cleanup method for TensorFlow.js tensors held by the environment.
-      */
-     cleanup() {
-         if (this.baseEmotions && typeof this.baseEmotions.dispose === 'function') {
-             tf.dispose(this.baseEmotions);
-             this.baseEmotions = null; // Clear reference after disposing
+         // Base color/emissive based on RIH score and Avg Affinity (always applies unless highlighted)
+         targetColor.lerp(new THREE.Color(1, 1, 1), clamp(rihScore, 0, 1) * 0.5);
+         targetEmissive.copy(targetColor).multiplyScalar(clamp(rihScore * 0.8 + (affinities && affinities.length > 0 ? affinities.reduce((a,b)=>a+b,0)/affinities.length : 0) * 0.3, 0.3, 0.9)); // Emissive based on RIH and Avg Affinity
+
+         // Base Scale based on RIH score and Avg Affinity
+         const rihScaleFactor = baseScale * (1.0 + clamp(rihScore, 0, 1) * 0.8 + (affinities && affinities.length > 0 ? affinities.reduce((a,b)=>a+b,0)/affinities.length : 0) * 0.3);
+         targetScale.set(rihScaleFactor, rihScaleFactor, rihScaleFactor);
+
+
+         // Apply Highlight State - Overrides base color/emissive/scale if highlighted
+         if (isSelected || isHovered) {
+             targetColor.copy(nodeHighlightColor);
+             targetEmissive.copy(nodeHighlightEmissive);
+             const highlightScaleFactor = baseScale * (isSelected ? 1.4 : 1.2); // Bigger scale if selected
+             targetScale.set(highlightScaleFactor, highlightScaleFactor, highlightScaleFactor);
          }
-         console.log("Environment TensorFlow tensors disposed.");
+
+
+         // --- Apply Interpolated State ---
+         rihNode.position.copy(rihNode.userData.originalPosition); // RIH node doesn't oscillate position based on type
+         rihNode.scale.lerp(targetScale, 0.1);
+         rihNode.material.color.lerp(targetColor, 0.1);
+         // Check if material has emissive before lerping emissive
+         if (rihNode.material.emissive) {
+              rihNode.material.emissive.lerp(targetEmissive, 0.1);
+         }
+
+
+        // RIH node rotation (Always Applies unless Selected)
+         if (!isSelected) {
+            rihNode.rotation.y += deltaTime * 0.15;
+         }
+
+
+        // RIH node label (if exists) - It doesn't have one currently, but good to handle if added
+         // if (rihNode.userData.label) {
+         //      const label = rihNode.userData.label;
+         //      const baseOffset = nodeBaseScale * 2.0; // Adjust offset for RIH node size
+         //      label.position.y = baseOffset * rihNode.scale.y;
+         // }
+    } else if (rihNode) {
+        console.warn("RIH node material, userData, or originalPosition missing for animation/highlight.");
+    }
+
+
+   // Render the scene
+   renderer.render(scene, camera);
+   // Render the CSS2D labels
+   labelRenderer.render(scene, camera);
+}
+
+/**
+ * Handles window resize event for the Syntrometry Panel.
+ */
+function onWindowResize() {
+    if (!threeInitialized || !camera || !renderer || !labelRenderer || !syntrometryContainer) return;
+
+    const width = syntrometryContainer.clientWidth;
+    const height = syntrometryContainer.clientHeight;
+
+     if (width <= 0 || height <= 0) {
+         // Cannot resize with zero dimensions
+         return;
      }
+
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(width, height);
+    labelRenderer.setSize(width, height); // Resize label renderer too
+}
+
+// Add listener for window resize, but only if init was successful
+// This is handled in initThreeJS now.
+
+
+/**
+ * Cleans up Three.js resources for the Syntrometry panel.
+ */
+export function cleanupThreeJS() {
+    if (!threeInitialized) return;
+    console.log("Cleaning up Syntrometry Three.js...");
+
+    // Remove resize listener
+    window.removeEventListener('resize', onWindowResize);
+
+    // Remove interaction listeners using the wrapper functions
+    if (syntrometryContainer) {
+         syntrometryContainer.removeEventListener('mousemove', handleSyntrometryMouseMoveWrapper, false);
+         syntrometryContainer.removeEventListener('click', handleSyntrometryClickWrapper, false);
+    }
+
+
+    // Dispose renderer and remove canvas
+    if (renderer) {
+        renderer.dispose();
+        if (syntrometryContainer && syntrometryContainer.contains(renderer.domElement)) {
+             syntrometryContainer.removeChild(renderer.domElement);
+         }
+        renderer = null;
+    }
+    // Dispose label renderer and remove its element
+     if (labelRenderer && labelRenderer.domElement) {
+         labelRenderer.domElement.remove();
+         labelRenderer = null;
+     }
+
+
+    // Dispose geometries and materials associated with nodes and remove labels
+    if (nodes) {
+        nodes.forEach(node => {
+             if (node.geometry) node.geometry.dispose();
+             if (node.material) node.material.dispose(); // Dispose node material
+             // Remove and dispose label if it exists
+             if (node.userData && node.userData.label) {
+                 if (node.userData.label.element && node.userData.label.element.parentNode) {
+                     node.userData.label.element.parentNode.removeChild(node.userData.label.element);
+                 }
+                 // No dispose method for CSS2DObject itself, but element is removed
+                 node.remove(node.userData.label); // Remove from node hierarchy
+                 node.userData.label = null;
+             }
+             // Dispose children (reflexivity loops) geometries/materials
+             while(node.children.length > 0) {
+                 const child = node.children[0];
+                 if (child.geometry) child.geometry.dispose();
+                 if (child.material) child.material.dispose(); // Dispose child material
+                 node.remove(child); // Remove from node
+             }
+            scene.remove(node); // Remove node from scene
+        });
+        nodes = []; // Clear the array
+    }
+
+    // Dispose RIH node
+    if (rihNode) {
+        if (rihNode.geometry) rihNode.geometry.dispose();
+        if (rihNode.material) rihNode.material.dispose();
+         // Dispose label if RIH node had one (it doesn't currently, but for completeness)
+         if (rihNode.userData && rihNode.userData.label) {
+              if (rihNode.userData.label.element && rihNode.userData.label.element.parentNode) {
+                 rihNode.userData.label.element.parentNode.removeChild(rihNode.userData.label.element);
+             }
+              rihNode.remove(rihNode.userData.label);
+              rihNode.userData.label = null;
+         }
+        scene.remove(rihNode);
+        rihNode = null;
+    }
+
+    // Dispose edge geometries and materials in the edges group
+     if (edgesGroup) {
+        edgesGroup.children.forEach(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        });
+        edgesGroup.children.length = 0; // Clear the array
+        scene.remove(edgesGroup); // Remove group from scene
+        edgesGroup = null;
+     }
+
+     // Dispose base edge material
+     if (baseEdgeMaterial) {
+         baseEdgeMaterial.dispose();
+         baseEdgeMaterial = null;
+     }
+
+
+     // Clear references to DOM elements and state variables
+     syntrometryContainer = null;
+     syntrometryInfoPanel = null;
+     hoveredDimension = null;
+     selectedDimension = null;
+     latestStateVector = null;
+     latestRihScore = 0;
+     latestAffinities = [];
+     latestCascadeHistory = [];
+     latestContext = "Initializing...";
+
+
+    // Dispose scene (optional, often not necessary unless using complex materials/textures)
+    // scene.dispose(); // Use with caution
+    scene = null; // Nullify scene
+
+    threeInitialized = false;
+    console.log("Syntrometry Three.js cleanup complete.");
+}
+
+// --- Wrapper functions for event listeners to allow removal ---
+// These wrappers ensure the correct, up-to-date interactableObjects list is passed.
+// We also need to use named functions so removeEventListener works in cleanup.
+function handleSyntrometryMouseMoveWrapper(event) {
+     // Create the current list of interactable objects dynamically
+     const interactableObjects = [...nodes, rihNode].filter(obj => obj !== null && obj !== undefined);
+     onSyntrometryMouseMove(event, interactableObjects);
+     // The animation loop calls updateSyntrometryInfoPanel every frame, reacting to state changes.
+}
+
+function handleSyntrometryClickWrapper(event) {
+     // Create the current list of interactable objects dynamically
+     const interactableObjects = [...nodes, rihNode].filter(obj => obj !== null && obj !== undefined);
+     onSyntrometryClick(event, interactableObjects);
+     // The animation loop calls updateSyntrometryInfoPanel every frame, reacting to state changes.
 }
