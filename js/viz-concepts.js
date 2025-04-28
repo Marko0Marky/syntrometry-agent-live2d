@@ -138,6 +138,7 @@ const conceptData = {
      'live2d_avatar_ref': { id: 'live2d_avatar_ref', name: 'Live2D Avatar', chapter: 'Visualization', position: new THREE.Vector3(0, -10, 0), type: 'live2d_avatar_ref', links: ['agent_emotional_state'], description: `Reference point for the Live2D avatar reflecting agent's emotional state.<br><i>Actual avatar is rendered separately in the other panel.</i>` }
 };
 
+
 // Helper to get approx boundary radius for edge connection points
 function getApproxBoundaryRadius(geometry, scale) {
     if (!geometry || (!geometry.isGeometry && !geometry.isBufferGeometry)) {
@@ -770,7 +771,7 @@ export function updateInfoPanel() {
  * @param {number} lastReflexivityTime Timestamp of last reflexivity slider input (-1 if old).
  * @param {number} lastChatTime Timestamp of last chat input impact (-1 if old).
  */
-export function animateConceptNodes(deltaTime, integrationParam, reflexivityParam, lastIntegrationTime, lastReflexivityTime, lastChatTime) {
+export function animateConceptNodes(deltaTime, integrationParam, reflexivityParam, lastIntegrationTime, lastReflexivityTime, lastChatTime) { // Added timestamp params
     if (!conceptInitialized || !conceptClock || !conceptNodes || latestAgentEmotions === null) return;
 
     const elapsedTime = conceptClock.getElapsedTime(); // Get current time for comparison
@@ -946,8 +947,10 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
 
                 // Apply Metric/Slider Influences
                 targetScale.multiplyScalar(metricScaleModifier);
-                const metricPulseBaseAmount = 0.03; // Define a base amount for metric pulse, similar to the default basePulseFactor
-                const metricPulse = Math.sin(elapsedTime * (1.8 * metricPulseSpeedFactor) + originalPosition.x * 0.05) * (metricPulseBaseAmount * metricPulseAmountFactor);                targetScale.multiplyScalar(1.0 + metricPulse); // Layer pulse
+                 // Use a default base amount for the metric pulse
+                const metricPulseBaseAmount = 0.03; // Define a base amount for metric pulse
+                const metricPulse = Math.sin(elapsedTime * (1.8 * metricPulseSpeedFactor) + originalPosition.x * 0.05) * (metricPulseBaseAmount * metricPulseAmountFactor);
+                targetScale.multiplyScalar(1.0 + metricPulse); // Layer pulse
                 targetPosition.x = originalPosition.x + (targetPosition.x - originalPosition.x) * metricOscillationFactor;
                 targetPosition.y = originalPosition.y + (targetPosition.y - originalPosition.y) * metricOscillationFactor;
                 targetPosition.z = originalPosition.z + (targetPosition.z - originalPosition.z) * metricOscillationFactor;
