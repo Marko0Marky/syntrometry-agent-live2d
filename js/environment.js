@@ -1,7 +1,7 @@
 // js/environment.js
 
 import { Config, emotionKeywords, emotionNames } from './config.js';
-import { zeros, tensor, clamp } from './utils.js';
+import { zeros, tensor, clamp, displayError } from './utils.js';
 
 // Assumes tf is available globally via CDN
 
@@ -35,7 +35,7 @@ export class EmotionalSpace {
         this.stepCount = 0; // Total simulation steps
         this.eventTimer = 0; // Timer for active event duration (in animation frames)
         this.gapTimer = Config.Env.EVENT_GAP; // Timer for gap between events (in animation frames)
-        this.currentEvent = null; // Currently active event details
+        this.currentEvent = null; // Currently active event details (can be null or an array [type, context, reward])
 
         // The main state vector representing the environment's condition
         // Combines abstract dimensions with raw emotional "readings"
@@ -90,6 +90,7 @@ export class EmotionalSpace {
             const drift = (agentEmotions[i] - baseVal) * 0.005 + (0.5 - baseVal) * 0.001;
             return clamp(baseVal + drift, 0, 1); // Keep values within [0, 1]
         });
+         // Dispose old tensor before replacing the reference
          if (this.baseEmotions && typeof this.baseEmotions.dispose === 'function') {
              tf.dispose(this.baseEmotions);
          }
@@ -298,6 +299,7 @@ export class EmotionalSpace {
                         : zeros([Config.Agent.EMOTION_DIM]); // Fallback
 
                     currentBase[idx] = clamp((currentBase[idx] || 0) + (info.baseChange || 0), 0, 1); // Apply base change, handle potential undefined
+                     // Dispose old tensor before replacing the reference
                      if (this.baseEmotions && typeof this.baseEmotions.dispose === 'function') {
                          tf.dispose(this.baseEmotions);
                      }
@@ -320,4 +322,65 @@ export class EmotionalSpace {
         return tensor([impact], [1, Config.Agent.EMOTION_DIM])
              || tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]);
     }
+
+    /**
+     * Gets the savable state of the environment (plain JS object/array).
+     * Converts tensors to arrays.
+     * @returns {object} The serializable state.
+     */
+    getState() {
+        const baseEmotionsArray = this.baseEmotions ? this.baseEmotions.arraySync()[0] : zeros([Config.Agent.EMOTION_DIM]);
+
+        return {
+            currentStateVector: [...this.currentStateVector], // Clone the array
+            baseEmotions: baseEmotionsArray,
+            stepCount: this.stepCount,
+            eventTimer: this.eventTimer,
+            gapTimer: this.gapTimer,
+            currentEvent: this.currentEvent ? [...this.currentEvent] : null // Clone event array if not null
+        };
+    }
+
+    /**
+     * Loads state into the environment from a plain JS object.
+     * Converts arrays back to tensors where needed.
+     * @param {object} state The state object to load.
+     * @returns {void}
+     */
+    loadState(state) {
+        if (!state || typeof state !== 'object') {
+            console.error("Invalid state object provided for Environment load.");
+            return;
+        }
+
+        // Dispose old tensors before creating new ones
+        if (this.baseEmotions && typeof this.baseEmotions.dispose === 'function') {
+             tf.dispose(this.baseEmotions);
+        }
+
+        // Load values, providing defaults if state properties are missing
+        this.currentStateVector = Array.isArray(state.currentStateVector) ? [...state.currentStateVector] : zeros([Config.Agent.BASE_STATE_DIM]);
+        this.baseEmotions = Array.isArray(state.baseEmotions)
+             ? tensor([state.baseEmotions], [1, Config.Agent.EMOTION_DIM]) || tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]) // Ensure tensor created, with fallback
+             : tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]); // Default base emotions as tensor
+
+        this.stepCount = typeof state.stepCount === 'number' ? state.stepCount : 0;
+        this.eventTimer = typeof state.eventTimer === 'number' ? state.eventTimer : 0;
+        this.gapTimer = typeof state.gapTimer === 'number' ? state.gapTimer : Config.Env.EVENT_GAP;
+        this.currentEvent = Array.isArray(state.currentEvent) ? [...state.currentEvent] : null; // Clone event array if not null
+
+        console.log("Environment state loaded.");
+        // Note: Visualizations and metrics will be updated by the next animate frame.
+    }
+
+     /**
+      * Optional cleanup method for TensorFlow.js tensors held by the environment.
+      */
+     cleanup() {
+         if (this.baseEmotions && typeof this.baseEmotions.dispose === 'function') {
+             tf.dispose(this.baseEmotions);
+             this.baseEmotions = null; // Clear reference after disposing
+         }
+         console.log("Environment TensorFlow tensors disposed.");
+     }
 }
