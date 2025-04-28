@@ -550,6 +550,7 @@ export function calculateGraphFeatures() {
         const meanZ = zPositions.length > 0 ? zPositions.reduce((sum, z) => sum + z, 0) / zPositions.length : 0;
         const varianceZ = zPositions.length > 0 ? zPositions.reduce((sum, z) => sum + (z - meanZ) ** 2, 0) / zPositions.length : 0;
 
+
         // 2. Average Distance to RIH Node
         const distances = dimensionNodePositions.map(pos => pos.distanceTo(rihPosition));
         const avgDistToRih = distances.length > 0 ? distances.reduce((sum, d) => sum + d, 0) / distances.length : 0;
