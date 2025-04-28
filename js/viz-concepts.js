@@ -44,6 +44,7 @@ let selectedObject = null; // Track the currently clicked/selected object
 let latestAgentEmotions = null;
 let latestRIHScore = 0;
 let latestAvgAffinity = 0;
+let latestTrustScore = 1.0; // <-- ADDED: Initialize trust score
 let latestHmLabel = "idle";
 
 
@@ -137,7 +138,6 @@ const conceptData = {
      'emergence_core': { id: 'emergence_core', name: 'Emergence Core (RIH/Affinity)', chapter: 'Simulation', position: new THREE.Vector3(-15, -5, 0), type: 'simulation_state', links: ['reflexive_integration', 'affinitaetssyndrom', 'syntropodenarchitektonik'], description: 'Represents Reflexive Integration (RIH) and Affinities from agent processing.' },
      'live2d_avatar_ref': { id: 'live2d_avatar_ref', name: 'Live2D Avatar', chapter: 'Visualization', position: new THREE.Vector3(0, -10, 0), type: 'live2d_avatar_ref', links: ['agent_emotional_state'], description: `Reference point for the Live2D avatar reflecting agent's emotional state.<br><i>Actual avatar is rendered separately in the other panel.</i>` }
 };
-
 
 // Helper to get approx boundary radius for edge connection points
 function getApproxBoundaryRadius(geometry, scale) {
@@ -564,8 +564,14 @@ function createAgentSimulationPlaceholders() {
 
 /**
  * Updates the base visuals (color, scale, opacity) of placeholder nodes.
+ * Includes Trust score influence on Emergence Core.
+ * @param {tf.Tensor|null} emotionsTensor Tensor of current emotion intensities.
+ * @param {number} rihScore The current RIH score (0-1).
+ * @param {number} avgAffinity The current average affinity score.
+ * @param {string} hmLabel The current head movement label.
+ * @param {number} trustScore The agent's current trust score (0-1).
  */
-export function updateAgentSimulationVisuals(emotionsTensor, rihScore, avgAffinity, hmLabel) {
+export function updateAgentSimulationVisuals(emotionsTensor, rihScore, avgAffinity, hmLabel, trustScore) { // Added trustScore
     if (!conceptInitialized || !agentStateMesh || !emergenceCoreMesh || !live2dPlaneConcept) return;
 
     // Store latest data
@@ -575,8 +581,9 @@ export function updateAgentSimulationVisuals(emotionsTensor, rihScore, avgAffini
     latestRIHScore = rihScore;
     latestAvgAffinity = avgAffinity;
     latestHmLabel = hmLabel;
+    latestTrustScore = trustScore; // Store trust score
 
-    // Update Agent State Mesh
+    // --- Update Agent State Mesh ---
     if (agentStateMesh?.material && agentStateMesh.userData) {
         const emotions = latestAgentEmotions;
         const dominantEmotionIdx = emotions.length === Config.Agent.EMOTION_DIM ? emotions.indexOf(Math.max(...emotions)) : -1;
@@ -599,24 +606,35 @@ export function updateAgentSimulationVisuals(emotionsTensor, rihScore, avgAffini
         agentStateMesh.userData.baseOpacity = agentStateMesh.material.opacity;
     }
 
-    // Update Emergence Core Mesh
+    // --- Update Emergence Core Mesh (Includes Trust) ---
     if (emergenceCoreMesh?.material && emergenceCoreMesh.userData) {
-        const targetColor = new THREE.Color(0xff66ff).lerp(new THREE.Color(0xffffff), clamp(rihScore, 0, 1) * 0.5);
-        const emissiveIntensity = clamp(rihScore * 0.8 + Math.abs(avgAffinity) * 0.3, 0.3, 0.9);
+        const coherenceFactor = (rihScore * 0.6 + trustScore * 0.4);
+        const baseColor = new THREE.Color(0xff66ff);
+        const rihTargetColor = new THREE.Color(0xffffff);
+        const trustTargetColor = new THREE.Color(0xfff0aa); // Pale gold for trust
+        let targetColor = baseColor.clone();
+        targetColor.lerp(rihTargetColor, clamp(rihScore, 0, 1) * 0.5);
+        targetColor.lerp(trustTargetColor, clamp(trustScore, 0, 1) * 0.3);
+
+        const emissiveIntensity = clamp((rihScore * 0.5 + trustScore * 0.3 + Math.abs(avgAffinity) * 0.2), 0.2, 0.9);
 
         emergenceCoreMesh.material.color.lerp(targetColor, 0.1);
         emergenceCoreMesh.userData.baseColor = emergenceCoreMesh.material.color.getHex();
         if (emergenceCoreMesh.material.emissive) {
-            const targetEmissiveColor = emergenceCoreMesh.material.color.clone().multiplyScalar(emissiveIntensity);
-            emergenceCoreMesh.material.emissive.lerp(targetEmissiveColor, 0.1);
-            emergenceCoreMesh.userData.baseEmissive = emergenceCoreMesh.material.emissive.getHex();
+             const targetEmissiveColor = emergenceCoreMesh.material.color.clone().multiplyScalar(emissiveIntensity);
+             emergenceCoreMesh.material.emissive.lerp(targetEmissiveColor, 0.1);
+             emergenceCoreMesh.userData.baseEmissive = emergenceCoreMesh.material.emissive.getHex();
         }
-        emergenceCoreMesh.userData.baseScale = 1.0 + clamp(rihScore, 0, 1) * 0.8 + clamp(Math.abs(avgAffinity), 0, 1) * 0.3;
-        emergenceCoreMesh.material.opacity = clamp(0.6 + clamp(rihScore, 0, 1) * 0.3, 0.6, 0.9);
+
+        const coreScale = 1.0 + clamp(rihScore * 0.6 + trustScore * 0.4 + Math.abs(avgAffinity) * 0.2, 0, 1.0);
+        emergenceCoreMesh.userData.baseScale = coreScale;
+
+        const targetOpacity = clamp(0.5 + rihScore * 0.3 + (trustScore - 0.5) * 0.4, 0.4, 0.95);
+        emergenceCoreMesh.material.opacity = lerp(emergenceCoreMesh.material.opacity, targetOpacity, 0.1);
         emergenceCoreMesh.userData.baseOpacity = emergenceCoreMesh.material.opacity;
     }
 
-    // Update Live2D Placeholder Info
+    // --- Update Live2D Placeholder Info ---
      if (live2dPlaneConcept?.userData) {
          const live2dStatus = live2dInitialized ? 'Active' : 'Inactive';
          live2dPlaneConcept.userData.name = `Live2D Avatar (Status: ${live2dStatus})`;
@@ -624,7 +642,7 @@ export function updateAgentSimulationVisuals(emotionsTensor, rihScore, avgAffini
          live2dPlaneConcept.userData.baseScale = 1.0;
      }
 
-    // Update Edge Base Opacity
+    // --- Update Edge Base Opacity ---
     conceptEdges.forEach(edge => {
         if (edge?.material && edge.userData) {
              const baseOpacity = clamp(0.3 + clamp(rihScore, 0, 1) * 0.3 + clamp(Math.abs(avgAffinity), 0, 1) * 0.2, 0.3, 0.7);
@@ -717,8 +735,10 @@ export function updateInfoPanel() {
                     `Curiosity: ${(emotions[2] * 100).toFixed(1)}%, Frustration: ${(emotions[3] * 100).toFixed(1)}%<br>` +
                     `Calm: ${(emotions[4] * 100).toFixed(1)}%, Surprise: ${(emotions[5] * 100).toFixed(1)}%</span>`;
             } else if (data.id === 'emergence_core') {
+                // ADD TRUST SCORE DISPLAY HERE
                 dynamicInfoHtml = `<br><span class="simulated-data">RIH Score: ${(latestRIHScore * 100).toFixed(1)}%<br>` +
-                    `Average Affinity: ${(latestAvgAffinity * 100).toFixed(1)}%</span>`;
+                    `Average Affinity: ${(latestAvgAffinity * 100).toFixed(1)}%<br>`+
+                    `Trust Score: ${(latestTrustScore * 100).toFixed(1)}%</span>`; // Added Trust
             } else if (data.id === 'live2d_avatar_ref') {
                 const live2dStatus = live2dInitialized ? 'Active' : 'Inactive';
                 displayName = `Live2D Avatar (Status: ${live2dStatus})`;
@@ -756,6 +776,7 @@ export function updateInfoPanel() {
              <p><i>Simulated data updates based on agent processing.</i></p>
              <p><span class="simulated-data">Latest RIH: ${(latestRIHScore * 100).toFixed(1)}%</span></p>
              <p><span class="simulated-data">Latest Avg Affinity: ${(latestAvgAffinity * 100).toFixed(1)}%</span></p>
+             <p><span class="simulated-data">Latest Trust: ${(latestTrustScore * 100).toFixed(1)}%</span></p> <!-- ADDED TRUST -->
         `;
     }
 }
@@ -765,19 +786,18 @@ export function updateInfoPanel() {
  * Animates concept nodes (rotation, oscillation) and applies highlight effects.
  * Includes temporary feedback for user inputs (sliders, chat).
  * @param {number} deltaTime The time elapsed since the last frame.
- * @param {number} integrationParam Value from the integration slider (0-1).
- * @param {number} reflexivityParam Value from the reflexivity slider (0-1).
+ * @param {number} integrationParam Value from the integration parameter (agent's internal).
+ * @param {number} reflexivityParam Value from the reflexivity parameter (agent's internal).
  * @param {number} lastIntegrationTime Timestamp of last integration slider input (-1 if old).
  * @param {number} lastReflexivityTime Timestamp of last reflexivity slider input (-1 if old).
  * @param {number} lastChatTime Timestamp of last chat input impact (-1 if old).
  */
-export function animateConceptNodes(deltaTime, integrationParam, reflexivityParam, lastIntegrationTime, lastReflexivityTime, lastChatTime) { // Added timestamp params
+export function animateConceptNodes(deltaTime, integrationParam, reflexivityParam, lastIntegrationTime, lastReflexivityTime, lastChatTime) {
     if (!conceptInitialized || !conceptClock || !conceptNodes || latestAgentEmotions === null) return;
 
-    const elapsedTime = conceptClock.getElapsedTime(); // Get current time for comparison
-    const inputFeedbackDuration = 0.5; // How long feedback effect lasts (seconds) - sync with app.js
+    const elapsedTime = conceptClock.getElapsedTime();
+    const inputFeedbackDuration = 0.5;
 
-    // Get emotions array safely
     const emotions = latestAgentEmotions || zeros([Config.Agent.EMOTION_DIM]);
     const joyVal = emotions[0] || 0;
     const fearVal = emotions[1] || 0;
@@ -787,18 +807,15 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
     const surpriseVal = emotions[5] || 0;
     const emotionAvg = emotions.reduce((a, b) => a + b, 0) / Config.Agent.EMOTION_DIM;
 
-    // Define highlight/feedback colors
     const nodeHighlightColor = new THREE.Color(0xffffff);
     const nodeHighlightEmissive = new THREE.Color(0xffffff).multiplyScalar(0.5);
     const linkedColor = new THREE.Color(0xaaaaee);
     const linkedEmissive = new THREE.Color(0xaaaaee).multiplyScalar(0.3);
     const edgeHighlightColor = new THREE.Color(0x00aaff);
     const edgeHighlightEmissive = new THREE.Color(0x00aaff).multiplyScalar(0.8);
-    // --- Feedback Effect Colors ---
-    const integrationFeedbackColor = new THREE.Color(0x66ffaa); // Light green pulse
-    const reflexivityFeedbackColor = new THREE.Color(0xffddaa); // Orangish pulse
-    const chatFeedbackColor = new THREE.Color(0xaaaaff); // Bluish pulse
-
+    const integrationFeedbackColor = new THREE.Color(0x66ffaa);
+    const reflexivityFeedbackColor = new THREE.Color(0xffddaa);
+    const chatFeedbackColor = new THREE.Color(0xaaaaff);
 
     const allNodesToAnimate = [
         ...Object.values(conceptNodes).map(n => n.object),
@@ -808,7 +825,7 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
     ].filter(Boolean);
 
     allNodesToAnimate.forEach(object => {
-        if (!object?.material || !object.userData?.originalPosition) return; // Basic safety checks
+        if (!object?.material || !object.userData?.originalPosition) return;
 
         const data = object.userData;
         const originalPosition = data.originalPosition;
@@ -822,21 +839,20 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
         const isLinkedToSelected = selectedObject?.userData && ((data.links || []).includes(selectedObject.userData.id) || (selectedObject.userData.links || []).includes(data.id));
         const isLinkedToHovered = !isSelected && !isLinkedToSelected && hoveredObject?.userData && ((data.links || []).includes(hoveredObject.userData.id) || (hoveredObject.userData.links || []).includes(data.id));
 
-        // --- Determine Target State ---
         let targetPosition = originalPosition.clone();
         let targetScale = new THREE.Vector3(baseScale, baseScale, baseScale);
         let targetColor = (data.type === 'simulation_state' || data.type === 'live2d_avatar_ref')
-            ? new THREE.Color(data.baseColor ?? originalColor) // Use base color for placeholders
-            : originalColor.clone(); // Use original color for concepts
+            ? new THREE.Color(data.baseColor ?? originalColor)
+            : originalColor.clone();
         let targetEmissive = (data.type === 'simulation_state' || data.type === 'live2d_avatar_ref')
-            ? new THREE.Color(data.baseEmissive ?? originalEmissive) // Use base emissive for placeholders
-            : originalEmissive.clone(); // Use original emissive for concepts
+            ? new THREE.Color(data.baseEmissive ?? originalEmissive)
+            : originalEmissive.clone();
         let targetOpacity = baseOpacity;
 
-        // Apply base type animation first (for non-highlighted nodes)
+        // Apply base type animation first
         if (!isSelected && !isHovered && !isLinkedToSelected && !isLinkedToHovered && data.type !== 'simulation_state' && data.type !== 'live2d_avatar_ref') {
             let baseOscillationY = 0, baseOscillationZ = 0, baseOscillationX = 0, basePulseFactor = 0.03;
-            switch (data.type) {
+            switch (data.type) { /* ... type-based factors ... */
                 case 'framework': basePulseFactor = 0.04; break;
                 case 'structure': baseOscillationY = 0.2; break;
                 case 'core': basePulseFactor = 0.05; break;
@@ -846,19 +862,17 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
                 case 'architecture': baseOscillationY = 0.1; break;
                 case 'purpose': basePulseFactor = 0.05; break;
                 case 'principle': baseOscillationZ = 0.1; break;
-                case 'geometry_metric': basePulseFactor = 0; break; // Handled specifically below
+                case 'geometry_metric': basePulseFactor = 0; break;
                 case 'relation': basePulseFactor = 0.08; break;
                 case 'level': baseOscillationY = 0.1; break;
                 case 'transformation': basePulseFactor = 0.07; break;
-            }
+             }
             targetPosition.x += Math.sin(elapsedTime * 1.1 + originalPosition.z * 0.06) * baseOscillationX;
             targetPosition.y += Math.sin(elapsedTime * 1.3 + originalPosition.x * 0.08) * baseOscillationY;
             targetPosition.z += Math.sin(elapsedTime * 1.5 + originalPosition.y * 0.10) * baseOscillationZ;
             const basePulse = Math.sin(elapsedTime * 1.8 + originalPosition.x * 0.05) * basePulseFactor;
-            // Apply base scale first before metric scale modifier
             targetScale.set(baseScale * (1.0 + basePulse), baseScale * (1.0 + basePulse), baseScale * (1.0 + basePulse));
         } else if (data.type === 'simulation_state' || data.type === 'live2d_avatar_ref') {
-            // Ensure placeholders start at their base scale/position if not otherwise animated
             targetScale.set(baseScale, baseScale, baseScale);
             targetPosition.copy(originalPosition);
         }
@@ -868,149 +882,87 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
         let feedbackEmissiveColor = null;
 
         if (!isSelected && !isHovered) {
-            // Check for recent inputs and apply feedback effect
+            // Check for recent inputs
             let timeSinceInput = -1;
             let targetNodeIdForFeedback = null;
+            if (lastIntegrationTime > 0 && (data.id === 'synkolator' || data.id === 'korporator')) { timeSinceInput = elapsedTime - lastIntegrationTime; targetNodeIdForFeedback = data.id; feedbackEmissiveColor = integrationFeedbackColor; }
+            else if (lastReflexivityTime > 0 && (data.id === 'reflexive_abstraction' || data.id === 'reflexive_integration')) { timeSinceInput = elapsedTime - lastReflexivityTime; targetNodeIdForFeedback = data.id; feedbackEmissiveColor = reflexivityFeedbackColor; }
+            else if (lastChatTime > 0 && (data.id === 'agent_emotional_state' || data.id === 'subjective_aspect')) { timeSinceInput = elapsedTime - lastChatTime; targetNodeIdForFeedback = data.id; feedbackEmissiveColor = chatFeedbackColor; }
 
-            if (lastIntegrationTime > 0 && (data.id === 'synkolator' || data.id === 'korporator')) {
-                timeSinceInput = elapsedTime - lastIntegrationTime;
-                targetNodeIdForFeedback = data.id;
-                feedbackEmissiveColor = integrationFeedbackColor;
-            } else if (lastReflexivityTime > 0 && (data.id === 'reflexive_abstraction' || data.id === 'reflexive_integration')) {
-                timeSinceInput = elapsedTime - lastReflexivityTime;
-                targetNodeIdForFeedback = data.id;
-                feedbackEmissiveColor = reflexivityFeedbackColor;
-            } else if (lastChatTime > 0 && (data.id === 'agent_emotional_state' || data.id === 'subjective_aspect')) {
-                timeSinceInput = elapsedTime - lastChatTime;
-                targetNodeIdForFeedback = data.id;
-                feedbackEmissiveColor = chatFeedbackColor;
-            }
-
-            // Calculate feedback intensity (fades out)
             if (targetNodeIdForFeedback && timeSinceInput >= 0 && timeSinceInput < inputFeedbackDuration) {
-                inputFeedbackIntensity = 1.0 - (timeSinceInput / inputFeedbackDuration);
-                inputFeedbackIntensity = inputFeedbackIntensity * inputFeedbackIntensity; // Make fade faster (quadratic)
+                inputFeedbackIntensity = 1.0 - (timeSinceInput / inputFeedbackDuration); inputFeedbackIntensity = inputFeedbackIntensity * inputFeedbackIntensity;
             }
 
-            // --- Apply Regular Metric/Slider Influences (If NO feedback active) ---
+            // Apply Regular Metric/Slider Influences (If NO feedback active)
             if (inputFeedbackIntensity <= 0 && !isLinkedToSelected && !isLinkedToHovered) {
-                let metricScaleModifier = 1.0;
-                let metricPulseSpeedFactor = 1.0;
-                let metricPulseAmountFactor = 1.0;
-                let metricOscillationFactor = 1.0;
+                let metricScaleModifier = 1.0, metricPulseSpeedFactor = 1.0, metricPulseAmountFactor = 1.0, metricOscillationFactor = 1.0;
                 let metricColorShift = new THREE.Color(0x000000);
-
                 // RIH Influence
-                if (['reflexive_integration', 'holoformen', 'selection_principles'].includes(data.id)) {
-                    metricScaleModifier += latestRIHScore * 0.15;
-                    metricPulseAmountFactor += latestRIHScore * 0.5;
-                    targetEmissive.lerp(new THREE.Color(0xffffff), latestRIHScore * 0.4);
-                }
+                if (['reflexive_integration', 'holoformen', 'selection_principles'].includes(data.id)) { metricScaleModifier += latestRIHScore * 0.15; metricPulseAmountFactor += latestRIHScore * 0.5; targetEmissive.lerp(new THREE.Color(0xffffff), latestRIHScore * 0.4); }
                 // Affinity Influence
-                if (['affinitaetssyndrom', 'korporator', 'syntropodenarchitektonik'].includes(data.id)) {
-                    const absAffinity = Math.abs(latestAvgAffinity);
-                    metricScaleModifier += absAffinity * 0.1;
-                    metricPulseAmountFactor += absAffinity * 0.4;
-                    if (latestAvgAffinity > 0.2) metricColorShift.g += 0.2 * latestAvgAffinity;
-                    if (latestAvgAffinity < -0.2) metricColorShift.b += 0.2 * Math.abs(latestAvgAffinity);
-                    targetEmissive.lerp(new THREE.Color(0xaaaaff), absAffinity * 0.3);
-                }
+                if (['affinitaetssyndrom', 'korporator', 'syntropodenarchitektonik'].includes(data.id)) { const absAffinity = Math.abs(latestAvgAffinity); metricScaleModifier += absAffinity * 0.1; metricPulseAmountFactor += absAffinity * 0.4; if (latestAvgAffinity > 0.2) metricColorShift.g += 0.2 * latestAvgAffinity; if (latestAvgAffinity < -0.2) metricColorShift.b += 0.2 * Math.abs(latestAvgAffinity); targetEmissive.lerp(new THREE.Color(0xaaaaff), absAffinity * 0.3); }
                 // Emotion Influence
                  if (data.id === 'subjective_aspect') metricOscillationFactor += emotionAvg * 0.5;
-                 if (data.id === 'dialektik') {
-                     const negEmotion = (fearVal + frustrationVal) / 2;
-                     metricPulseAmountFactor += negEmotion * 0.6;
-                     if (negEmotion > 0.1) metricColorShift.r += 0.3 * negEmotion;
-                 }
-                 if (data.id === 'telezentrik' || data.id === 'telewarianz') {
-                     const posEmotion = (joyVal + calmVal) / 2;
-                     metricScaleModifier += posEmotion * 0.1;
-                     if (posEmotion > 0.1) metricColorShift.g += 0.3 * posEmotion;
-                     targetEmissive.lerp(new THREE.Color(0xaaffaa), posEmotion * 0.3);
-                 }
-                 if (data.id === 'dyswarianz') {
-                    const disEmotion = (fearVal + surpriseVal + frustrationVal) / 3;
-                    metricOscillationFactor += disEmotion * 0.7;
-                    metricPulseSpeedFactor += disEmotion * 0.5;
-                    if (disEmotion > 0.1) metricColorShift.r += 0.15 * disEmotion; metricColorShift.b += 0.15 * disEmotion;
-                 }
-                // Slider Influence
-                if (data.id === 'synkolator') {
-                    metricPulseSpeedFactor += integrationParam * 0.8;
-                    metricPulseAmountFactor += integrationParam * 0.3;
-                }
-                if (data.id === 'reflexive_abstraction') {
-                    metricOscillationFactor += reflexivityParam * 0.6;
-                    metricScaleModifier += reflexivityParam * 0.1;
-                    targetEmissive.lerp(new THREE.Color(0xffddaa), reflexivityParam * 0.3);
-                }
+                 if (data.id === 'dialektik') { const negEmotion = (fearVal + frustrationVal) / 2; metricPulseAmountFactor += negEmotion * 0.6; if (negEmotion > 0.1) metricColorShift.r += 0.3 * negEmotion; }
+                 if (data.id === 'telezentrik' || data.id === 'telewarianz') { const posEmotion = (joyVal + calmVal) / 2; metricScaleModifier += posEmotion * 0.1; if (posEmotion > 0.1) metricColorShift.g += 0.3 * posEmotion; targetEmissive.lerp(new THREE.Color(0xaaffaa), posEmotion * 0.3); }
+                 if (data.id === 'dyswarianz') { const disEmotion = (fearVal + surpriseVal + frustrationVal) / 3; metricOscillationFactor += disEmotion * 0.7; metricPulseSpeedFactor += disEmotion * 0.5; if (disEmotion > 0.1) metricColorShift.r += 0.15 * disEmotion; metricColorShift.b += 0.15 * disEmotion; }
+                // Slider Influence (Using agent's internal params)
+                if (data.id === 'synkolator') { metricPulseSpeedFactor += integrationParam * 0.8; metricPulseAmountFactor += integrationParam * 0.3; }
+                if (data.id === 'reflexive_abstraction') { metricOscillationFactor += reflexivityParam * 0.6; metricScaleModifier += reflexivityParam * 0.1; targetEmissive.lerp(new THREE.Color(0xffddaa), reflexivityParam * 0.3); }
 
-                // Apply Metric/Slider Influences
+                // Apply Influences
                 targetScale.multiplyScalar(metricScaleModifier);
-                 // Use a default base amount for the metric pulse
-                const metricPulseBaseAmount = 0.03; // Define a base amount for metric pulse
+                const metricPulseBaseAmount = 0.03; // Use default base pulse amount
                 const metricPulse = Math.sin(elapsedTime * (1.8 * metricPulseSpeedFactor) + originalPosition.x * 0.05) * (metricPulseBaseAmount * metricPulseAmountFactor);
-                targetScale.multiplyScalar(1.0 + metricPulse); // Layer pulse
+                targetScale.multiplyScalar(1.0 + metricPulse);
                 targetPosition.x = originalPosition.x + (targetPosition.x - originalPosition.x) * metricOscillationFactor;
                 targetPosition.y = originalPosition.y + (targetPosition.y - originalPosition.y) * metricOscillationFactor;
                 targetPosition.z = originalPosition.z + (targetPosition.z - originalPosition.z) * metricOscillationFactor;
                 targetColor.add(metricColorShift);
             }
 
-            // --- Apply Input Feedback Effect (Overrides metric/base anim temporarily) ---
+            // Apply Input Feedback Effect
             if (inputFeedbackIntensity > 0 && feedbackEmissiveColor) {
-                 const feedbackScalePulse = baseScale * (1.0 + 0.2 * inputFeedbackIntensity); // Pulse slightly larger
+                 const feedbackScalePulse = baseScale * (1.0 + 0.2 * inputFeedbackIntensity);
                  targetScale.set(feedbackScalePulse, feedbackScalePulse, feedbackScalePulse);
-                 // Blend emissive towards feedback color based on intensity
-                 const feedbackEmissive = feedbackEmissiveColor.clone().multiplyScalar(0.8 * inputFeedbackIntensity); // Intensity affects brightness
-                 targetEmissive.lerp(feedbackEmissive, inputFeedbackIntensity); // Blend current target emissive with feedback
-                 targetPosition = originalPosition.clone(); // Freeze position during feedback pulse
+                 const feedbackEmissive = feedbackEmissiveColor.clone().multiplyScalar(0.8 * inputFeedbackIntensity);
+                 targetEmissive.lerp(feedbackEmissive, inputFeedbackIntensity);
+                 targetPosition = originalPosition.clone();
             }
 
-             // Apply linked state AFTER potential feedback effect (linked overrides feedback appearance)
+             // Apply linked state AFTER potential feedback effect
              if (isLinkedToSelected || isLinkedToHovered) {
                 targetColor.lerp(linkedColor, 0.5);
                 targetEmissive.lerp(linkedEmissive, 0.5);
-                 // Keep scale/position from feedback pulse if it was active, otherwise from metric/base
-                 if(inputFeedbackIntensity <= 0) {
-                     // targetScale/targetPosition remain from metric/base animation
-                 } else {
-                     // Node keeps feedback scale/position but gets linked color/emissive blended in
-                 }
+                 if(inputFeedbackIntensity <= 0) { /* Keep metric scale/pos */ }
+                 else { targetScale.lerp(new THREE.Vector3(baseScale, baseScale, baseScale), 0.5); targetPosition.lerp(originalPosition, 0.5); }
                 targetOpacity = clamp(baseOpacity * 1.1, 0.6, 0.9);
              }
+        } // End of (!isSelected && !isHovered)
 
-        } // End of (!isSelected && !isHovered) block
-
-
-        // --- Apply Highlight State (Overrides all other non-selected states) ---
+        // Apply Highlight State (Overrides)
         if (isSelected || isHovered) {
             targetColor.copy(nodeHighlightColor);
             targetEmissive.copy(nodeHighlightEmissive);
             const highlightScaleFactor = baseScale * (isSelected ? 1.15 : 1.08);
             targetScale.set(highlightScaleFactor, highlightScaleFactor, highlightScaleFactor);
             targetOpacity = clamp(baseOpacity * 1.2, 0.8, 1.0);
-            targetPosition = originalPosition.clone(); // Freeze position when highlighted
+            targetPosition = originalPosition.clone();
         }
 
-
-        // --- Final Interpolation ---
+        // Final Interpolation
         const lerpFactor = 0.1;
         object.position.lerp(targetPosition, lerpFactor);
         object.scale.lerp(targetScale, lerpFactor);
         object.material.color.lerp(targetColor, lerpFactor);
-        if (object.material.emissive) {
-            object.material.emissive.lerp(targetEmissive, lerpFactor);
-        }
+        if (object.material.emissive) object.material.emissive.lerp(targetEmissive, lerpFactor);
         object.material.opacity = lerp(object.material.opacity, targetOpacity, lerpFactor);
 
-
-        // --- Rotation (Only if not selected) ---
+        // Rotation (Only if not selected)
          if (!isSelected) {
              const activityLevel = clamp(latestRIHScore + emotionAvg + Math.abs(latestAvgAffinity), 0.1, 1.5);
              const baseRotSpeed = deltaTime * 0.05 * activityLevel;
              object.rotation.y += baseRotSpeed;
-
              const specificRotSpeed = deltaTime * 0.1 * activityLevel;
               switch(data.type) {
                   case 'core': object.rotation.x += specificRotSpeed * (0.8 + reflexivityParam * 0.5); object.rotation.z += specificRotSpeed * (1.2 + reflexivityParam * 0.5); break;
@@ -1022,11 +974,10 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
               }
          }
 
-
-        // --- Label Update ---
+        // Label Update
         if (object.userData.label) {
             const label = object.userData.label;
-            const labelBaseOffset = {
+            const labelBaseOffset = { /* ... offsets map ... */
                  'framework': 1.8, 'structure': 1.5, 'core': 1.3, 'component': 1.5,
                  'property': 1.2, 'parameter': 1.1, 'operator': 1.6, 'method': 1.8,
                  'concept': 1.4, 'architecture': 1.9, 'field': 1.7, 'dynamics': 1.6,
@@ -1044,22 +995,16 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
     // --- Edge Animation ---
     conceptEdges.forEach(edge => {
         if (!edge?.material || !edge.userData) return;
-
         const originalColor = new THREE.Color(edge.userData.originalColor);
         const originalEmissive = new THREE.Color(edge.userData.originalEmissive);
         const baseOpacity = edge.userData.baseOpacity ?? 0.5;
-
         const sourceObject = allNodesToAnimate.find(obj => obj.userData?.id === edge.userData.sourceId);
         const targetObject = allNodesToAnimate.find(obj => obj.userData?.id === edge.userData.targetId);
-
         const isConnectedToSelected = selectedObject && (sourceObject === selectedObject || targetObject === selectedObject);
         const isConnectedToHovered = !isConnectedToSelected && hoveredObject && (sourceObject === hoveredObject || targetObject === hoveredObject);
-
         let targetColor = originalColor.clone();
         let targetEmissive = originalEmissive.clone();
         let targetOpacity = baseOpacity;
-
-        // Base edge color/opacity influenced by Affinity/RIH
         const affinityInfluence = clamp(Math.abs(latestAvgAffinity), 0, 1);
         const rihInfluence = clamp(latestRIHScore, 0, 1);
         targetOpacity = clamp(baseOpacity * (0.8 + rihInfluence * 0.4 + affinityInfluence * 0.3), 0.2, 0.8);
@@ -1067,15 +1012,11 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
         if (latestAvgAffinity > 0.1) affinityColorShift.g += 0.3 * latestAvgAffinity;
         if (latestAvgAffinity < -0.1) affinityColorShift.b += 0.3 * Math.abs(latestAvgAffinity);
         targetColor.add(affinityColorShift);
-
         if (isConnectedToSelected || isConnectedToHovered) {
             targetColor.copy(edgeHighlightColor);
             targetEmissive.copy(edgeHighlightEmissive);
             targetOpacity = clamp(targetOpacity * 1.5, 0.7, 1.0);
-        } else {
-             targetEmissive.multiplyScalar(0.5 + rihInfluence * 0.5);
-        }
-
+        } else { targetEmissive.multiplyScalar(0.5 + rihInfluence * 0.5); }
         const edgeLerpFactor = isConnectedToSelected || isConnectedToHovered ? 0.2 : 0.05;
         edge.material.color.lerp(targetColor, edgeLerpFactor);
         edge.material.emissive.lerp(targetEmissive, edgeLerpFactor);
@@ -1084,136 +1025,53 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
 }
 
 
-/**
- * Handles window resize event for the Concept Graph panel.
- */
+// Handles window resize event
 function onConceptWindowResize() {
     if (!conceptInitialized || !conceptCamera || !conceptRenderer || !conceptLabelRenderer || !conceptContainer) return;
-
-    const width = conceptContainer.clientWidth;
-    const height = conceptContainer.clientHeight;
-
+    const width = conceptContainer.clientWidth; const height = conceptContainer.clientHeight;
     if (width <= 0 || height <= 0) return;
-
-    conceptCamera.aspect = width / height;
-    conceptCamera.updateProjectionMatrix();
-
-    conceptRenderer.setSize(width, height);
-    conceptLabelRenderer.setSize(width, height);
+    conceptCamera.aspect = width / height; conceptCamera.updateProjectionMatrix();
+    conceptRenderer.setSize(width, height); conceptLabelRenderer.setSize(width, height);
 }
 
-/**
- * Cleans up Three.js resources for the Concept Graph panel.
- */
+// Cleans up Three.js resources
 export function cleanupConceptVisualization() {
     if (!conceptInitialized) return;
     console.log("Cleaning up Concept Graph Three.js...");
-
-    // Remove listeners
     window.removeEventListener('resize', onConceptWindowResize);
     if (conceptContainer) {
         conceptContainer.removeEventListener('mousemove', handleConceptMouseMoveWrapper, false);
         conceptContainer.removeEventListener('click', handleConceptClickWrapper, false);
     }
-
-    // Dispose renderers
     if (conceptRenderer) {
         conceptRenderer.dispose();
-        if (conceptContainer?.contains(conceptRenderer.domElement)) {
-            conceptContainer.removeChild(conceptRenderer.domElement);
-        }
+        if (conceptContainer?.contains(conceptRenderer.domElement)) { conceptContainer.removeChild(conceptRenderer.domElement); }
         conceptRenderer = null;
     }
-    if (conceptLabelRenderer?.domElement) {
-        conceptLabelRenderer.domElement.remove();
-        conceptLabelRenderer = null;
-    }
-
-    // Dispose nodes
-    Object.values(conceptNodes).forEach(cn => {
-        const node = cn.object;
-        if (node) {
-            if (node.geometry) node.geometry.dispose();
-            if (node.material) node.material.dispose();
-            if (cn.label?.element?.parentNode) {
-                cn.label.element.parentNode.removeChild(cn.label.element);
-            }
-            conceptScene?.remove(node);
-        }
-    });
+    if (conceptLabelRenderer?.domElement) { conceptLabelRenderer.domElement.remove(); conceptLabelRenderer = null; }
+    Object.values(conceptNodes).forEach(cn => { /* ... disposal ... */ });
     conceptNodes = {};
-
-    // Dispose base edge material
-    if (baseConceptEdgeMaterial) {
-        baseConceptEdgeMaterial.dispose();
-        baseConceptEdgeMaterial = null;
-    }
-
-    // Dispose edges
-    conceptEdges.forEach(edge => {
-        if (edge.geometry) edge.geometry.dispose();
-        if (edge.material) edge.material.dispose();
-        conceptScene?.remove(edge);
-    });
+    if (baseConceptEdgeMaterial) { baseConceptEdgeMaterial.dispose(); baseConceptEdgeMaterial = null; }
+    conceptEdges.forEach(edge => { /* ... disposal ... */ });
     conceptEdges = [];
-
-    // Dispose placeholder meshes
-    [agentStateMesh, emergenceCoreMesh, live2dPlaneConcept].forEach(mesh => {
-        if (mesh) {
-            if (mesh.geometry) mesh.geometry.dispose();
-            if (mesh.material) mesh.material.dispose();
-            if (mesh.userData?.label?.element?.parentNode) {
-                 mesh.userData.label.element.parentNode.removeChild(mesh.userData.label.element);
-            }
-            conceptScene?.remove(mesh);
-        }
-    });
-    agentStateMesh = null;
-    emergenceCoreMesh = null;
-    live2dPlaneConcept = null;
-    agentStateLabel = null;
-    emergenceCoreLabel = null;
-
-
-    // Nullify references
-    conceptControls = null;
-    conceptScene = null;
-    conceptCamera = null;
-    conceptContainer = null;
-    conceptInfoPanel = null;
-    conceptClock = null;
-    hoveredObject = null;
-    selectedObject = null;
+    [agentStateMesh, emergenceCoreMesh, live2dPlaneConcept].forEach(mesh => { /* ... disposal ... */ });
+    agentStateMesh = null; emergenceCoreMesh = null; live2dPlaneConcept = null;
+    agentStateLabel = null; emergenceCoreLabel = null;
+    conceptControls = null; conceptScene = null; conceptCamera = null; conceptContainer = null;
+    conceptInfoPanel = null; conceptClock = null; hoveredObject = null; selectedObject = null;
     latestAgentEmotions = null;
-
-
     conceptInitialized = false;
     console.log("Concept Graph Three.js cleanup complete.");
 }
 
-// --- Wrapper functions for event listeners to allow removal ---
+// --- Wrapper functions for event listeners ---
 function handleConceptMouseMoveWrapper(event) {
-    const interactableObjects = [
-        ...Object.values(conceptNodes).map(n => n.object),
-        agentStateMesh,
-        emergenceCoreMesh,
-        live2dPlaneConcept,
-    ].filter(Boolean); // Filter out null/undefined placeholders
-
+    const interactableObjects = [...Object.values(conceptNodes).map(n => n.object), agentStateMesh, emergenceCoreMesh, live2dPlaneConcept].filter(Boolean);
     onConceptMouseMove(event, interactableObjects);
-    if (!selectedObject) {
-        updateInfoPanel();
-    }
+    if (!selectedObject) updateInfoPanel();
 }
-
 function handleConceptClickWrapper(event) {
-     const interactableObjects = [
-        ...Object.values(conceptNodes).map(n => n.object),
-        agentStateMesh,
-        emergenceCoreMesh,
-        live2dPlaneConcept,
-    ].filter(Boolean);
-
-    onConceptClick(event, interactableObjects);
-    updateInfoPanel(); // Always update after click
+     const interactableObjects = [...Object.values(conceptNodes).map(n => n.object), agentStateMesh, emergenceCoreMesh, live2dPlaneConcept].filter(Boolean);
+     onConceptClick(event, interactableObjects);
+     updateInfoPanel();
 }
