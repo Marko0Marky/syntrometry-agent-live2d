@@ -39,12 +39,18 @@ export class SyntrometricAgent {
         this.emotionNames = emotionNames;
 
         // Agent's internal state history and previous emotions
-        this.history = [];
+        this.history = []; // Stores arrays of processed state vectors (just Config.DIMENSIONS part)
         // Initialize prevEmotions with a default state (zero tensor), dispose old one if exists
          if (this.prevEmotions && typeof this.prevEmotions.dispose === 'function') {
              tf.dispose(this.prevEmotions);
          }
          this.prevEmotions = tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]);
+
+         // Store latest calculated values for external access (used by viz-concepts, metrics)
+         this.latestCascadeHistory = [];
+         this.latestRihScore = 0;
+         this.latestAffinities = [];
+         // Note: latest emotions and hmLabel are stored in app.js globals for broader access
     }
 
      // Builds a simple TF sequential model for predicting emotions
@@ -84,14 +90,17 @@ export class SyntrometricAgent {
         const stateArray = Array.isArray(rawState) ? rawState : (rawState && typeof rawState.arraySync === 'function' ? rawState.arraySync()[0] : zeros([Config.Agent.BASE_STATE_DIM]));
         const processedState = this.enyphansyntrix.apply(stateArray);
 
-        // Add to history (optional)
-        this.history.push(processedState);
+        // Add to history (optional) - Store only the core dimensions? Or full state?
+        // Let's store the core dimensions (Config.DIMENSIONS) in history
+        this.history.push(processedState.slice(0, Config.DIMENSIONS));
         if (this.history.length > Config.Agent.HISTORY_SIZE) this.history.shift();
+
 
         // Perform Structural Condensation using only the first Config.DIMENSIONS from the state
         // Ensure we slice only up to Config.DIMENSIONS, even if processedState is smaller
         const cascadeInput = processedState.slice(0, Math.min(processedState.length, Config.DIMENSIONS));
         const cascadeHistory = this.strukturkondensation.process(cascadeInput);
+        this.latestCascadeHistory = cascadeHistory; // Store for getState/visuals
 
 
         // Calculate Reflexive Integration Hierarchy (RIH)
@@ -103,6 +112,7 @@ export class SyntrometricAgent {
          }
 
         let rihScore = this.reflexiveIntegration.compute(lastCascadeLevel); // Pass array to RIH compute
+        this.latestRihScore = rihScore; // Store
 
 
         // Calculate Affinities between consecutive cascade levels
@@ -118,6 +128,7 @@ export class SyntrometricAgent {
                  }
             }
         }
+        this.latestAffinities = affinities; // Store
          // Calculate the average affinity across all level pairs
         const avgAffinity = affinities.length > 0 ? affinities.reduce((a, b) => a + b, 0) / affinities.length : 0;
 
@@ -192,7 +203,7 @@ export class SyntrometricAgent {
          if (this.headMovementHead && typeof tf !== 'undefined' && currentEmotions && dominantEmotionIndex !== -1) {
             try {
                 const hmLogits = await tf.tidy(() => {
-                     // Input features: RIH, Avg Affinity, Dominant Emotion Index (as a single value), Current Emotions
+                     // Input features: RIH score + Avg Affinity + Dominant Emotion Index (as value) + Current Emotions
                     const rihTensor = tensor([[rihScore]], [1, 1]);
                     const avgAffinityTensor = tensor([[avgAffinity]], [1, 1]);
                      // Use the dominant emotion index as a numerical feature (simplified)
@@ -247,35 +258,89 @@ export class SyntrometricAgent {
 
 
         return {
-            cascadeHistory, // History of element values at each cascade level (array of arrays)
-            rihScore,      // Computed RIH score (scalar number)
-            affinities,    // Affinities between cascade levels (array of scalar numbers)
+            cascadeHistory: this.latestCascadeHistory, // Return the stored history
+            rihScore: this.latestRihScore,      // Return the stored RIH
+            affinities: this.latestAffinities,    // Return the stored affinities
             emotions: currentEmotions, // Tensor of current emotion intensities (managed by the class)
             hmLabel,       // Predicted head movement label (string)
             responseText   // Agent's text response (string)
         };
     }
 
-     // Fallback response structure in case of critical errors or agent initialization failure
-     // This is now primarily handled by checks in app.js and the process method itself returning defaults.
-     // Leaving a placeholder function structure for potential future use.
-    // _getFallbackResponse() {
-    //     const emptyCascade = [...Array(Config.DIMENSIONS)].map(() => 0);
-    //      // Ensure a minimal cascade history with at least 2 elements in the last level for potential RIH computation in fallback logic
-    //     const fallbackHistory = [emptyCascade];
-    //      while(fallbackHistory[fallbackHistory.length - 1].length < 2) {
-    //          fallbackHistory[fallbackHistory.length - 1].push(0);
-    //      }
-    //      if(fallbackHistory.length < 2) fallbackHistory.push([0,0]);
+    /**
+     * Gets the savable state of the agent (plain JS object/array).
+     * Converts tensors to arrays. Excludes TF models.
+     * @returns {object} The serializable state.
+     */
+    getState() {
+        const prevEmotionsArray = this.prevEmotions ? this.prevEmotions.arraySync()[0] : zeros([Config.Agent.EMOTION_DIM]);
+
+        // We only need to save the state necessary to *resume* the simulation loop
+        // The agent history and latest metrics are recalculated each step or derived.
+        // The crucial state is just the previous emotions tensor.
+        return {
+            // history: this.history, // History might be too large to save frequently
+            prevEmotions: prevEmotionsArray
+            // No need to save latest metrics, they are results of processing
+        };
+    }
+
+    /**
+     * Loads state into the agent from a plain JS object.
+     * Converts arrays back to tensors where needed.
+     * Re-initializes the agent's state based on loaded data.
+     * @param {object} state The state object to load.
+     * @returns {void}
+     */
+    loadState(state) {
+        if (!state || typeof state !== 'object') {
+            console.error("Invalid state object provided for Agent load.");
+            return;
+        }
+
+        // Dispose old tensors before creating new ones
+        if (this.prevEmotions && typeof this.prevEmotions.dispose === 'function') {
+             tf.dispose(this.prevEmotions);
+        }
+
+        // Load previous emotions, providing default if missing
+        this.prevEmotions = Array.isArray(state.prevEmotions)
+             ? tensor([state.prevEmotions], [1, Config.Agent.EMOTION_DIM]) || tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]) // Ensure tensor created, with fallback
+             : tensor(zeros([1, Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]); // Default as tensor
 
 
-    //     return {
-    //         cascadeHistory: fallbackHistory,
-    //         rihScore: 0,
-    //         affinities: [0],
-    //         emotions: tensor(zeros([1,Config.Agent.EMOTION_DIM]), [1, Config.Agent.EMOTION_DIM]),
-    //         hmLabel: "idle",
-    //         responseText: "Simulation paused due to critical errors or missing components."
-    //     };
-    // }
+        // Reset or load history (optional, maybe just reset for simplicity)
+        this.history = []; // Reset history on load
+
+
+        // Reset latest metrics on load (they will be updated by the first process call)
+        this.latestCascadeHistory = [];
+        this.latestRihScore = 0;
+        this.latestAffinities = [];
+
+
+        console.log("Agent state loaded.");
+         // Note: The agent needs to process the *environment's* new state in the next animation frame
+         // to fully resume.
+    }
+
+     /**
+      * Optional cleanup method for TensorFlow.js tensors held by the agent.
+      * This disposes the TF models and the prevEmotions tensor.
+      */
+     cleanup() {
+         if (this.emotionalModule && typeof this.emotionalModule.dispose === 'function') {
+             this.emotionalModule.dispose();
+             this.emotionalModule = null;
+         }
+         if (this.headMovementHead && typeof this.headMovementHead.dispose === 'function') {
+             this.headMovementHead.dispose();
+             this.headMovementHead = null;
+         }
+         if (this.prevEmotions && typeof this.prevEmotions.dispose === 'function') {
+             tf.dispose(this.prevEmotions);
+             this.prevEmotions = null; // Clear reference after disposing
+         }
+         console.log("Agent TensorFlow tensors disposed.");
+     }
 }
