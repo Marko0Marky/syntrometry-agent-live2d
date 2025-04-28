@@ -966,7 +966,10 @@ function onConceptClick(event, interactableObjects) {
  * This function is called every frame by the main animation loop in app.js.
  */
 export function updateInfoPanel() { // No arguments needed anymore
-    if (!conceptInfoPanel) return; // Ensure the info panel element exists
+    if (!conceptInfoPanel) {
+        console.warn("Info panel element not found in updateInfoPanel."); // Add warning
+        return; // Ensure the info panel element exists
+    }
     // Assumes emotionNames is available in this module scope (imported)
 
     let displayObject = null; // The object whose data we will display
@@ -978,16 +981,27 @@ export function updateInfoPanel() { // No arguments needed anymore
          displayObject = hoveredObject;
     }
 
+    // --- Visibility Toggle ---
+    if (displayObject) {
+        conceptInfoPanel.classList.add('visible'); // Make panel visible
+    } else {
+        conceptInfoPanel.classList.remove('visible'); // Hide panel
+        // Optionally, return here if you don't want to update content when hidden
+        // return;
+    }
+    // --- End Visibility Toggle ---
+
+
     // If we have an object to display information for
     if (displayObject && displayObject.userData) {
         const data = displayObject.userData;
 
-         // Get base description and name from the object's userData
+        // Get base description and name from the object's userData
         let displayName = data.name || 'Unknown'; // Use let for dynamic name update
         const baseDescription = data.description || 'No description available.';
         let descriptionToDisplay = baseDescription.split('<br><i>Dynamic details')[0]; // Start with static part
 
-         // Special handling for simulation state objects to append dynamic data
+        // Special handling for simulation state objects to append dynamic data
         let dynamicInfoHtml = '';
 
         // Check if the object is one of the dynamic info placeholders using their IDs
@@ -1050,7 +1064,7 @@ export function updateInfoPanel() { // No arguments needed anymore
         // Build the info panel content
         conceptInfoPanel.innerHTML = `
             <h3>${displayName}</h3>
-             <p><b>Type:</b> ${data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1).replace(/_/g, ' ') : 'N/A'}</p> <!-- Added space for types -->
+             <p><b>Type:</b> ${data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1).replace(/_/g, ' ') : 'N/A'}</p>
             ${data.chapter ? `<p><b>Chapter:</b> ${data.chapter}</p>` : ''}
             <p>${descriptionToDisplay}</p>
             ${linksHtml}
@@ -1058,6 +1072,8 @@ export function updateInfoPanel() { // No arguments needed anymore
 
     } else {
         // If no object is selected or hovered, display default simulation state info
+        // This content will likely only be visible briefly as the panel hides,
+        // but updating it ensures correctness if the hide transition isn't instant.
         conceptInfoPanel.innerHTML = `
             <h3>Concept Information</h3>
             <p>Hover over a node or object to see details.</p>
@@ -1068,6 +1084,8 @@ export function updateInfoPanel() { // No arguments needed anymore
         `;
     }
 }
+
+// Make sure this updated updateInfoPanel function is correctly placed in your viz-concepts.js
 
 
 /**
