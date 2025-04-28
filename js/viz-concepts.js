@@ -138,7 +138,6 @@ const conceptData = {
      'live2d_avatar_ref': { id: 'live2d_avatar_ref', name: 'Live2D Avatar', chapter: 'Visualization', position: new THREE.Vector3(0, -10, 0), type: 'live2d_avatar_ref', links: ['agent_emotional_state'], description: `Reference point for the Live2D avatar reflecting agent's emotional state.<br><i>Actual avatar is rendered separately in the other panel.</i>` }
 };
 
-
 // Helper to get approx boundary radius for edge connection points
 function getApproxBoundaryRadius(geometry, scale) {
     if (!geometry || (!geometry.isGeometry && !geometry.isBufferGeometry)) {
@@ -763,17 +762,21 @@ export function updateInfoPanel() {
 
 /**
  * Animates concept nodes (rotation, oscillation) and applies highlight effects.
- * Enhanced to react more dynamically to simulation state.
+ * Includes temporary feedback for user inputs (sliders, chat).
  * @param {number} deltaTime The time elapsed since the last frame.
  * @param {number} integrationParam Value from the integration slider (0-1).
  * @param {number} reflexivityParam Value from the reflexivity slider (0-1).
+ * @param {number} lastIntegrationTime Timestamp of last integration slider input (-1 if old).
+ * @param {number} lastReflexivityTime Timestamp of last reflexivity slider input (-1 if old).
+ * @param {number} lastChatTime Timestamp of last chat input impact (-1 if old).
  */
-export function animateConceptNodes(deltaTime, integrationParam, reflexivityParam) {
+export function animateConceptNodes(deltaTime, integrationParam, reflexivityParam, lastIntegrationTime, lastReflexivityTime, lastChatTime) {
     if (!conceptInitialized || !conceptClock || !conceptNodes || latestAgentEmotions === null) return;
 
-    const time = conceptClock.getElapsedTime();
+    const elapsedTime = conceptClock.getElapsedTime(); // Get current time for comparison
+    const inputFeedbackDuration = 0.5; // How long feedback effect lasts (seconds) - sync with app.js
 
-    // Get emotions array safely for animation influence
+    // Get emotions array safely
     const emotions = latestAgentEmotions || zeros([Config.Agent.EMOTION_DIM]);
     const joyVal = emotions[0] || 0;
     const fearVal = emotions[1] || 0;
@@ -783,21 +786,25 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
     const surpriseVal = emotions[5] || 0;
     const emotionAvg = emotions.reduce((a, b) => a + b, 0) / Config.Agent.EMOTION_DIM;
 
-    // Define highlight colors/emissive values
+    // Define highlight/feedback colors
     const nodeHighlightColor = new THREE.Color(0xffffff);
     const nodeHighlightEmissive = new THREE.Color(0xffffff).multiplyScalar(0.5);
     const linkedColor = new THREE.Color(0xaaaaee);
     const linkedEmissive = new THREE.Color(0xaaaaee).multiplyScalar(0.3);
     const edgeHighlightColor = new THREE.Color(0x00aaff);
     const edgeHighlightEmissive = new THREE.Color(0x00aaff).multiplyScalar(0.8);
+    // --- Feedback Effect Colors ---
+    const integrationFeedbackColor = new THREE.Color(0x66ffaa); // Light green pulse
+    const reflexivityFeedbackColor = new THREE.Color(0xffddaa); // Orangish pulse
+    const chatFeedbackColor = new THREE.Color(0xaaaaff); // Bluish pulse
 
-    // --- Apply Node Animation & Highlight Effects ---
+
     const allNodesToAnimate = [
         ...Object.values(conceptNodes).map(n => n.object),
         agentStateMesh,
         emergenceCoreMesh,
         live2dPlaneConcept,
-    ].filter(obj => obj !== null && obj !== undefined);
+    ].filter(Boolean);
 
     allNodesToAnimate.forEach(object => {
         if (!object?.material || !object.userData?.originalPosition) return; // Basic safety checks
@@ -825,125 +832,162 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
             : originalEmissive.clone(); // Use original emissive for concepts
         let targetOpacity = baseOpacity;
 
-        // --- Base Animation (Type-driven, used if not highlighted) ---
-        let baseOscillationY = 0;
-        let baseOscillationZ = 0;
-        let baseOscillationX = 0;
-        let basePulseFactor = 0.03; // Default pulse amount
-
-        switch (data.type) {
-            case 'framework': basePulseFactor = 0.04; break;
-            case 'structure': baseOscillationY = 0.2; break;
-            case 'core': basePulseFactor = 0.05; break;
-            case 'field': baseOscillationZ = 0.4; basePulseFactor = 0.02; break;
-            case 'dynamics': baseOscillationY = 0.5; break;
-            case 'method': baseOscillationX = 0.15; break;
-            case 'architecture': baseOscillationY = 0.1; break;
-            case 'purpose': basePulseFactor = 0.05; break;
-            case 'principle': baseOscillationZ = 0.1; break;
-            case 'geometry_metric': basePulseFactor = 0; break; // Handled specifically below
-            case 'relation': basePulseFactor = 0.08; break;
-            case 'level': baseOscillationY = 0.1; break;
-            case 'transformation': basePulseFactor = 0.07; break;
-            // concept, component, property, parameter, operator use default pulse
-            // simulation_state, live2d_avatar_ref have no base type animation here
+        // Apply base type animation first (for non-highlighted nodes)
+        if (!isSelected && !isHovered && !isLinkedToSelected && !isLinkedToHovered && data.type !== 'simulation_state' && data.type !== 'live2d_avatar_ref') {
+            let baseOscillationY = 0, baseOscillationZ = 0, baseOscillationX = 0, basePulseFactor = 0.03;
+            switch (data.type) {
+                case 'framework': basePulseFactor = 0.04; break;
+                case 'structure': baseOscillationY = 0.2; break;
+                case 'core': basePulseFactor = 0.05; break;
+                case 'field': baseOscillationZ = 0.4; basePulseFactor = 0.02; break;
+                case 'dynamics': baseOscillationY = 0.5; break;
+                case 'method': baseOscillationX = 0.15; break;
+                case 'architecture': baseOscillationY = 0.1; break;
+                case 'purpose': basePulseFactor = 0.05; break;
+                case 'principle': baseOscillationZ = 0.1; break;
+                case 'geometry_metric': basePulseFactor = 0; break; // Handled specifically below
+                case 'relation': basePulseFactor = 0.08; break;
+                case 'level': baseOscillationY = 0.1; break;
+                case 'transformation': basePulseFactor = 0.07; break;
+            }
+            targetPosition.x += Math.sin(elapsedTime * 1.1 + originalPosition.z * 0.06) * baseOscillationX;
+            targetPosition.y += Math.sin(elapsedTime * 1.3 + originalPosition.x * 0.08) * baseOscillationY;
+            targetPosition.z += Math.sin(elapsedTime * 1.5 + originalPosition.y * 0.10) * baseOscillationZ;
+            const basePulse = Math.sin(elapsedTime * 1.8 + originalPosition.x * 0.05) * basePulseFactor;
+            // Apply base scale first before metric scale modifier
+            targetScale.set(baseScale * (1.0 + basePulse), baseScale * (1.0 + basePulse), baseScale * (1.0 + basePulse));
+        } else if (data.type === 'simulation_state' || data.type === 'live2d_avatar_ref') {
+            // Ensure placeholders start at their base scale/position if not otherwise animated
+            targetScale.set(baseScale, baseScale, baseScale);
+            targetPosition.copy(originalPosition);
         }
 
-        // Apply base type animation if the node is not a placeholder
-        if (data.type !== 'simulation_state' && data.type !== 'live2d_avatar_ref') {
-             targetPosition.x += Math.sin(time * 1.1 + originalPosition.z * 0.06) * baseOscillationX;
-             targetPosition.y += Math.sin(time * 1.3 + originalPosition.x * 0.08) * baseOscillationY;
-             targetPosition.z += Math.sin(time * 1.5 + originalPosition.y * 0.10) * baseOscillationZ;
-             const basePulse = Math.sin(time * 1.8 + originalPosition.x * 0.05) * basePulseFactor;
-             // Apply base scale first before metric scale modifier
-             targetScale.set(baseScale * (1.0 + basePulse), baseScale * (1.0 + basePulse), baseScale * (1.0 + basePulse));
-        }
+        // --- Metric/Slider/Feedback Influences (Layered ONLY if not selected/hovered) ---
+        let inputFeedbackIntensity = 0;
+        let feedbackEmissiveColor = null;
 
+        if (!isSelected && !isHovered) {
+            // Check for recent inputs and apply feedback effect
+            let timeSinceInput = -1;
+            let targetNodeIdForFeedback = null;
 
-        // --- Metric/Slider Influences (Layered on top for non-highlighted nodes) ---
-        if (!isSelected && !isHovered && !isLinkedToSelected && !isLinkedToHovered) {
-            let metricScaleModifier = 1.0;
-            let metricPulseSpeedFactor = 1.0;
-            let metricPulseAmountFactor = 1.0;
-            let metricOscillationFactor = 1.0;
-            let metricColorShift = new THREE.Color(0x000000); // Additive color shift
-
-            // RIH Influence
-            if (['reflexive_integration', 'holoformen', 'selection_principles'].includes(data.id)) {
-                metricScaleModifier += latestRIHScore * 0.15; // Scale slightly with RIH
-                metricPulseAmountFactor += latestRIHScore * 0.5; // Pulse more with RIH
-                targetEmissive.lerp(new THREE.Color(0xffffff), latestRIHScore * 0.4); // Glow whiter with RIH
+            if (lastIntegrationTime > 0 && (data.id === 'synkolator' || data.id === 'korporator')) {
+                timeSinceInput = elapsedTime - lastIntegrationTime;
+                targetNodeIdForFeedback = data.id;
+                feedbackEmissiveColor = integrationFeedbackColor;
+            } else if (lastReflexivityTime > 0 && (data.id === 'reflexive_abstraction' || data.id === 'reflexive_integration')) {
+                timeSinceInput = elapsedTime - lastReflexivityTime;
+                targetNodeIdForFeedback = data.id;
+                feedbackEmissiveColor = reflexivityFeedbackColor;
+            } else if (lastChatTime > 0 && (data.id === 'agent_emotional_state' || data.id === 'subjective_aspect')) {
+                timeSinceInput = elapsedTime - lastChatTime;
+                targetNodeIdForFeedback = data.id;
+                feedbackEmissiveColor = chatFeedbackColor;
             }
 
-            // Affinity Influence
-            if (['affinitaetssyndrom', 'korporator', 'syntropodenarchitektonik'].includes(data.id)) {
-                const absAffinity = Math.abs(latestAvgAffinity);
-                metricScaleModifier += absAffinity * 0.1;
-                metricPulseAmountFactor += absAffinity * 0.4;
-                // Shift color based on affinity sign
-                if (latestAvgAffinity > 0.2) metricColorShift.g += 0.2 * latestAvgAffinity; // Greenish for positive
-                if (latestAvgAffinity < -0.2) metricColorShift.b += 0.2 * Math.abs(latestAvgAffinity); // Bluish for negative
-                targetEmissive.lerp(new THREE.Color(0xaaaaff), absAffinity * 0.3); // Bluish glow
+            // Calculate feedback intensity (fades out)
+            if (targetNodeIdForFeedback && timeSinceInput >= 0 && timeSinceInput < inputFeedbackDuration) {
+                inputFeedbackIntensity = 1.0 - (timeSinceInput / inputFeedbackDuration);
+                inputFeedbackIntensity = inputFeedbackIntensity * inputFeedbackIntensity; // Make fade faster (quadratic)
             }
 
-             // Emotion Influence
-             if (data.id === 'subjective_aspect') metricOscillationFactor += emotionAvg * 0.5; // More oscillation with avg emotion
-             if (data.id === 'dialektik') { // Influence by negative emotions
-                 const negEmotion = (fearVal + frustrationVal) / 2;
-                 metricPulseAmountFactor += negEmotion * 0.6;
-                 if (negEmotion > 0.1) metricColorShift.r += 0.3 * negEmotion; // Red shift
+            // --- Apply Regular Metric/Slider Influences (If NO feedback active) ---
+            if (inputFeedbackIntensity <= 0 && !isLinkedToSelected && !isLinkedToHovered) {
+                let metricScaleModifier = 1.0;
+                let metricPulseSpeedFactor = 1.0;
+                let metricPulseAmountFactor = 1.0;
+                let metricOscillationFactor = 1.0;
+                let metricColorShift = new THREE.Color(0x000000);
+
+                // RIH Influence
+                if (['reflexive_integration', 'holoformen', 'selection_principles'].includes(data.id)) {
+                    metricScaleModifier += latestRIHScore * 0.15;
+                    metricPulseAmountFactor += latestRIHScore * 0.5;
+                    targetEmissive.lerp(new THREE.Color(0xffffff), latestRIHScore * 0.4);
+                }
+                // Affinity Influence
+                if (['affinitaetssyndrom', 'korporator', 'syntropodenarchitektonik'].includes(data.id)) {
+                    const absAffinity = Math.abs(latestAvgAffinity);
+                    metricScaleModifier += absAffinity * 0.1;
+                    metricPulseAmountFactor += absAffinity * 0.4;
+                    if (latestAvgAffinity > 0.2) metricColorShift.g += 0.2 * latestAvgAffinity;
+                    if (latestAvgAffinity < -0.2) metricColorShift.b += 0.2 * Math.abs(latestAvgAffinity);
+                    targetEmissive.lerp(new THREE.Color(0xaaaaff), absAffinity * 0.3);
+                }
+                // Emotion Influence
+                 if (data.id === 'subjective_aspect') metricOscillationFactor += emotionAvg * 0.5;
+                 if (data.id === 'dialektik') {
+                     const negEmotion = (fearVal + frustrationVal) / 2;
+                     metricPulseAmountFactor += negEmotion * 0.6;
+                     if (negEmotion > 0.1) metricColorShift.r += 0.3 * negEmotion;
+                 }
+                 if (data.id === 'telezentrik' || data.id === 'telewarianz') {
+                     const posEmotion = (joyVal + calmVal) / 2;
+                     metricScaleModifier += posEmotion * 0.1;
+                     if (posEmotion > 0.1) metricColorShift.g += 0.3 * posEmotion;
+                     targetEmissive.lerp(new THREE.Color(0xaaffaa), posEmotion * 0.3);
+                 }
+                 if (data.id === 'dyswarianz') {
+                    const disEmotion = (fearVal + surpriseVal + frustrationVal) / 3;
+                    metricOscillationFactor += disEmotion * 0.7;
+                    metricPulseSpeedFactor += disEmotion * 0.5;
+                    if (disEmotion > 0.1) metricColorShift.r += 0.15 * disEmotion; metricColorShift.b += 0.15 * disEmotion;
+                 }
+                // Slider Influence
+                if (data.id === 'synkolator') {
+                    metricPulseSpeedFactor += integrationParam * 0.8;
+                    metricPulseAmountFactor += integrationParam * 0.3;
+                }
+                if (data.id === 'reflexive_abstraction') {
+                    metricOscillationFactor += reflexivityParam * 0.6;
+                    metricScaleModifier += reflexivityParam * 0.1;
+                    targetEmissive.lerp(new THREE.Color(0xffddaa), reflexivityParam * 0.3);
+                }
+
+                // Apply Metric/Slider Influences
+                targetScale.multiplyScalar(metricScaleModifier);
+                const metricPulseBaseAmount = 0.03; // Define a base amount for metric pulse, similar to the default basePulseFactor
+                const metricPulse = Math.sin(elapsedTime * (1.8 * metricPulseSpeedFactor) + originalPosition.x * 0.05) * (metricPulseBaseAmount * metricPulseAmountFactor);                targetScale.multiplyScalar(1.0 + metricPulse); // Layer pulse
+                targetPosition.x = originalPosition.x + (targetPosition.x - originalPosition.x) * metricOscillationFactor;
+                targetPosition.y = originalPosition.y + (targetPosition.y - originalPosition.y) * metricOscillationFactor;
+                targetPosition.z = originalPosition.z + (targetPosition.z - originalPosition.z) * metricOscillationFactor;
+                targetColor.add(metricColorShift);
+            }
+
+            // --- Apply Input Feedback Effect (Overrides metric/base anim temporarily) ---
+            if (inputFeedbackIntensity > 0 && feedbackEmissiveColor) {
+                 const feedbackScalePulse = baseScale * (1.0 + 0.2 * inputFeedbackIntensity); // Pulse slightly larger
+                 targetScale.set(feedbackScalePulse, feedbackScalePulse, feedbackScalePulse);
+                 // Blend emissive towards feedback color based on intensity
+                 const feedbackEmissive = feedbackEmissiveColor.clone().multiplyScalar(0.8 * inputFeedbackIntensity); // Intensity affects brightness
+                 targetEmissive.lerp(feedbackEmissive, inputFeedbackIntensity); // Blend current target emissive with feedback
+                 targetPosition = originalPosition.clone(); // Freeze position during feedback pulse
+            }
+
+             // Apply linked state AFTER potential feedback effect (linked overrides feedback appearance)
+             if (isLinkedToSelected || isLinkedToHovered) {
+                targetColor.lerp(linkedColor, 0.5);
+                targetEmissive.lerp(linkedEmissive, 0.5);
+                 // Keep scale/position from feedback pulse if it was active, otherwise from metric/base
+                 if(inputFeedbackIntensity <= 0) {
+                     // targetScale/targetPosition remain from metric/base animation
+                 } else {
+                     // Node keeps feedback scale/position but gets linked color/emissive blended in
+                 }
+                targetOpacity = clamp(baseOpacity * 1.1, 0.6, 0.9);
              }
-             if (data.id === 'telezentrik' || data.id === 'telewarianz') { // Influence by positive emotions
-                 const posEmotion = (joyVal + calmVal) / 2;
-                 metricScaleModifier += posEmotion * 0.1;
-                 if (posEmotion > 0.1) metricColorShift.g += 0.3 * posEmotion; // Green shift
-                 targetEmissive.lerp(new THREE.Color(0xaaffaa), posEmotion * 0.3); // Greenish glow
-             }
-             if (data.id === 'dyswarianz') { // Influence by disruptive emotions
-                 const disEmotion = (fearVal + surpriseVal + frustrationVal) / 3;
-                 metricOscillationFactor += disEmotion * 0.7;
-                 metricPulseSpeedFactor += disEmotion * 0.5;
-                 if (disEmotion > 0.1) metricColorShift.r += 0.15 * disEmotion; metricColorShift.b += 0.15 * disEmotion; // Purplish shift
-             }
 
-            // Slider Influence
-            if (data.id === 'synkolator') { // Integration slider
-                metricPulseSpeedFactor += integrationParam * 0.8;
-                metricPulseAmountFactor += integrationParam * 0.3;
-            }
-            if (data.id === 'reflexive_abstraction') { // Reflexivity slider
-                metricOscillationFactor += reflexivityParam * 0.6;
-                metricScaleModifier += reflexivityParam * 0.1;
-                targetEmissive.lerp(new THREE.Color(0xffddaa), reflexivityParam * 0.3); // Orangish glow
-            }
+        } // End of (!isSelected && !isHovered) block
 
-            // Apply Metric/Slider Influences
-            // Apply metric scale modifier to the current target scale
-            targetScale.multiplyScalar(metricScaleModifier);
-            // Add metric pulse (relative to the already scaled size)
-            const metricPulse = Math.sin(time * (1.8 * metricPulseSpeedFactor) + originalPosition.x * 0.05) * (basePulseFactor * metricPulseAmountFactor);
-            targetScale.multiplyScalar(1.0 + metricPulse);
-            // Apply oscillation factor (multiply existing oscillation offset)
-            targetPosition.x = originalPosition.x + (targetPosition.x - originalPosition.x) * metricOscillationFactor;
-            targetPosition.y = originalPosition.y + (targetPosition.y - originalPosition.y) * metricOscillationFactor;
-            targetPosition.z = originalPosition.z + (targetPosition.z - originalPosition.z) * metricOscillationFactor;
-            // Apply color shift (additive)
-            targetColor.add(metricColorShift);
-        }
 
-        // --- Apply Highlight State (Overrides non-highlighted state) ---
+        // --- Apply Highlight State (Overrides all other non-selected states) ---
         if (isSelected || isHovered) {
             targetColor.copy(nodeHighlightColor);
             targetEmissive.copy(nodeHighlightEmissive);
             const highlightScaleFactor = baseScale * (isSelected ? 1.15 : 1.08);
-            targetScale.set(highlightScaleFactor, highlightScaleFactor, highlightScaleFactor); // Set scale directly
+            targetScale.set(highlightScaleFactor, highlightScaleFactor, highlightScaleFactor);
             targetOpacity = clamp(baseOpacity * 1.2, 0.8, 1.0);
-             targetPosition = originalPosition.clone(); // Stop oscillation when highlighted
-        } else if (isLinkedToSelected || isLinkedToHovered) {
-            targetColor.lerp(linkedColor, 0.5); // Blend towards linked color
-            targetEmissive.lerp(linkedEmissive, 0.5);
-            // Keep metric/type animation scale/position for linked nodes
-            targetOpacity = clamp(baseOpacity * 1.1, 0.6, 0.9);
+            targetPosition = originalPosition.clone(); // Freeze position when highlighted
         }
 
 
@@ -960,21 +1004,18 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
 
         // --- Rotation (Only if not selected) ---
          if (!isSelected) {
-             // Base rotation speed influenced by overall activity (RIH, Avg Emotion)
              const activityLevel = clamp(latestRIHScore + emotionAvg + Math.abs(latestAvgAffinity), 0.1, 1.5);
              const baseRotSpeed = deltaTime * 0.05 * activityLevel;
              object.rotation.y += baseRotSpeed;
 
-             // Specific axis rotations influenced by params/specific metrics
              const specificRotSpeed = deltaTime * 0.1 * activityLevel;
               switch(data.type) {
                   case 'core': object.rotation.x += specificRotSpeed * (0.8 + reflexivityParam * 0.5); object.rotation.z += specificRotSpeed * (1.2 + reflexivityParam * 0.5); break;
                   case 'operator': object.rotation.x += specificRotSpeed * (1.0 + integrationParam * 0.6); object.rotation.z += specificRotSpeed * (1.1 + integrationParam * 0.6); break;
-                  case 'simulation_state': // Placeholders have fixed rotation speeds
+                  case 'simulation_state':
                     if (object === agentStateMesh) { object.rotation.y += deltaTime * 0.3; object.rotation.x += deltaTime * 0.15;}
                     if (object === emergenceCoreMesh) { object.rotation.y += deltaTime * 0.4; object.rotation.x += deltaTime * 0.2; object.rotation.z += deltaTime * 0.1;}
                     break;
-                  // Add more specific rotations if needed...
               }
          }
 
@@ -982,20 +1023,18 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
         // --- Label Update ---
         if (object.userData.label) {
             const label = object.userData.label;
-            const labelBaseOffset = { // Keep offsets consistent with creation
+            const labelBaseOffset = {
                  'framework': 1.8, 'structure': 1.5, 'core': 1.3, 'component': 1.5,
                  'property': 1.2, 'parameter': 1.1, 'operator': 1.6, 'method': 1.8,
                  'concept': 1.4, 'architecture': 1.9, 'field': 1.7, 'dynamics': 1.6,
                  'purpose': 1.6, 'principle': 1.6, 'geometry_metric': 1.6, 'relation': 1.3,
                  'level': 1.4, 'transformation': 1.4,
-                 'simulation_state': 2.0 * (data.id === 'agent_emotional_state' ? 1.0 : 1.25), // Adjust offset based on placeholder
+                 'simulation_state': 2.0 * (data.id === 'agent_emotional_state' ? 1.0 : 1.25),
                  'live2d_avatar_ref': 0
             }[data.type] || 1.5;
-
-            label.position.y = labelBaseOffset * object.scale.y; // Adjust label Y position based on current Y scale
-            label.element.style.opacity = object.material.opacity; // Match label opacity to node opacity
-            // Hide label if opacity is very low
-             label.element.style.display = object.material.opacity < 0.1 ? 'none' : 'block';
+            label.position.y = labelBaseOffset * object.scale.y;
+            label.element.style.opacity = object.material.opacity;
+            label.element.style.display = object.material.opacity < 0.1 ? 'none' : 'block';
         }
     });
 
@@ -1020,27 +1059,25 @@ export function animateConceptNodes(deltaTime, integrationParam, reflexivityPara
         // Base edge color/opacity influenced by Affinity/RIH
         const affinityInfluence = clamp(Math.abs(latestAvgAffinity), 0, 1);
         const rihInfluence = clamp(latestRIHScore, 0, 1);
-        targetOpacity = clamp(baseOpacity * (0.8 + rihInfluence * 0.4 + affinityInfluence * 0.3), 0.2, 0.8); // More visible with higher RIH/Affinity
-        // Shift color based on affinity sign
+        targetOpacity = clamp(baseOpacity * (0.8 + rihInfluence * 0.4 + affinityInfluence * 0.3), 0.2, 0.8);
         const affinityColorShift = new THREE.Color(0, 0, 0);
-        if (latestAvgAffinity > 0.1) affinityColorShift.g += 0.3 * latestAvgAffinity; // Greenish tint for positive affinity
-        if (latestAvgAffinity < -0.1) affinityColorShift.b += 0.3 * Math.abs(latestAvgAffinity); // Bluish tint for negative affinity
-        targetColor.add(affinityColorShift); // Add the shift to the base color
+        if (latestAvgAffinity > 0.1) affinityColorShift.g += 0.3 * latestAvgAffinity;
+        if (latestAvgAffinity < -0.1) affinityColorShift.b += 0.3 * Math.abs(latestAvgAffinity);
+        targetColor.add(affinityColorShift);
 
         if (isConnectedToSelected || isConnectedToHovered) {
             targetColor.copy(edgeHighlightColor);
             targetEmissive.copy(edgeHighlightEmissive);
-            targetOpacity = clamp(targetOpacity * 1.5, 0.7, 1.0); // Ensure highlighted edges are clearly visible
+            targetOpacity = clamp(targetOpacity * 1.5, 0.7, 1.0);
         } else {
-             // Apply base emissive modulation
-             targetEmissive.multiplyScalar(0.5 + rihInfluence * 0.5); // More emissive with higher RIH
+             targetEmissive.multiplyScalar(0.5 + rihInfluence * 0.5);
         }
 
         const edgeLerpFactor = isConnectedToSelected || isConnectedToHovered ? 0.2 : 0.05;
         edge.material.color.lerp(targetColor, edgeLerpFactor);
         edge.material.emissive.lerp(targetEmissive, edgeLerpFactor);
         edge.material.opacity = lerp(edge.material.opacity, targetOpacity, edgeLerpFactor);
-    });
+     });
 }
 
 
@@ -1053,12 +1090,8 @@ function onConceptWindowResize() {
     const width = conceptContainer.clientWidth;
     const height = conceptContainer.clientHeight;
 
-    if (width <= 0 || height <= 0) {
-        // Cannot resize with zero dimensions
-        return;
-    }
+    if (width <= 0 || height <= 0) return;
 
-    // Update camera aspect ratio and projection matrix
     conceptCamera.aspect = width / height;
     conceptCamera.updateProjectionMatrix();
 
