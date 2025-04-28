@@ -2,26 +2,31 @@
 /* == Variables & Root Styles == */
 /* ============================================= */
 :root {
+    /* Colors */
     --background-color: #111122;
     --text-color: #eeeeee;
     --text-muted: #aaaaaa;
     --container-background: #1e1e2a;
     --container-border-color: #333355;
-    --overlay-background: rgba(0, 0, 0, 0.7);
-    --overlay-shadow-color: rgba(0, 0, 0, 0.5);
-    --accent-color: #00aaff;
-    --accent-color-rgb: 0, 170, 255; /* For rgba usage */
-    --link-hover-color: #66ccff;
+    --overlay-background: rgba(18, 18, 34, 0.8); /* Slightly less transparent dark */
+    --overlay-border-color: rgba(51, 51, 85, 0.7);
     --viz-background: #1a1a1a;
-    --error-color: #ff4444;
-    --error-background: #2a1e2a;
-    --error-border: #553355;
-    --input-background: #333;
-    --input-border: #555;
-    --input-text-color: #fff;
-    --scrollbar-track: #2a2a2a;
-    --scrollbar-thumb: #555;
-    --scrollbar-thumb-hover: #777;
+    --accent-color: #00aaff;
+    --accent-color-hover: #66ccff;
+    --accent-color-rgb: 0, 170, 255;
+    --link-hover-color: var(--accent-color-hover);
+    --error-color: #ff5555;
+    --error-background: #3a1e2a;
+    --error-border: #663355;
+    --input-background: #2a2a3a;
+    --input-border: #444466;
+    --input-text-color: #ffffff;
+    --input-focus-border: var(--accent-color);
+    --scrollbar-track: #2a2a3a;
+    --scrollbar-thumb: #555577;
+    --scrollbar-thumb-hover: #777799;
+    --label-background: rgba(0, 0, 0, 0.7);
+    --label-text: #ffffff;
 
     /* Spacing */
     --space-xs: 0.5rem;  /* 8px */
@@ -34,18 +39,33 @@
     --border-radius-sm: 4px;
     --border-radius-md: 6px;
     --border-radius-lg: 8px;
+    --border-width: 1px;
+    --border-width-thick: 2px;
 
     /* Fonts */
     --font-family-base: 'Inter', sans-serif;
     --font-size-base: 16px;
-    --font-size-sm: 0.9em;
-    --font-size-lg: 1.1rem;
-    --font-size-xl: 1.2rem;
+    --font-size-sm: 0.875em; /* 14px */
+    --font-size-md: 1em;     /* 16px */
+    --font-size-lg: 1.125em; /* 18px */
     --font-size-h1: 2.2rem;
+    --font-size-h2: 1.6rem;
+    --font-size-h3: 1.3rem;
     --font-weight-normal: 400;
     --font-weight-semibold: 600;
     --font-weight-bold: 700;
     --line-height-base: 1.7;
+    --line-height-heading: 1.3;
+
+    /* Shadows */
+    --overlay-shadow-color: rgba(0, 0, 0, 0.5);
+    --container-shadow: 0 4px 12px var(--overlay-shadow-color);
+    --overlay-shadow: 0 2px 10px var(--overlay-shadow-color);
+
+    /* Transitions */
+    --transition-speed: 0.3s;
+    --transition-func: ease;
+    --transition-default: var(--transition-speed) var(--transition-func);
 }
 
 /* ============================================= */
@@ -61,6 +81,7 @@
 
 html {
     scroll-behavior: smooth;
+    font-size: var(--font-size-base); /* Set base font size on html */
 }
 
 body {
@@ -69,18 +90,18 @@ body {
     overflow-x: hidden;
     background-color: var(--background-color);
     color: var(--text-color);
-    font-size: var(--font-size-base);
 }
 
 canvas {
     display: block; /* Prevents extra space below canvas */
+    max-width: 100%; /* Ensure canvas doesn't overflow container */
 }
 
 /* ============================================= */
 /* == Typography == */
 /* ============================================= */
 h1, h2, h3, h4, h5, h6 {
-    line-height: 1.3;
+    line-height: var(--line-height-heading);
     margin-bottom: var(--space-md);
     color: var(--accent-color);
     font-weight: var(--font-weight-semibold);
@@ -89,21 +110,21 @@ h1, h2, h3, h4, h5, h6 {
 h1 {
     font-size: var(--font-size-h1);
     font-weight: var(--font-weight-bold);
-    margin-bottom: var(--space-xs);
+    margin-bottom: var(--space-sm); /* Slightly less margin */
 }
 
 h2 {
-    font-size: calc(var(--font-size-base) * 1.6); /* ~25.6px */
-    margin-top: 0;
+    font-size: var(--font-size-h2);
+    margin-top: 0; /* Remove default top margin */
     margin-bottom: var(--space-lg);
-    border-bottom: 2px solid var(--accent-color);
+    border-bottom: var(--border-width-thick) solid var(--accent-color);
     padding-bottom: var(--space-xs);
 }
 
 h3 {
-    font-size: calc(var(--font-size-base) * 1.3); /* ~20.8px */
+    font-size: var(--font-size-h3);
     margin-top: var(--space-lg);
-    margin-bottom: var(--space-md);
+    margin-bottom: var(--space-sm); /* Less margin for H3 */
 }
 
 p {
@@ -114,17 +135,17 @@ a {
     color: var(--accent-color);
     text-decoration: none;
     font-weight: var(--font-weight-semibold);
-    transition: color 0.3s ease;
+    transition: color var(--transition-default);
 }
 
 a:hover, a:focus {
     color: var(--link-hover-color);
     text-decoration: underline;
-    outline: none; /* Or provide a custom outline */
+    outline: none; /* Consider a custom outline for accessibility if removing default */
 }
 
 ul {
-    list-style: none;
+    list-style: none; /* Remove default list style */
     padding-left: 0;
     margin-bottom: var(--space-md);
 }
@@ -141,6 +162,7 @@ li::before {
     left: 0;
     color: var(--accent-color);
     font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-base); /* Match text line-height */
 }
 
 /* ============================================= */
@@ -149,43 +171,33 @@ li::before {
 header {
     background: linear-gradient(135deg, #1f1f2f 0%, #2c2c3f 100%);
     color: var(--text-color);
-    padding: var(--space-xl) var(--space-md);
+    padding: var(--space-lg) var(--space-md);
     text-align: center;
     box-shadow: 0 2px 4px var(--overlay-shadow-color);
 }
 
 header p {
-    margin: 0;
+    margin-top: var(--space-xs); /* Add small space below h1 */
+    margin-bottom: 0;
     font-size: var(--font-size-lg);
     color: var(--text-muted);
 }
 
 main {
-    max-width: 1400px; /* Increased width from inline style */
+    max-width: 1400px;
     margin: var(--space-xl) auto;
     padding: 0 var(--space-md);
     display: flex;
     flex-direction: column;
-    gap: var(--space-xl); /* Consistent gap */
+    gap: var(--space-xl); /* Use gap for consistent spacing between sections */
 }
 
 section {
     background: var(--container-background);
-    border: 1px solid var(--container-border-color);
+    border: var(--border-width) solid var(--container-border-color);
     border-radius: var(--border-radius-lg);
-    padding: var(--space-lg); /* Adjusted from inline style */
-    box-shadow: 0 4px 12px var(--overlay-shadow-color);
-}
-
-/* Previous .container style, can be reused if needed for other general containers */
-.content-container {
-    max-width: 1200px;
-    margin: var(--space-xl) auto;
-    padding: var(--space-xl);
-    background: var(--container-background);
-    border-radius: var(--border-radius-lg);
-    border: 1px solid var(--container-border-color);
-    box-shadow: 0 4px 12px var(--overlay-shadow-color);
+    padding: var(--space-lg);
+    box-shadow: var(--container-shadow);
 }
 
 /* ============================================= */
@@ -194,18 +206,19 @@ section {
 
 /* --- Visualization Containers --- */
 .visualization-container {
-    position: relative; /* Needed for absolute positioning of children */
-    height: 700px; /* From inline style */
+    position: relative;
+    height: 700px;
     width: 100%;
-    margin: var(--space-xl) 0;
+    margin: var(--space-lg) 0; /* Consistent vertical margin */
     background-color: var(--viz-background);
     border-radius: var(--border-radius-lg);
-    overflow: hidden;
-    border: 1px solid var(--container-border-color);
+    overflow: hidden; /* Crucial for containing overlays */
+    border: var(--border-width) solid var(--container-border-color);
     box-shadow: inset 0 0 10px var(--overlay-shadow-color);
 }
 
-
+/* Ensure canvas fills its specific container */
+.threejs-container > canvas,
 .threejs-container-concept > canvas {
     position: absolute;
     top: 0;
@@ -213,54 +226,66 @@ section {
     width: 100%;
     height: 100%;
     z-index: 1;
-    /* pointer-events: none; /* Usually leave commented out */
 }
 
 /* --- Overlay Panels (Common styles) --- */
 .overlay-panel {
     position: absolute;
     background: var(--overlay-background);
-    padding: var(--space-md); /* Consolidated from inline style */
-    border-radius: var(--border-radius-lg);
-    box-shadow: 0 2px 10px var(--overlay-shadow-color);
+    padding: var(--space-md);
+    border-radius: var(--border-radius-md); /* Slightly smaller radius */
+    box-shadow: var(--overlay-shadow);
     z-index: 10;
     font-size: var(--font-size-sm);
     color: var(--text-color);
-    border: 1px solid var(--container-border-color); /* Added consistency */
+    border: var(--border-width) solid var(--overlay-border-color);
     max-height: calc(100% - (2 * var(--space-md))); /* Prevent overflow */
-    overflow-y: auto; /* Allow scrolling if needed */
+    overflow-y: auto;
     overflow-x: hidden;
+    transition: opacity var(--transition-default), visibility var(--transition-default);
+    /* Optional: Frosted glass effect */
+    /* backdrop-filter: blur(4px); */
+    /* -webkit-backdrop-filter: blur(4px); */
 }
 
 /* Specific positioning and sizing for overlay panels */
-#metrics {
+#metrics { /* Syntrometry Info Panel */
     top: var(--space-md);
     left: var(--space-md);
-    width: 250px;
+    width: 260px; /* Slightly wider */
+    max-height: calc(100% - 2 * var(--space-md) - 200px); /* Avoid overlap with chat */
 }
 
 #controls {
-    /* Positioned by inline style in HTML for now, can be moved here if static */
-    /* top: var(--space-md);  Example if needed */
-    /* right: var(--space-md); Example if needed */
-    /* left: auto; */
-    width: 250px;
+    top: var(--space-md);
+    right: var(--space-md);
+    width: 260px;
     display: flex;
     flex-direction: column;
-    gap: var(--space-md); /* Consistent gap */
+    gap: var(--space-md);
 }
 
 #chat-container {
     bottom: var(--space-md);
     left: var(--space-md);
     width: 350px;
+    max-height: 220px; /* Allow slightly more height */
 }
 
-#info-panel {
+#info-panel { /* Concept Graph Info Panel */
     top: var(--space-md);
     right: var(--space-md);
     width: 300px;
+    max-height: calc(100% - 2 * var(--space-md)); /* Allow full height */
+    visibility: hidden; /* Initially hidden, controlled by JS/interaction */
+    opacity: 0;
+    transition: opacity var(--transition-default), visibility var(--transition-default);
 }
+#info-panel.visible { /* Class added by JS when active */
+    visibility: visible;
+    opacity: 1;
+}
+
 
 #live2d-container {
     position: absolute;
@@ -268,52 +293,63 @@ section {
     right: var(--space-md);
     width: 300px;
     height: 400px;
-    z-index: 5; /* Lower than other overlays? Adjust if needed */
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(0, 0, 0, 0.1); /* Lighter background? */
+    z-index: 5;
+    border: var(--border-width) solid var(--overlay-border-color);
+    background: rgba(0, 0, 0, 0.2); /* Slightly darker */
     border-radius: var(--border-radius-md);
-    overflow: hidden;
+    overflow: hidden; /* Important for containing the canvas */
 }
 
 /* --- Chat Interface --- */
 #chat-output {
-    max-height: 150px; /* From inline style */
+    max-height: 150px;
     overflow-y: auto;
     color: var(--text-muted);
-    margin-bottom: var(--space-sm); /* From inline style */
-    border: 1px solid var(--input-border);
-    padding: var(--space-xs);
-    background: var(--scrollbar-track); /* Match scrollbar track */
+    margin-bottom: var(--space-sm);
+    border: var(--border-width) solid var(--input-border);
+    padding: var(--space-sm); /* More padding */
+    background: var(--input-background); /* Darker background */
     border-radius: var(--border-radius-sm);
 }
 
 #chat-output div {
     margin-bottom: var(--space-xs);
-    line-height: 1.4;
+    line-height: 1.5; /* Slightly more line height */
 }
 
 #chat-output div b {
-    color: var(--link-hover-color); /* Use a variable */
+    color: var(--accent-color-hover);
+    font-weight: var(--font-weight-semibold);
 }
 
 #chat-input {
     width: 100%;
-    padding: var(--space-xs);
+    padding: var(--space-sm); /* Consistent padding */
     background: var(--input-background);
     color: var(--input-text-color);
-    border: 1px solid var(--input-border);
+    border: var(--border-width) solid var(--input-border);
     border-radius: var(--border-radius-sm);
-    transition: border-color 0.3s;
+    transition: border-color var(--transition-default);
+    font-family: inherit; /* Ensure font consistency */
+    font-size: var(--font-size-sm);
 }
 
-#chat-input:hover,
+#chat-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.8;
+}
+
+#chat-input:hover {
+    border-color: var(--accent-color-hover);
+}
 #chat-input:focus {
-    border-color: var(--accent-color);
+    border-color: var(--input-focus-border);
     outline: none;
+    box-shadow: 0 0 0 2px rgba(var(--accent-color-rgb), 0.3);
 }
 
 /* --- Controls --- */
-.control-group { /* Class from inline style structure */
+.control-group {
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
@@ -322,102 +358,159 @@ section {
 .control-group label {
     font-size: var(--font-size-sm);
     color: var(--text-muted);
-    display: block; /* Ensure label takes full width if needed */
-    margin-bottom: 0; /* Override default p margin */
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: 0;
 }
 
 .control-group input[type="range"] {
     width: 100%;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+    background: transparent; /* Needed for Firefox custom track */
+    margin-top: var(--space-xs);
     margin-bottom: var(--space-xs);
-    accent-color: var(--accent-color); /* Modern way to style range */
+}
+/* Basic range track styling */
+.control-group input[type="range"]::-webkit-slider-runnable-track {
+    background: var(--input-border);
+    height: 4px;
+    border-radius: 2px;
+}
+.control-group input[type="range"]::-moz-range-track {
+    background: var(--input-border);
+    height: 4px;
+    border-radius: 2px;
+}
+.control-group input[type="range"]::-webkit-slider-thumb {
+    appearance: none; -webkit-appearance: none; /* Override default */
+    margin-top: -5px; /* Center thumb on track */
+    background: var(--accent-color);
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--background-color);
+}
+.control-group input[type="range"]::-moz-range-thumb {
+    background: var(--accent-color);
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--background-color);
     cursor: pointer;
 }
 
-.control-group span { /* For slider value display */
-    color: var(--text-muted);
+.control-group span { /* Slider value display */
+    color: var(--accent-color-hover);
+    font-weight: var(--font-weight-normal);
     font-size: var(--font-size-sm);
     margin-left: var(--space-xs);
 }
 
 /* --- Buttons --- */
-.button-group { /* Class from inline style structure */
+.button-group {
     display: flex;
     gap: var(--space-sm);
-    margin-top: var(--space-xs); /* Add some space above buttons */
+    margin-top: var(--space-sm); /* More space above buttons */
 }
 
 .button-group button {
-    flex: 1; /* Make buttons take equal width */
-    padding: var(--space-xs) var(--space-sm);
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
     background-color: var(--accent-color);
-    color: var(--background-color); /* Dark text on accent */
+    color: var(--background-color);
     border: none;
     border-radius: var(--border-radius-sm);
     cursor: pointer;
     font-family: var(--font-family-base);
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
-    transition: background-color 0.3s ease, opacity 0.3s ease;
+    transition: background-color var(--transition-default), opacity var(--transition-default);
     text-align: center;
+    line-height: 1; /* Ensure text aligns vertically */
 }
 
-.button-group button:hover {
-    background-color: var(--link-hover-color);
+.button-group button:hover,
+.button-group button:focus {
+    background-color: var(--accent-color-hover);
+    outline: none;
 }
 
 .button-group button:active {
-    opacity: 0.8;
+    opacity: 0.85;
 }
 
 .button-group button:disabled {
-    background-color: var(--input-border); /* Use existing color */
+    background-color: var(--input-border);
+    color: var(--text-muted);
     cursor: not-allowed;
     opacity: 0.6;
 }
+/* Style for Load button when state exists */
+.button-group button.has-saved-state {
+    box-shadow: 0 0 8px 2px rgba(var(--accent-color-rgb), 0.4);
+}
 
 /* --- Lists --- */
+/* Specific list styles */
 .quick-links-list li::before {
-    content: '🔗';
-    font-weight: normal; /* Link icon doesn't need bold */
+    content: '🔗'; /* Link icon */
+    font-weight: normal;
+}
+.links-list li { /* Links within info panels */
+     padding-left: 1.8em; /* More space */
+}
+.links-list li::before {
+    content: '↪'; /* Different arrow */
+    font-weight: normal;
+    color: var(--accent-color-hover);
 }
 
 /* --- Info/Metrics Panel Specifics --- */
 #info-panel h3,
 #metrics h3 {
-    margin: 0 0 var(--space-sm) 0;
-    font-size: var(--font-size-xl);
+    margin: 0 0 var(--space-md) 0; /* Consistent margin */
+    font-size: var(--font-size-lg); /* Smaller heading for panels */
     color: var(--accent-color);
-    border-bottom: 1px solid rgba(var(--accent-color-rgb), 0.5);
-    padding-bottom: var(--space-xs);
+    border-bottom: var(--border-width) solid rgba(var(--accent-color-rgb), 0.5);
+    padding-bottom: var(--space-sm); /* More padding */
+    line-height: var(--line-height-heading);
 }
 
 #info-panel p,
 #metrics p {
-    margin: var(--space-xs) 0;
-    font-size: var(--font-size-sm); /* Consistent font size */
+    margin: var(--space-sm) 0; /* Consistent vertical spacing */
+    font-size: var(--font-size-sm);
+    line-height: 1.6; /* Slightly tighter line height in panels */
 }
+#info-panel p:first-of-type, /* Reduce top margin for first p after h3 */
+#metrics p:first-of-type {
+    margin-top: var(--space-xs);
+}
+
 
 #info-panel ul,
 #metrics ul {
     list-style: none;
     padding: 0;
-    margin-top: var(--space-sm);
+    margin: var(--space-md) 0 0 0; /* Add margin top */
 }
 
 #info-panel li,
 #metrics li {
     margin-bottom: var(--space-xs);
-    padding-left: 1.2em; /* Adjust as needed */
+    padding-left: 1.5em; /* Adjust as needed */
     position: relative;
-    font-size: var(--font-size-sm); /* Consistent font size */
+    font-size: var(--font-size-sm);
 }
 
 #info-panel li::before {
-    content: '→'; /* Standard arrow for info links */
+    /* Use styles from .links-list li::before */
+    content: '↪';
     position: absolute;
     left: 0;
-    color: var(--accent-color);
+    color: var(--accent-color-hover);
     font-weight: normal;
+    line-height: 1.6;
 }
 
 #metrics li::before {
@@ -426,36 +519,47 @@ section {
     left: 0;
     color: var(--accent-color);
     font-weight: var(--font-weight-bold);
+    line-height: 1.6;
 }
 
 .simulated-data {
-    color: var(--link-hover-color); /* Use link hover color for visibility */
+    color: var(--accent-color-hover); /* More visible */
+    font-weight: var(--font-weight-semibold);
 }
 
 /* --- Labels (e.g., Three.js CSS2DLabel) --- */
 .label {
-    color: #ffffff;
-    background: rgba(0, 0, 0, 0.6);
-    padding: 2px 6px;
+    color: var(--label-text);
+    background: var(--label-background);
+    padding: 3px 8px; /* Slightly more padding */
     border-radius: var(--border-radius-sm);
-    font-size: 12px; /* Keep specific size for labels */
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
     white-space: nowrap;
     pointer-events: none;
     user-select: none;
+    /* Optional: slight text shadow for readability */
+    /* text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8); */
 }
 
 /* --- Error Messages --- */
 .error-message {
+    display: none; /* Controlled by JS */
     color: var(--error-color);
     background-color: var(--error-background);
-    border: 1px solid var(--error-border);
-    padding: var(--space-md);
+    border: var(--border-width) solid var(--error-border);
+    padding: var(--space-md) var(--space-lg);
     border-radius: var(--border-radius-md);
     text-align: center;
-    font-weight: var(--font-weight-bold);
-    margin-top: var(--space-md);
+    font-weight: var(--font-weight-semibold);
+    margin: var(--space-md) auto; /* Center general errors */
+    max-width: 80%;
     z-index: 10000; /* Ensure it's on top */
-    display: none; /* Initially hidden */
+    transition: opacity var(--transition-default);
+}
+.error-message strong {
+    font-weight: var(--font-weight-bold);
+    margin-right: var(--space-xs);
 }
 
 /* Error message inside visualization containers */
@@ -464,8 +568,10 @@ section {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    width: auto; /* Auto width based on content */
     max-width: 80%;
-    margin-top: 0; /* Reset margin */
+    margin: 0; /* Reset margin */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
 }
 
 /* --- Utilities --- */
@@ -473,8 +579,8 @@ section {
     position: fixed;
     top: -9999px;
     left: -9999px;
-    width: 512px; /* Or desired offscreen render size */
-    height: 512px;
+    width: 1px; /* Minimal size offscreen */
+    height: 1px;
     opacity: 0;
     pointer-events: none;
     visibility: hidden;
@@ -499,6 +605,7 @@ section {
 .overlay-panel::-webkit-scrollbar-thumb {
     background: var(--scrollbar-thumb);
     border-radius: var(--border-radius-sm);
+    border: 2px solid var(--scrollbar-track); /* Creates padding effect */
 }
 
 #chat-output::-webkit-scrollbar-thumb:hover,
@@ -506,7 +613,7 @@ section {
     background: var(--scrollbar-thumb-hover);
 }
 
-/* Firefox scrollbar styling (optional, less customizable) */
+/* Firefox scrollbar styling */
 #chat-output,
 .overlay-panel {
     scrollbar-width: thin;
@@ -516,81 +623,113 @@ section {
 /* ============================================= */
 /* == Responsiveness == */
 /* ============================================= */
+
+/* --- Tablet (Medium Screens) --- */
 @media (max-width: 1024px) {
+    body {
+        font-size: calc(var(--font-size-base) * 0.95); /* Slightly smaller base */
+    }
+
+    main {
+        padding: 0 var(--space-sm);
+        gap: var(--space-lg);
+    }
+
     .visualization-container {
-        height: 600px; /* Adjust height */
+        height: 600px; /* Reduce height */
     }
 
-    /* Stack overlays or adjust positioning for smaller screens */
-    .overlay-panel {
-        /* Example: Make them wider, potentially stack */
-        /* width: calc(100% - (2 * var(--space-md))); */
-        /* position: relative; /* If stacking instead of absolute */
-        /* top: auto; left: auto; right: auto; bottom: auto; */
-        /* margin-bottom: var(--space-md); */
-        max-width: 90%; /* Ensure they don't touch edges completely */
+    /* Adjust overlay positions and sizes */
+    #metrics { /* Syntrometry Info */
+        width: 220px; /* Narrower */
+        max-height: calc(100% - 2 * var(--space-md) - 180px); /* Adjust max height */
+    }
+    #controls {
+        width: 220px; /* Narrower */
+    }
+    #chat-container {
+        width: calc(100% - (2 * var(--space-md))); /* Almost full width */
+        max-width: 450px; /* Limit max width */
+        left: var(--space-md);
+        right: auto; /* Position based on left */
+        max-height: 180px; /* Less max height */
+    }
+    #info-panel { /* Concept Info */
+        width: 250px; /* Narrower */
+        /* Keep top right, maybe slightly lower */
+        top: calc(var(--space-md) + 50px);
+    }
+    #live2d-container {
+        width: 200px; /* Smaller */
+        height: calc(200px * 4 / 3); /* Maintain aspect ratio */
+        bottom: var(--space-md); /* Keep bottom right */
+        right: var(--space-md);
+        z-index: 11; /* Ensure it's above controls if overlap occurs */
     }
 
-     /* Simplified example from your inline style - keeping absolute positioning */
-    #metrics, #controls, #chat-container, #info-panel {
-        width: calc(100% - 40px); /* 20px padding on each side */
-        left: 20px;
-        right: 20px;
-        max-width: 400px; /* Limit max width on smaller screens */
-        margin-left: auto; /* Center if max-width applies */
-        margin-right: auto;
-    }
-    #metrics { top: 20px; left: 20px; right: auto; width: 250px; /* Keep fixed width perhaps? */}
-    #controls { top: 20px; right: 20px; left: auto; width: 250px; }
-    #chat-container { bottom: 20px; left: 20px; right: 20px; width: auto; /* Full width */}
-    #info-panel { top: calc(20px + 100px); /* Example: Position below metrics/controls */ right: 20px; left: auto; width: 250px; }
-    #live2d-container { /* Maybe hide or shrink on small screens */
-        width: 150px;
-        height: 200px;
-        bottom: calc(20px + 180px); /* Above chat */
-        right: 20px;
-    }
-
-    header h1 { font-size: 1.8rem; }
-    header p { font-size: 1rem; }
-    main { gap: var(--space-lg); }
+    header h1 { font-size: 1.9rem; }
+    header p { font-size: var(--font-size-md); }
 }
 
+/* --- Mobile (Small Screens) --- */
 @media (max-width: 768px) {
-    body { font-size: 15px; } /* Slightly smaller base font */
-
-    header { padding: var(--space-lg) var(--space-sm); }
-    main { padding: 0 var(--space-sm); }
-    section { padding: var(--space-md); }
-
-    .visualization-container { height: 500px; }
-
-    /* Adjust overlay positions more drastically if needed */
-    /* Example: Force stacking */
-    .overlay-panel {
-        position: relative; /* Disable absolute */
-        width: 100%;
-        max-width: none;
-        margin-bottom: var(--space-md);
-        left: 0; top: 0; right: 0; bottom: 0;
-        max-height: 300px; /* Limit height when stacked */
+    body {
+        font-size: calc(var(--font-size-base) * 0.9); /* Even smaller base */
     }
-    /* Re-add parent container for overlays if stacking */
-    /* .visualization-container { display: flex; flex-direction: column; } */
-    /* Add order property if needed */
 
-    /* Or adjust absolute positions for small screens */
-     #metrics { top: 10px; left: 10px; width: calc(50% - 15px); max-height: 150px; }
-     #controls { top: 10px; right: 10px; width: calc(50% - 15px); max-height: 150px;}
-     #chat-container { bottom: 10px; left: 10px; right: 10px; width: auto; max-height: 120px; }
-     #info-panel { display: none; /* Hide less critical info panel */ }
-     #live2d-container { /* Make smaller or hide */
-        width: 100px;
-        height: 133px;
-        bottom: 140px; /* Above chat */
-        right: 10px;
-        z-index: 11; /* Above controls if overlapping */
+    header { padding: var(--space-md) var(--space-sm); }
+    main { gap: var(--space-md); }
+    section { padding: var(--space-md); }
+    h2 { font-size: 1.4rem; margin-bottom: var(--space-md); }
+    h3 { font-size: 1.1rem; margin-bottom: var(--space-xs); }
+
+    .visualization-container {
+        height: 500px; /* Further reduce height */
+    }
+
+    /* Stack overlays or drastically adjust */
+    .overlay-panel {
+        max-height: 150px; /* Limit height significantly */
+        font-size: calc(var(--font-size-sm) * 0.95); /* Smaller text in panels */
+    }
+
+    #metrics { /* Syntrometry Info */
+        top: var(--space-sm);
+        left: var(--space-sm);
+        width: calc(50% - var(--space-md)); /* Half width minus gap */
+        max-height: 130px;
+    }
+     #controls {
+        top: var(--space-sm);
+        right: var(--space-sm);
+        left: auto; /* Reset left */
+        width: calc(50% - var(--space-md)); /* Half width minus gap */
+        max-height: 130px;
+     }
+     #chat-container {
+        bottom: var(--space-sm);
+        left: var(--space-sm);
+        right: var(--space-sm); /* Span across */
+        width: auto; /* Auto width */
+        max-height: 110px;
+        z-index: 12; /* Above metrics/controls potentially */
+     }
+     #info-panel { /* Concept Info */
+        display: none; /* Hide concept info panel */
+     }
+     #live2d-container {
+        width: 120px; /* Very small */
+        height: calc(120px * 4 / 3);
+        bottom: calc(var(--space-sm) + 120px); /* Position above chat */
+        right: var(--space-sm);
+        z-index: 11; /* Above controls */
      }
 
-    .button-group { flex-direction: column; } /* Stack buttons */
+    .button-group {
+        flex-direction: column; /* Stack buttons */
+        gap: var(--space-xs);
+    }
+    .button-group button {
+        padding: var(--space-sm); /* Adjust padding */
+    }
 }
