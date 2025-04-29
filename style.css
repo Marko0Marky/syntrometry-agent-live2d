@@ -8,7 +8,7 @@
     --text-muted: #aaaaaa;
     --container-background: #1e1e2a;
     --container-border-color: #333355;
-    --overlay-background: rgba(18, 18, 34, 0.8); /* Slightly less transparent dark */
+    --overlay-background: rgba(18, 18, 34, 0.85); /* Slightly more opaque */
     --overlay-border-color: rgba(51, 51, 85, 0.7);
     --viz-background: #1a1a1a;
     --accent-color: #00aaff;
@@ -27,6 +27,18 @@
     --scrollbar-thumb-hover: #777799;
     --label-background: rgba(0, 0, 0, 0.7);
     --label-text: #ffffff;
+    --chart-grid-color: rgba(200, 200, 220, 0.15); /* Lighter grid for chart */
+    --chart-tooltip-bg: rgba(0, 0, 10, 0.8);
+    --bar-bg-color: #333344;
+    --timeline-item-bg: rgba(255, 255, 255, 0.05);
+
+    /* Emotion Colors (Example) */
+    --emotion-joy: #ffdd57;
+    --emotion-fear: #8855ff;
+    --emotion-curiosity: #33ccff;
+    --emotion-frustration: #ff6b6b;
+    --emotion-calm: #51cf66;
+    --emotion-surprise: #ffa94d;
 
     /* Spacing */
     --space-xs: 0.5rem;  /* 8px */
@@ -44,7 +56,9 @@
 
     /* Fonts */
     --font-family-base: 'Inter', sans-serif;
+    --font-family-mono: 'Courier New', Courier, monospace; /* For inspector */
     --font-size-base: 16px;
+    --font-size-xs: 0.75em; /* 12px */
     --font-size-sm: 0.875em; /* 14px */
     --font-size-md: 1em;     /* 16px */
     --font-size-lg: 1.125em; /* 18px */
@@ -97,6 +111,14 @@ canvas {
     max-width: 100%; /* Ensure canvas doesn't overflow container */
 }
 
+pre { /* Style for tensor inspector */
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    line-height: 1.4;
+    white-space: pre-wrap; /* Wrap long lines */
+    word-wrap: break-word;
+}
+
 /* ============================================= */
 /* == Typography == */
 /* ============================================= */
@@ -121,11 +143,16 @@ h2 {
     padding-bottom: var(--space-xs);
 }
 
-h3 {
-    font-size: var(--font-size-h3);
-    margin-top: var(--space-lg);
-    margin-bottom: var(--space-sm); /* Less margin for H3 */
+h3 { /* Panel Titles */
+    font-size: var(--font-size-lg); /* Smaller heading for panels */
+    margin: 0 0 var(--space-md) 0; /* Consistent margin */
+    color: var(--accent-color);
+    border-bottom: var(--border-width) solid rgba(var(--accent-color-rgb), 0.5);
+    padding-bottom: var(--space-sm); /* More padding */
+    line-height: var(--line-height-heading);
 }
+h4 { font-size: 1.1rem; }
+h5 { font-size: 1.0rem; margin-bottom: var(--space-xs); color: var(--text-muted); }
 
 p {
     margin-bottom: var(--space-md);
@@ -184,7 +211,7 @@ header p {
 }
 
 main {
-    max-width: 1400px;
+    max-width: 1600px; /* Wider max width for larger screens */
     margin: var(--space-xl) auto;
     padding: 0 var(--space-md);
     display: flex;
@@ -207,7 +234,7 @@ section {
 /* --- Visualization Containers --- */
 .visualization-container {
     position: relative;
-    height: 700px;
+    height: 750px; /* Increased default height */
     width: 100%;
     margin: var(--space-lg) 0; /* Consistent vertical margin */
     background-color: var(--viz-background);
@@ -243,17 +270,16 @@ section {
     overflow-y: auto;
     overflow-x: hidden;
     transition: opacity var(--transition-default), visibility var(--transition-default);
-    /* Optional: Frosted glass effect */
-    /* backdrop-filter: blur(4px); */
-    /* -webkit-backdrop-filter: blur(4px); */
+    backdrop-filter: blur(3px); /* Subtle frosted glass */
+    -webkit-backdrop-filter: blur(3px);
 }
 
 /* Specific positioning and sizing for overlay panels */
-#metrics { /* Syntrometry Info Panel */
+#metrics { /* Syntrometry Info Panel (Used by viz-syntrometry) - Keep basic for hover info */
     top: var(--space-md);
     left: var(--space-md);
-    width: 260px; /* Slightly wider */
-    max-height: 170px; /* Space for heatmap */
+    width: 260px;
+    max-height: 180px; /* Adjust if needed */
 }
 
 #controls {
@@ -263,13 +289,15 @@ section {
     display: flex;
     flex-direction: column;
     gap: var(--space-md);
+    max-height: 200px; /* Limit height */
 }
 
 #chat-container {
     bottom: var(--space-md);
-    left: calc(var(--space-md) + 260px + var(--space-md)); /* Beside heatmap */
-    width: 350px;
-    max-height: 220px;
+    left: var(--space-md); /* Move to bottom left */
+    width: 300px; /* Adjust width */
+    max-height: 200px;
+    z-index: 12; /* Above heatmap */
 }
 
 #info-panel { /* Concept Graph Info Panel */
@@ -290,24 +318,107 @@ section {
     position: absolute;
     bottom: var(--space-md);
     right: var(--space-md);
-    width: 300px;
-    height: 400px;
-    z-index: 5;
+    width: 250px; /* Slightly smaller */
+    height: 333px; /* Maintain approx 3:4 ratio */
+    z-index: 11; /* Above most overlays */
     border: var(--border-width) solid var(--overlay-border-color);
     background: rgba(0, 0, 0, 0.2); /* Slightly darker */
     border-radius: var(--border-radius-md);
     overflow: hidden; /* Important for containing the canvas */
+    box-shadow: var(--overlay-shadow);
+}
+
+/* --- NEW: Dashboard Panel --- */
+#dashboard-panel {
+    top: calc(var(--space-md) + 200px + var(--space-sm)); /* Position below controls */
+    right: var(--space-md);
+    width: 320px; /* Slightly wider for chart */
+    max-height: calc(100% - 220px - 2 * var(--space-md)); /* Fill remaining height */
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+.dashboard-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Two columns */
+    gap: var(--space-sm) var(--space-md);
+}
+.metric-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+.metric-item-full-width {
+    grid-column: 1 / -1; /* Span full width */
+}
+.metric-label {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-muted);
+    flex-shrink: 0; /* Prevent label from shrinking */
+}
+.metric-value {
+    color: var(--accent-color-hover);
+    font-weight: var(--font-weight-normal);
+    margin-left: auto; /* Push value to the right */
+    text-align: right;
+}
+.context-value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px; /* Limit context width */
+    display: inline-block;
+}
+.metric-item progress {
+    flex-grow: 1;
+    height: 8px;
+    appearance: none;
+    background-color: var(--bar-bg-color);
+    border-radius: 4px;
+    overflow: hidden; /* Needed for border-radius */
+    border: none;
+}
+.metric-item progress::-webkit-progress-bar {
+    background-color: var(--bar-bg-color);
+    border-radius: 4px;
+}
+/* Affinity uses bipolar color */
+#metric-affinity-progress::-webkit-progress-value {
+    background: linear-gradient(to right, var(--emotion-fear) , var(--bar-bg-color) 50%, var(--emotion-joy));
+    border-radius: 4px;
+    transition: background var(--transition-default);
+}
+/* Other progress bars (RIH, Trust) */
+.metric-item progress:not(#metric-affinity-progress)::-webkit-progress-value {
+    background-color: var(--accent-color);
+    border-radius: 4px;
+    transition: background-color var(--transition-default);
+}
+#metric-trust-progress::-webkit-progress-value { background-color: var(--emotion-calm); }
+#metric-rih-progress::-webkit-progress-value { background-color: var(--emotion-curiosity); }
+
+
+/* Chart Container */
+.chart-container {
+    flex-grow: 1; /* Take remaining space */
+    min-height: 150px; /* Minimum height */
+    position: relative; /* Needed for Chart.js responsiveness */
+}
+#metrics-chart {
+    background: rgba(0,0,0,0.2);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--input-border);
 }
 
 /* --- Chat Interface --- */
 #chat-output {
-    max-height: 150px;
+    height: calc(100% - 40px - var(--space-sm)); /* Adjusted height */
     overflow-y: auto;
     color: var(--text-muted);
     margin-bottom: var(--space-sm);
     border: var(--border-width) solid var(--input-border);
     padding: var(--space-sm); /* More padding */
-    background: var(--input-background); /* Darker background */
+    background: rgba(0,0,0,0.3); /* Darker background */
     border-radius: var(--border-radius-sm);
 }
 
@@ -368,6 +479,7 @@ section {
     background: transparent; /* Needed for Firefox custom track */
     margin-top: var(--space-xs);
     margin-bottom: var(--space-xs);
+    height: 16px; /* Increase clickable area */
 }
 /* Basic range track styling */
 .control-group input[type="range"]::-webkit-slider-runnable-track {
@@ -383,12 +495,13 @@ section {
 .control-group input[type="range"]::-webkit-slider-thumb {
     appearance: none;
     -webkit-appearance: none;
-    margin-top: -5px;
+    margin-top: -5px; /* Center thumb on track */
     background: var(--accent-color);
     height: 14px;
     width: 14px;
     border-radius: 50%;
     border: 1px solid var(--background-color);
+    transition: background-color var(--transition-default);
 }
 .control-group input[type="range"]::-moz-range-thumb {
     background: var(--accent-color);
@@ -397,7 +510,10 @@ section {
     border-radius: 50%;
     border: 1px solid var(--background-color);
     cursor: pointer;
+    transition: background-color var(--transition-default);
 }
+.control-group input[type="range"]:hover::-webkit-slider-thumb { background: var(--accent-color-hover); }
+.control-group input[type="range"]:hover::-moz-range-thumb { background: var(--accent-color-hover); }
 
 .control-group span { /* Slider value display */
     color: var(--accent-color-hover);
@@ -466,20 +582,6 @@ section {
 }
 
 /* --- Info/Metrics Panel Specifics --- */
-#info-panel h3,
-#metrics h3,
-.heatmap-container .heatmap-title {
-    margin: 0 0 var(--space-md) 0; /* Consistent margin */
-    font-size: var(--font-size-lg); /* Smaller heading for panels */
-    color: var(--accent-color);
-    border-bottom: var(--border-width) solid rgba(var(--accent-color-rgb), 0.5);
-    padding-bottom: var(--space-sm); /* More padding */
-    line-height: var(--line-height-heading);
-}
-.heatmap-container .heatmap-title {
-    margin-bottom: var(--space-sm);
-}
-
 #info-panel p,
 #metrics p {
     margin: var(--space-sm) 0; /* Consistent vertical spacing */
@@ -501,7 +603,7 @@ section {
 #info-panel li,
 #metrics li {
     margin-bottom: var(--space-xs);
-    padding-left: 1.5em; /* Adjust as Immigration needed */
+    padding-left: 1.5em; /* Adjust as needed */
     position: relative;
     font-size: var(--font-size-sm);
 }
@@ -542,7 +644,7 @@ section {
     pointer-events: none;
     user-select: none;
     /* Optional: slight text shadow for readability */
-    /* text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8); */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 /* --- Error Messages --- */
@@ -575,14 +677,16 @@ section {
     max-width: 80%;
     margin: 0; /* Reset margin */
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+    z-index: 20; /* Above other overlays */
 }
 
 /* --- Heatmap Visualization --- */
 .heatmap-container {
-    top: calc(var(--space-md) + 170px + var(--space-sm)); /* Below metrics */
+    top: calc(var(--space-md) + 180px + var(--space-sm)); /* Below metrics */
     left: var(--space-md);
     width: 260px; /* Match metrics width */
-    height: 200px;
+    height: calc(100% - 200px - 200px - 4 * var(--space-md)); /* Fill remaining space below metrics and chat */
+    min-height: 150px;
     padding: var(--space-sm);
     display: flex;
     flex-direction: column;
@@ -592,6 +696,14 @@ section {
     border: var(--border-width) solid var(--overlay-border-color);
     border-radius: var(--border-radius-md);
     box-shadow: var(--overlay-shadow);
+}
+.heatmap-title {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    margin: 0 0 var(--space-sm) 0;
+    padding: 0;
+    border: none;
+    text-align: center;
 }
 
 #heatmap-content {
@@ -620,6 +732,170 @@ section {
     position: relative;
 }
 
+/* --- NEW: Emotion Intensity Bars --- */
+.emotion-bar-container {
+    display: flex;
+    flex-direction: column;
+    gap: 3px; /* Tighter gap */
+    margin-top: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--input-border);
+}
+.intensity-bar {
+    display: flex;
+    align-items: center;
+    height: 16px; /* Slightly taller */
+    background-color: var(--bar-bg-color);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+}
+.bar-label {
+    position: absolute;
+    left: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(0,0,0,0.7); /* Dark text on light fill */
+    z-index: 2;
+    mix-blend-mode: difference; /* Try to keep text visible */
+    color: #fff;
+}
+.bar-fill {
+    height: 100%;
+    width: 0%; /* Controlled by JS */
+    border-radius: 3px;
+    transition: width 0.2s ease-out;
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+}
+/* Assign colors */
+.intensity-bar.joy .bar-fill { background-color: var(--emotion-joy); }
+.intensity-bar.fear .bar-fill { background-color: var(--emotion-fear); }
+.intensity-bar.curiosity .bar-fill { background-color: var(--emotion-curiosity); }
+.intensity-bar.frustration .bar-fill { background-color: var(--emotion-frustration); }
+.intensity-bar.calm .bar-fill { background-color: var(--emotion-calm); }
+.intensity-bar.surprise .bar-fill { background-color: var(--emotion-surprise); }
+
+/* --- NEW: Expression Timeline --- */
+.timeline-container {
+    margin-top: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--input-border);
+    max-height: 100px; /* Limit height */
+    overflow-y: auto;
+}
+.timeline-container h5 {
+    margin: 0 0 var(--space-xs) 0;
+    padding: 0;
+    border: none;
+    font-size: var(--font-size-sm);
+}
+#expressions-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+#expressions-list li {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    margin-bottom: 2px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    background: var(--timeline-item-bg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#expressions-list li::before { content: none; } /* Remove arrow */
+
+/* --- NEW: Tensor Inspector --- */
+.tensor-inspector-container {
+    bottom: var(--space-md);
+    /* right: calc(var(--space-md) + 250px + var(--space-md)); Adjust based on Live2D width */
+    right: var(--space-md); /* Move to bottom right if Live2D is small */
+    width: 280px;
+    max-height: 180px;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-sm);
+    opacity: 0; /* Initially hidden */
+    visibility: hidden;
+    z-index: 15; /* Above most things */
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+.tensor-inspector-container.visible {
+    opacity: 1;
+    visibility: visible;
+}
+.tensor-inspector-title {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    margin: 0 0 var(--space-sm) 0;
+    padding: 0 0 var(--space-xs) 0;
+    border-bottom: 1px solid var(--input-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+#toggle-inspector {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 0 4px;
+}
+#toggle-inspector:hover { color: var(--accent-color-hover); }
+
+#tensor-inspector-content {
+    flex-grow: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: rgba(0,0,0,0.3);
+    padding: var(--space-xs);
+    border-radius: var(--border-radius-sm);
+    color: var(--text-color);
+    border: 1px solid var(--input-border);
+}
+
+/* --- NEW: Cascade Viewer --- */
+.cascade-viewer-container {
+    top: calc(var(--space-md) + 180px + var(--space-sm)); /* Below metrics */
+    left: calc(var(--space-md) + 260px + var(--space-md)); /* Next to heatmap */
+    width: 300px;
+    max-height: calc(100% - 200px - 2 * var(--space-md)); /* Fill space */
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-sm);
+}
+.cascade-viewer-title {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    margin: 0 0 var(--space-sm) 0;
+    padding: 0 0 var(--space-xs) 0;
+    border-bottom: 1px solid var(--input-border);
+}
+#cascade-viewer-content {
+    flex-grow: 1;
+    overflow-y: auto;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    line-height: 1.4;
+    white-space: pre; /* Use pre for easier formatting */
+    color: var(--text-muted);
+}
+#cascade-viewer-content .level-title {
+    color: var(--accent-color);
+    font-weight: bold;
+}
+#cascade-viewer-content .level-data {
+    color: var(--text-color);
+    word-break: break-all;
+}
+
+
 /* --- Utilities --- */
 #live2d-offscreen-canvas {
     position: fixed;
@@ -637,31 +913,47 @@ section {
 /* ============================================= */
 /* Apply scrollbar styles to elements that might scroll */
 #chat-output::-webkit-scrollbar,
-.overlay-panel::-webkit-scrollbar {
+.overlay-panel::-webkit-scrollbar,
+#tensor-inspector-content::-webkit-scrollbar,
+#expressions-list::-webkit-scrollbar,
+#cascade-viewer-content::-webkit-scrollbar {
     width: 8px;
+    height: 8px; /* For horizontal scroll if needed */
 }
 
 #chat-output::-webkit-scrollbar-track,
-.overlay-panel::-webkit-scrollbar-track {
+.overlay-panel::-webkit-scrollbar-track,
+#tensor-inspector-content::-webkit-scrollbar-track,
+#expressions-list::-webkit-scrollbar-track,
+#cascade-viewer-content::-webkit-scrollbar-track {
     background: var(--scrollbar-track);
     border-radius: var(--border-radius-sm);
 }
 
 #chat-output::-webkit-scrollbar-thumb,
-.overlay-panel::-webkit-scrollbar-thumb {
+.overlay-panel::-webkit-scrollbar-thumb,
+#tensor-inspector-content::-webkit-scrollbar-thumb,
+#expressions-list::-webkit-scrollbar-thumb,
+#cascade-viewer-content::-webkit-scrollbar-thumb {
     background: var(--scrollbar-thumb);
     border-radius: var(--border-radius-sm);
     border: 2px solid var(--scrollbar-track); /* Creates padding effect */
 }
 
 #chat-output::-webkit-scrollbar-thumb:hover,
-.overlay-panel::-webkit-scrollbar-thumb:hover {
+.overlay-panel::-webkit-scrollbar-thumb:hover,
+#tensor-inspector-content::-webkit-scrollbar-thumb:hover,
+#expressions-list::-webkit-scrollbar-thumb:hover,
+#cascade-viewer-content::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover);
 }
 
 /* Firefox scrollbar styling */
 #chat-output,
-.overlay-panel {
+.overlay-panel,
+#tensor-inspector-content,
+#expressions-list,
+#cascade-viewer-content {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
@@ -671,6 +963,23 @@ section {
 /* ============================================= */
 
 /* --- Tablet (Medium Screens) --- */
+@media (max-width: 1200px) { /* Wider breakpoint for dashboard */
+    #dashboard-panel {
+        width: 280px; /* Narrower dashboard */
+    }
+     .dashboard-metrics {
+        grid-template-columns: 1fr; /* Stack metrics */
+        gap: var(--space-xs);
+    }
+    .metric-item-full-width {
+         grid-column: auto; /* Reset span */
+    }
+    .metric-value { margin-left: var(--space-sm); text-align: left;} /* Adjust alignment */
+
+    #live2d-container { width: 200px; height: 266px; }
+    .tensor-inspector-container { width: 250px; }
+}
+
 @media (max-width: 1024px) {
     body {
         font-size: calc(var(--font-size-base) * 0.95); /* Slightly smaller base */
@@ -682,47 +991,23 @@ section {
     }
 
     .visualization-container {
-        height: 600px; /* Reduce height */
+        height: 650px; /* Adjust height */
     }
 
     /* Adjust overlay positions and sizes */
-    #metrics {
-        width: 220px; /* Narrower */
-        max-height: 150px; /* Space for heatmap */
-    }
-    #controls {
-        width: 220px; /* Narrower */
-    }
-    #chat-container {
-        left: calc(var(--space-md) + 220px + var(--space-md)); /* Beside heatmap */
-        width: calc(100% - 260px - 3 * var(--space-md)); /* Adjust width */
-        max-width: 450px; /* Limit max width */
-        max-height: 180px; /* Less max height */
-    }
-    #info-panel { /* Concept Info */
-        width: 250px; /* Narrower */
-        top: calc(var(--space-md) + 50px);
-    }
-    #live2d-container {
-        width: 200px; /* Smaller */
-        height: calc(200px * 4 / 3); /* Maintain aspect ratio */
-        bottom: var(--space-md); /* Keep bottom right */
-        right: var(--space-md);
-        z-index: 11; /* Ensure it's above controls if overlap occurs */
-    }
-    .heatmap-container {
-        width: 220px;
-        height: 150px;
-        top: calc(var(--space-md) + 150px + var(--space-sm)); /* Adjusted for smaller metrics */
-        left: var(--space-md);
-    }
+    #metrics { width: 220px; max-height: 160px; }
+    #controls { width: 220px; max-height: 180px; }
+    #chat-container { width: 250px; max-height: 180px; }
+    #info-panel { width: 250px; top: calc(var(--space-md) + 50px); }
+    #live2d-container { width: 180px; height: 240px; bottom: var(--space-md); right: var(--space-md); }
+    .heatmap-container { width: 220px; height: calc(100% - 180px - 180px - 4 * var(--space-md)); top: calc(var(--space-md) + 160px + var(--space-sm)); left: var(--space-md); }
+    #dashboard-panel { width: 250px; top: calc(var(--space-md) + 180px + var(--space-sm)); max-height: calc(100% - 200px - 2 * var(--space-md)); right: var(--space-md); }
+    .tensor-inspector-container { width: 220px; max-height: 150px; }
+    .cascade-viewer-container { display: none; } /* Hide cascade viewer on medium */
 
-    header h1 {
-        font-size: 1.9rem;
-    }
-    header p {
-        font-size: var(--font-size-md);
-    }
+
+    header h1 { font-size: 1.9rem; }
+    header p { font-size: var(--font-size-md); }
 }
 
 /* --- Mobile (Small Screens) --- */
@@ -731,80 +1016,37 @@ section {
         font-size: calc(var(--font-size-base) * 0.9); /* Even smaller base */
     }
 
-    header {
-        padding: var(--space-md) var(--space-sm);
-    }
-    main {
-        gap: var(--space-md);
-    }
-    section {
-        padding: var(--space-md);
-    }
-    h2 {
-        font-size: 1.4rem;
-        margin-bottom: var(--space-md);
-    }
-    h3 {
-        font-size: 1.1rem;
-        margin-bottom: var(--space-xs);
-    }
+    header { padding: var(--space-md) var(--space-sm); }
+    main { gap: var(--space-md); }
+    section { padding: var(--space-md); }
+    h2 { font-size: 1.4rem; margin-bottom: var(--space-md); }
+    h3 { font-size: 1.1rem; margin-bottom: var(--space-xs); }
 
     .visualization-container {
-        height: 500px; /* Further reduce height */
+        height: 550px; /* Further reduce height */
     }
 
     /* Stack overlays or drastically adjust */
     .overlay-panel {
-        max-height: 150px; /* Limit height significantly */
-        font-size: calc(var(--font-size-sm) * 0.95); /* Smaller text in panels */
-    }
-
-    #metrics {
-        top: var(--space-sm);
-        left: var(--space-sm);
-        width: calc(50% - var(--space-md)); /* Half width minus gap */
-        max-height: 100px;
+        max-height: 130px; /* Limit height significantly */
+        font-size: calc(var(--font-size-sm) * 0.9); /* Smaller text in panels */
         padding: var(--space-sm);
     }
-    #controls {
-        top: var(--space-sm);
-        right: var(--space-sm);
-        left: auto; /* Reset left */
-        width: calc(50% - var(--space-md)); /* Half width minus gap */
-        max-height: 130px;
-        padding: var(--space-sm);
-    }
-    #chat-container {
-        bottom: var(--space-sm);
-        left: var(--space-sm);
-        right: var(--space-sm); /* Span across */
-        width: auto; /* Auto width */
-        max-height: 110px;
-        z-index: 12; /* Above metrics/controls potentially */
-    }
-    #info-panel { /* Concept Info */
-        display: none; /* Hide concept info panel */
-    }
-    #live2d-container {
-        width: 120px; /* Very small */
-        height: calc(120px * 4 / 3);
-        bottom: calc(var(--space-sm) + 120px); /* Position above chat */
-        right: var(--space-sm);
-        z-index: 11; /* Above controls */
-    }
-    .heatmap-container {
-        top: calc(var(--space-sm) + 100px + var(--space-xs)); /* Adjusted for smaller metrics */
-        left: var(--space-sm);
-        width: calc(50% - var(--space-md));
-        height: 100px;
-        padding: var(--space-xs);
-    }
 
-    .button-group {
-        flex-direction: column; /* Stack buttons */
-        gap: var(--space-xs);
-    }
-    .button-group button {
-        padding: var(--space-sm); /* Adjust padding */
-    }
+    #metrics { display: none; } /* Hide basic metrics */
+    #controls { top: var(--space-sm); left: var(--space-sm); right: auto; width: calc(50% - var(--space-md)); max-height: 120px; }
+    #chat-container { bottom: var(--space-sm); left: var(--space-sm); right: var(--space-sm); width: auto; max-height: 100px; z-index: 12; }
+    #info-panel { display: none; } /* Hide concept info panel */
+    #live2d-container { display: none; } /* Hide Live2D on smallest */
+    .heatmap-container { display: none; } /* Hide heatmap */
+    #dashboard-panel { top: var(--space-sm); right: var(--space-sm); left: calc(50% + var(--space-xs)); width: calc(50% - var(--space-md)); max-height: calc(100% - 2 * var(--space-sm)); z-index: 11; }
+    #emotion-intensities { display: none; } /* Hide bars */
+    .chart-container { display: none; } /* Hide chart */
+    #expression-timeline { display: none; } /* Hide timeline */
+    .tensor-inspector-container { display: none; } /* Hide inspector */
+    .cascade-viewer-container { display: none; } /* Hide cascade viewer */
+
+
+    .button-group { flex-direction: column; gap: var(--space-xs); }
+    .button-group button { padding: var(--space-sm); }
 }
