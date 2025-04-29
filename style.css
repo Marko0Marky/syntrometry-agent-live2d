@@ -76,6 +76,19 @@
     /* Transitions */
     --transition-speed: 0.3s;
     --transition-func: ease;
+
+    /* NEW: Define panel heights/widths for easier calculation */
+    --panel-metrics-height: 280px;
+    --panel-controls-height: 280px;
+    --panel-chat-height: 220px;
+    --panel-live2d-height: 280px; /* Adjusted for consistency */
+    --panel-live2d-width: calc(var(--panel-live2d-height) * 0.75); /* Keep aspect ratio */
+    --panel-heatmap-height: 260px;
+    --panel-tensor-height: 220px;
+    --panel-cascade-height: 240px;
+
+    /* Adjust vertical gap between stacked panels */
+    --panel-v-gap: var(--space-md);
 }
 
 /* ============================================= */
@@ -145,9 +158,10 @@ h2 {
 }
 
 h3 {
-    font-size: var(--font-size-lg);
-    border-bottom: var(--border-width) solid rgba(0, 170, 255, 0.5);
-    padding-bottom: var(--space-sm);
+    font-size: var(--font-size-lg); /* Adjusted from h3 size */
+    /* Optional: Keep border or remove for panel titles */
+    /* border-bottom: var(--border-width) solid rgba(0, 170, 255, 0.5); */
+    /* padding-bottom: var(--space-sm); */
 }
 
 p {
@@ -255,14 +269,15 @@ section[aria-labelledby="theory-heading"] {
 /* ============================================= */
 .visualization-container {
     position: relative;
-    height: clamp(800px, 100vh, 1200px);
+    /* Increased minimum height slightly */
+    height: clamp(850px, 95vh, 1300px);
     width: 100%;
     margin: var(--space-md) 0;
     background: var(--viz-bg);
     border-radius: var(--border-radius-md);
     border: var(--border-width) solid var(--container-border);
     box-shadow: inset 0 0 10px var(--shadow-color);
-    overflow: hidden;
+    overflow: hidden; /* Keep hidden to clip content within bounds */
 }
 
 .threejs-container > canvas,
@@ -275,168 +290,94 @@ section[aria-labelledby="theory-heading"] {
     z-index: 1;
 }
 
-/* Overlay Panels */
+/* Overlay Panels - General */
 .overlay-panel {
     position: absolute;
     background: var(--overlay-bg);
-    padding: var(--space-md);
+    padding: var(--space-sm); /* Slightly reduced padding */
     border-radius: var(--border-radius-md);
     box-shadow: var(--overlay-shadow);
     border: var(--border-width) solid var(--overlay-border);
     color: var(--text-color);
     font-size: var(--font-size-sm);
-    max-height: calc(100% - 2 * var(--space-md));
     overflow-y: auto;
-    transition: opacity var(--transition-speed) var(--transition-func);
+    transition: opacity var(--transition-speed) var(--transition-func), visibility var(--transition-speed) var(--transition-func), transform var(--transition-speed) var(--transition-func); /* Added transform transition */
     backdrop-filter: blur(3px);
     z-index: 10;
+    display: flex; /* Use flexbox for internal layout */
+    flex-direction: column; /* Stack content vertically */
+    /* Removed max-height here, will set per panel */
+    /* Removed width here, will set per panel */
 }
 
+/* == Panel Positioning and Sizing == */
+
+/* Top-Left Zone */
 #metrics {
     top: var(--space-md);
     left: var(--space-md);
-    width: 260px;
-    max-height: 360px; /* Doubled from 180px */
-}
-
-#controls {
-    top: var(--space-md);
-    right: var(--space-md);
-    width: 260px;
-    max-height: 400px; /* Doubled from 200px */
-}
-
-#chat-container {
-    bottom: var(--space-md);
-    left: var(--space-md);
-    width: 300px;
-    max-height: 400px; /* Doubled from 200px */
-    z-index: 12;
-}
-
-#info-panel {
-    top: var(--space-md);
-    right: var(--space-md);
-    width: 300px;
-    visibility: hidden;
-    opacity: 0;
-}
-
-#info-panel.visible {
-    visibility: visible;
-    opacity: 1;
-}
-
-#live2d-container {
-    position: absolute;
-    bottom: var(--space-md);
-    right: var(--space-md);
     width: 250px;
-    height: 333px;
-    border: var(--border-width) solid var(--overlay-border);
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: var(--border-radius-md);
-    box-shadow: var(--overlay-shadow);
-    overflow: hidden;
-    z-index: 13;
-    visibility: visible;
-    opacity: 1;
+    max-height: var(--panel-metrics-height);
+    z-index: 11; /* Ensure it's above heatmap */
 }
 
-#live2d-container canvas {
-    width: 100% !important;
-    height: 100% !important;
-}
-
-#live2d-container:empty {
-    background: rgba(255, 0, 0, 0.2); /* Debug: Red tint if canvas fails */
-}
-
-/* Dashboard Panel */
-#dashboard-panel {
-    top: calc(var(--space-md) + 400px + var(--space-sm)); /* Adjusted for doubled controls height */
-    right: var(--space-md);
-    width: 320px;
-    max-height: calc(100% - 420px - 2 * var(--space-md)); /* Adjusted for new top position */
-}
-
-.dashboard-metrics {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-sm) var(--space-md);
-}
-
-.metric-item {
+/* Mid-Left Zone (Below Metrics) */
+.heatmap-container {
+    /* Positioned below #metrics */
+    top: calc(var(--space-md) + var(--panel-metrics-height) + var(--panel-v-gap));
+    left: var(--space-md);
+    width: 250px;
+    max-height: var(--panel-heatmap-height);
+    padding: var(--space-sm);
+    z-index: 5;
+    /* Ensure flex properties for internal layout */
     display: flex;
-    align-items: center;
-    gap: var(--space-xs);
+    flex-direction: column;
 }
-
-.metric-item-full-width {
-    grid-column: 1 / -1;
-}
-
-.metric-label {
-    font-weight: var(--font-weight-semibold);
+.heatmap-title {
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
-    flex-shrink: 0;
+    margin-bottom: var(--space-sm);
+    text-align: center;
+    flex-shrink: 0; /* Prevent title from shrinking */
 }
-
-.metric-value {
-    color: var(--primary-color-hover);
-    font-weight: var(--font-weight-normal);
-    margin-left: auto;
-    text-align: right;
-}
-
-.context-value {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 180px;
-}
-
-.metric-item progress {
-    flex-grow: 1;
-    height: 10px;
-    background: var(--bar-bg);
+#heatmap-content {
+    display: grid;
+    gap: 1px;
+    width: 100%;
+    /* height: 100%; REMOVED height: 100% */
+    flex-grow: 1; /* Allow content to take remaining space */
+    background: #111;
+    border: var(--border-width) solid var(--input-border);
     border-radius: var(--border-radius-sm);
-    border: none;
+    min-height: 100px; /* Prevent collapsing completely */
+    overflow: hidden; /* Hide overflow if grid becomes too large */
 }
-
-.metric-item progress::-webkit-progress-bar {
-    background: var(--bar-bg);
-    border-radius: var(--border-radius-sm);
+.heatmap-cell {
+    min-width: 2px;
+    min-height: 2px;
+    width: 100%;
+    height: 100%;
+    border-radius: 1px;
+    transition: background-color 0.1s ease-in-out;
 }
-
-#metric-affinity-progress::-webkit-progress-value {
-    background: linear-gradient(to right, var(--emotion-fear), var(--bar-bg) 50%, var(--emotion-joy));
-    border-radius: var(--border-radius-sm);
-}
-
-.metric-item progress:not(#metric-affinity-progress)::-webkit-progress-value {
-    background: var(--primary-color);
-    border-radius: var(--border-radius-sm);
-}
-
-#metric-trust-progress::-webkit-progress-value { background: var(--emotion-calm); }
-#metric-rih-progress::-webkit-progress-value { background: var(--emotion-curiosity); }
-
-.chart-container {
-    flex-grow: 1;
-    min-height: 300px; /* Doubled from 150px */
+.heatmap-cell:hover {
+    outline: var(--border-width) solid rgba(255, 255, 255, 0.5);
+    z-index: 1;
     position: relative;
 }
 
-#metrics-chart {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: var(--border-radius-sm);
-    border: var(--border-width) solid var(--input-border);
+/* Bottom-Left Zone */
+#chat-container {
+    bottom: var(--space-md);
+    left: var(--space-md);
+    width: 280px; /* Slightly wider */
+    max-height: var(--panel-chat-height);
+    z-index: 12;
 }
-
-/* Chat Interface */
 #chat-output {
-    height: calc(100% - 40px - var(--space-sm));
+    /* Adjusted height calculation based on container padding and input height */
+    height: calc(100% - 40px - var(--space-sm) * 2); /* Assuming input height approx 40px */
     overflow-y: auto;
     color: var(--text-muted);
     margin-bottom: var(--space-sm);
@@ -444,18 +385,17 @@ section[aria-labelledby="theory-heading"] {
     padding: var(--space-sm);
     background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-sm);
+    flex-grow: 1; /* Let output take available space */
+    min-height: 50px; /* Prevent collapsing */
 }
-
 #chat-output div {
     margin-bottom: var(--space-xs);
     line-height: 1.5;
 }
-
 #chat-output div b {
     color: var(--primary-color-hover);
     font-weight: var(--font-weight-semibold);
 }
-
 #chat-input {
     width: 100%;
     padding: var(--space-sm);
@@ -466,35 +406,39 @@ section[aria-labelledby="theory-heading"] {
     font-family: inherit;
     font-size: var(--font-size-sm);
     transition: border-color var(--transition-speed) var(--transition-func);
+    flex-shrink: 0; /* Prevent input shrinking */
 }
-
 #chat-input::placeholder {
     color: var(--text-muted);
     opacity: 0.8;
 }
-
 #chat-input:hover {
     border-color: var(--primary-color-hover);
 }
-
 #chat-input:focus {
     border-color: var(--input-focus-border);
     box-shadow: 0 0 0 2px rgba(0, 170, 255, 0.3);
 }
 
-/* Controls */
+/* Top-Right Zone */
+#controls {
+    top: var(--space-md);
+    right: var(--space-md);
+    width: 250px;
+    max-height: var(--panel-controls-height);
+    z-index: 11; /* Ensure it's above dashboard */
+}
 .control-group {
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
+    margin-bottom: var(--space-sm); /* Add margin between groups */
 }
-
 .control-group label {
     font-size: var(--font-size-sm);
     color: var(--text-muted);
     font-weight: var(--font-weight-semibold);
 }
-
 .control-group input[type="range"] {
     width: 100%;
     accent-color: var(--primary-color);
@@ -503,13 +447,11 @@ section[aria-labelledby="theory-heading"] {
     margin: var(--space-xs) 0;
     height: 16px;
 }
-
 .control-group input[type="range"]::-webkit-slider-runnable-track {
     background: var(--input-border);
     height: 4px;
     border-radius: 2px;
 }
-
 .control-group input[type="range"]::-webkit-slider-thumb {
     appearance: none;
     margin-top: -5px;
@@ -519,24 +461,326 @@ section[aria-labelledby="theory-heading"] {
     border-radius: 50%;
     border: var(--border-width) solid var(--background-color);
 }
-
 .control-group input[type="range"]:hover::-webkit-slider-thumb {
     background: var(--primary-color-hover);
 }
-
 .control-group span {
     color: var(--primary-color-hover);
     font-size: var(--font-size-sm);
     margin-left: var(--space-xs);
 }
 
+/* Mid-Right Zone (Below Controls) */
+#dashboard-panel {
+    /* Positioned below #controls */
+    top: calc(var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap));
+    right: var(--space-md);
+    width: 280px; /* Slightly wider */
+    /* Calculate max-height to fit above bottom elements, leave space for Live2D */
+    max-height: calc(100% - (var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap)) - var(--panel-live2d-height) - var(--panel-v-gap) - var(--space-md));
+    min-height: 150px; /* Ensure it doesn't collapse too much */
+    z-index: 10;
+}
+.dashboard-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-md); /* Space before chart */
+}
+.metric-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+.metric-item-full-width {
+    grid-column: 1 / -1;
+}
+.metric-label {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.metric-value {
+    color: var(--primary-color-hover);
+    font-weight: var(--font-weight-normal);
+    margin-left: auto;
+    text-align: right;
+}
+.context-value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px; /* Adjust as needed */
+}
+.metric-item progress {
+    flex-grow: 1;
+    height: 10px;
+    background: var(--bar-bg);
+    border-radius: var(--border-radius-sm);
+    border: none;
+}
+.metric-item progress::-webkit-progress-bar {
+    background: var(--bar-bg);
+    border-radius: var(--border-radius-sm);
+}
+#metric-affinity-progress::-webkit-progress-value {
+    background: linear-gradient(to right, var(--emotion-fear), var(--bar-bg) 50%, var(--emotion-joy));
+    border-radius: var(--border-radius-sm);
+}
+.metric-item progress:not(#metric-affinity-progress)::-webkit-progress-value {
+    background: var(--primary-color);
+    border-radius: var(--border-radius-sm);
+}
+#metric-trust-progress::-webkit-progress-value { background: var(--emotion-calm); }
+#metric-rih-progress::-webkit-progress-value { background: var(--emotion-curiosity); }
+.chart-container {
+    /* Reduced min-height */
+    min-height: 180px;
+    position: relative;
+    flex-grow: 1; /* Allow chart to take space in dashboard */
+    width: 100%; /* Ensure it takes full width */
+}
+#metrics-chart {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--border-radius-sm);
+    border: var(--border-width) solid var(--input-border);
+    /* Ensure canvas fills container */
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+
+/* Bottom-Right Zone */
+#live2d-container {
+    position: absolute;
+    bottom: var(--space-md);
+    right: var(--space-md);
+    width: var(--panel-live2d-width); /* Use variable width */
+    height: var(--panel-live2d-height); /* Use variable height */
+    border: var(--border-width) solid var(--overlay-border);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--overlay-shadow);
+    overflow: hidden;
+    z-index: 13;
+    visibility: visible;
+    opacity: 1;
+    /* Ensure canvas fills container using flex */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0; /* Override default panel padding */
+}
+#live2d-container canvas {
+    display: block; /* Ensure block display */
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain; /* Scale while maintaining aspect ratio */
+}
+#live2d-container:empty {
+    background: rgba(255, 0, 0, 0.2); /* Debug: Red tint if canvas fails */
+}
+
+/* Optional/Toggleable Panels - Place them strategically */
+
+/* Tensor Inspector - Near Bottom-Right, next to Live2D */
+.tensor-inspector-container {
+    bottom: var(--space-md);
+    /* Position next to live2d container */
+    right: calc(var(--space-md) + var(--panel-live2d-width) + var(--space-sm));
+    width: 240px;
+    max-height: var(--panel-tensor-height);
+    padding: var(--space-sm);
+    opacity: 0;
+    visibility: hidden;
+    z-index: 15; /* High z-index when visible */
+    transition: opacity 0.4s ease, visibility 0.4s ease, transform 0.3s ease; /* Added transform */
+    transform: translateX(20px); /* Start slightly off-screen */
+    /* Inherits flex from .overlay-panel */
+}
+.tensor-inspector-container.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0); /* Slide in */
+}
+.tensor-inspector-title {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    margin-bottom: var(--space-sm);
+    padding-bottom: var(--space-xs);
+    border-bottom: var(--border-width) solid var(--input-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+#toggle-inspector {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 0 4px;
+}
+#toggle-inspector:hover {
+    color: var(--primary-color-hover);
+}
+#tensor-inspector-content {
+    flex-grow: 1; /* Allow content to take available space */
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.3);
+    padding: var(--space-xs);
+    border-radius: var(--border-radius-sm);
+    border: var(--border-width) solid var(--input-border);
+    min-height: 50px; /* Prevent collapsing */
+}
+
+
+/* Cascade Viewer - Mid-Left, Below Heatmap */
+.cascade-viewer-container {
+    /* Position below heatmap */
+    top: calc(var(--space-md) + var(--panel-metrics-height) + var(--panel-v-gap) + var(--panel-heatmap-height) + var(--panel-v-gap));
+    left: var(--space-md);
+    width: 250px;
+    /* Calculate max-height to fit above chat */
+    max-height: calc(100% - (var(--space-md) + var(--panel-metrics-height) + var(--panel-v-gap) + var(--panel-heatmap-height) + var(--panel-v-gap)) - var(--panel-chat-height) - var(--panel-v-gap) - var(--space-md));
+    min-height: 100px;
+    z-index: 4; /* Below heatmap */
+    opacity: 0.9; /* Slightly transparent */
+    /* Inherits flex from .overlay-panel */
+}
+.cascade-viewer-title {
+    margin-bottom: var(--space-sm);
+    padding-bottom: var(--space-xs);
+    border-bottom: 1px solid var(--input-border);
+    flex-shrink: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    font-weight: var(--font-weight-semibold);
+}
+#cascade-viewer-content {
+    flex-grow: 1; /* Allow content to take available space */
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    min-height: 50px; /* Prevent collapsing */
+    /* Remove background/border from content, rely on panel */
+}
+.cascade-placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: var(--font-size-xs);
+    text-align: center;
+    padding: var(--space-sm);
+}
+.cv-level {
+    border-bottom: 1px dashed var(--input-border);
+    padding-bottom: var(--space-sm);
+}
+.cv-level:last-child {
+    border-bottom: none;
+}
+.cv-level-title {
+    color: var(--primary-color);
+    font-weight: bold;
+    font-size: var(--font-size-xs);
+    margin-bottom: var(--space-xs);
+}
+.cv-syndrome-container {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 2px;
+    align-items: flex-end;
+    padding: 2px 0;
+    background-color: rgba(0,0,0,0.15);
+    border-radius: var(--border-radius-sm);
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-height: 20px; /* Give it some base height */
+}
+.cv-syndrome-bar {
+    flex: 0 0 5px;
+    min-width: 3px;
+    border-radius: 1px;
+    transition: background-color 0.1s ease-in-out, transform 0.1s ease;
+    cursor: help;
+}
+.cv-syndrome-bar:hover {
+    transform: scale(1.1);
+    z-index: 1;
+    position: relative;
+    outline: 1px solid white;
+}
+.cv-syndrome-container::-webkit-scrollbar { height: 4px; }
+.cv-syndrome-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 2px; }
+.cv-syndrome-container::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+.cv-syndrome-container::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+.cv-syndrome-container { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) rgba(0,0,0,0.1); }
+
+
+/* Info Panel - Keep hidden, position center top when shown */
+#info-panel {
+    top: var(--space-md);
+    left: 50%; /* Center horizontally */
+    transform: translateX(-50%); /* Adjust for centering */
+    width: clamp(300px, 50vw, 450px); /* Wider, responsive */
+    max-height: 300px;
+    visibility: hidden;
+    opacity: 0;
+    z-index: 20; /* Very high z-index */
+}
+#info-panel.visible {
+    visibility: visible;
+    opacity: 1;
+}
+#info-panel p,
+#metrics p { /* Group similar panel paragraph styles */
+    margin: var(--space-sm) 0;
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+}
+#info-panel p:first-of-type,
+#metrics p:first-of-type {
+    margin-top: var(--space-xs);
+}
+#info-panel ul,
+#metrics ul {
+    margin: var(--space-md) 0 0 0;
+}
+#info-panel li,
+#metrics li {
+    margin-bottom: var(--space-xs);
+    padding-left: 1.5em;
+    font-size: var(--font-size-sm);
+    position: relative; /* Needed for ::before positioning */
+}
+#info-panel li::before {
+    content: '↪';
+    position: absolute;
+    left: 0;
+    color: var(--primary-color-hover);
+    line-height: 1.6;
+}
+#metrics li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--primary-color);
+    font-weight: var(--font-weight-bold);
+}
+
+
 /* Buttons */
 .button-group {
     display: flex;
     gap: var(--space-sm);
-    margin-top: var(--space-sm);
+    margin-top: auto; /* Push buttons to bottom in flex container */
+    padding-top: var(--space-sm); /* Add space above buttons */
+    flex-shrink: 0; /* Prevent shrinking */
 }
-
 .button-group button {
     flex: 1;
     padding: var(--space-sm) var(--space-md);
@@ -548,83 +792,37 @@ section[aria-labelledby="theory-heading"] {
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
     transition: background-color var(--transition-speed) var(--transition-func);
+    text-align: center; /* Ensure text is centered */
 }
-
 .button-group button:hover,
 .button-group button:focus {
     background: var(--primary-color-hover);
 }
-
 .button-group button:active {
     opacity: 0.85;
 }
-
 .button-group button:disabled {
     background: var(--input-border);
     color: var(--text-muted);
     cursor: not-allowed;
     opacity: 0.6;
 }
-
 .button-group button.has-saved-state {
     box-shadow: 0 0 8px 2px rgba(0, 170, 255, 0.4);
 }
 
-/* Lists */
+/* Lists (Non-panel specific) */
 .quick-links-list li::before {
     content: '🔗';
     font-weight: normal;
 }
-
 .links-list li {
     padding-left: 1.8em;
 }
-
 .links-list li::before {
     content: '↪';
     font-weight: normal;
     color: var(--primary-color-hover);
-}
-
-/* Info/Metrics Panels */
-#info-panel p,
-#metrics p {
-    margin: var(--space-sm) 0;
-    font-size: var(--font-size-sm);
-    line-height: 1.6;
-}
-
-#info-panel p:first-of-type,
-#metrics p:first-of-type {
-    margin-top: var(--space-xs);
-}
-
-#info-panel ul,
-#metrics ul {
-    margin: var(--space-md) 0 0 0;
-}
-
-#info-panel li,
-#metrics li {
-    margin-bottom: var(--space-xs);
-    padding-left: 1.5em;
-    font-size: var(--font-size-sm);
-}
-
-#info-panel li::before {
-    content: '↪';
-    position: absolute;
-    left: 0;
-    color: var(--primary-color-hover);
-    line-height: 1.6;
-}
-
-#metrics li::before {
-    content: '•';
-    position: absolute;
-    left: 0;
-    color: var(--primary-color);
-    font-weight: var(--font-weight-bold);
 }
 
 /* Labels */
@@ -643,7 +841,7 @@ section[aria-labelledby="theory-heading"] {
 
 /* Error Messages */
 .error-message {
-    display: none;
+    display: none; /* Show via JS */
     color: var(--error-color);
     background: var(--error-bg);
     border: var(--border-width) solid var(--error-border);
@@ -655,7 +853,6 @@ section[aria-labelledby="theory-heading"] {
     max-width: 80%;
     z-index: 10000;
 }
-
 .visualization-container .error-message {
     position: absolute;
     top: 50%;
@@ -665,51 +862,7 @@ section[aria-labelledby="theory-heading"] {
     max-width: 80%;
     margin: 0;
     box-shadow: 0 4px 15px var(--shadow-color);
-    z-index: 20;
-}
-
-/* Heatmap */
-.heatmap-container {
-    top: calc(var(--space-md) + 360px + var(--space-sm)); /* Adjusted for doubled metrics height */
-    left: var(--space-md);
-    width: clamp(280px, 35vw, 320px);
-    height: calc(100% - 360px - 360px - 4 * var(--space-md)); /* Adjusted for new top position */
-    min-height: 400px; /* Doubled from 200px */
-    padding: var(--space-sm);
-    z-index: 5;
-}
-
-.heatmap-title {
-    font-size: var(--font-size-sm);
-    color: var(--text-muted);
-    margin-bottom: var(--space-sm);
-    text-align: center;
-}
-
-#heatmap-content {
-    display: grid;
-    gap: 1px;
-    width: 100%;
-    height: 100%;
-    flex-grow: 1;
-    background: #111;
-    border: var(--border-width) solid var(--input-border);
-    border-radius: var(--border-radius-sm);
-}
-
-.heatmap-cell {
-    min-width: 2px;
-    min-height: 2px;
-    width: 100%;
-    height: 100%;
-    border-radius: 1px;
-    transition: background-color 0.1s ease-in-out;
-}
-
-.heatmap-cell:hover {
-    outline: var(--border-width) solid rgba(255, 255, 255, 0.5);
-    z-index: 1;
-    position: relative;
+    z-index: 20; /* Ensure it's above overlays */
 }
 
 /* Emotion Intensity Bars */
@@ -720,8 +873,8 @@ section[aria-labelledby="theory-heading"] {
     margin-top: var(--space-sm);
     padding-top: var(--space-sm);
     border-top: var(--border-width) solid var(--input-border);
+    flex-shrink: 0; /* Prevent shrinking in flex panel */
 }
-
 .intensity-bar {
     display: flex;
     align-items: center;
@@ -731,7 +884,6 @@ section[aria-labelledby="theory-heading"] {
     overflow: hidden;
     position: relative;
 }
-
 .bar-label {
     position: absolute;
     left: 4px;
@@ -739,9 +891,9 @@ section[aria-labelledby="theory-heading"] {
     font-weight: var(--font-weight-semibold);
     color: #fff;
     z-index: 2;
-    mix-blend-mode: difference;
+    mix-blend-mode: difference; /* Good for contrast */
+    pointer-events: none; /* Don't block hover on bar */
 }
-
 .bar-fill {
     height: 100%;
     width: 0%;
@@ -749,7 +901,6 @@ section[aria-labelledby="theory-heading"] {
     transition: width 0.2s ease-out;
     z-index: 1;
 }
-
 .intensity-bar.joy .bar-fill { background: var(--emotion-joy); }
 .intensity-bar.fear .bar-fill { background: var(--emotion-fear); }
 .intensity-bar.curiosity .bar-fill { background: var(--emotion-curiosity); }
@@ -762,15 +913,22 @@ section[aria-labelledby="theory-heading"] {
     margin-top: var(--space-sm);
     padding-top: var(--space-sm);
     border-top: var(--border-width) solid var(--input-border);
-    max-height: 200px; /* Doubled from 100px */
+    /* Reduced max-height */
+    max-height: 100px;
     overflow-y: auto;
+    flex-shrink: 0; /* Prevent shrinking */
 }
-
-.timeline-container h5 {
+.timeline-container h5 { /* Assuming an H5 title */
     margin-bottom: var(--space-xs);
     font-size: var(--font-size-sm);
+    color: var(--text-muted); /* Subdued title color */
 }
-
+#expressions-list {
+    /* Remove ul default margin */
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
 #expressions-list li {
     font-size: var(--font-size-xs);
     color: var(--text-muted);
@@ -783,143 +941,6 @@ section[aria-labelledby="theory-heading"] {
     text-overflow: ellipsis;
 }
 
-/* Tensor Inspector */
-.tensor-inspector-container {
-    bottom: var(--space-md);
-    right: var(--space-md);
-    width: 280px;
-    max-height: 360px; /* Doubled from 180px */
-    padding: var(--space-sm);
-    opacity: 0;
-    visibility: hidden;
-    z-index: 15;
-    transition: opacity 0.4s ease, visibility 0.4s ease;
-}
-
-.tensor-inspector-container.visible {
-    opacity: 1;
-    visibility: visible;
-}
-
-.tensor-inspector-title {
-    font-size: var(--font-size-sm);
-    color: var(--text-muted);
-    margin-bottom: var(--space-sm);
-    padding-bottom: var(--space-xs);
-    border-bottom: var(--border-width) solid var(--input-border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-#toggle-inspector {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.2em;
-    cursor: pointer;
-    padding: 0 4px;
-}
-
-#toggle-inspector:hover {
-    color: var(--primary-color-hover);
-}
-
-#tensor-inspector-content {
-    flex-grow: 1;
-    overflow-y: auto;
-    background: rgba(0, 0, 0, 0.3);
-    padding: var(--space-xs);
-    border-radius: var(--border-radius-sm);
-    border: var(--border-width) solid var(--input-border);
-}
-
-/* Cascade Viewer */
-.cascade-viewer-container {
-    top: var(--space-md);
-    left: calc(var(--space-md) + clamp(200px, 20vw, 260px) + var(--space-md));
-    width: clamp(280px, 28vw, 320px);
-    max-height: 500px; /* Doubled from 250px */
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-}
-
-.cascade-viewer-title {
-    margin-bottom: var(--space-sm);
-    padding-bottom: var(--space-xs);
-    border-bottom: 1px solid var(--input-border);
-    flex-shrink: 0;
-    font-size: var(--font-size-sm);
-    color: var(--text-muted);
-    font-weight: var(--font-weight-semibold);
-}
-
-#cascade-viewer-content {
-    flex-grow: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-}
-
-.cascade-placeholder {
-    color: var(--text-muted);
-    font-style: italic;
-    font-size: var(--font-size-xs);
-    text-align: center;
-    padding: var(--space-sm);
-}
-
-.cv-level {
-    border-bottom: 1px dashed var(--input-border);
-    padding-bottom: var(--space-sm);
-}
-
-.cv-level:last-child {
-    border-bottom: none;
-}
-
-.cv-level-title {
-    color: var(--primary-color);
-    font-weight: bold;
-    font-size: var(--font-size-xs);
-    margin-bottom: var(--space-xs);
-}
-
-.cv-syndrome-container {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 2px;
-    align-items: flex-end;
-    padding: 2px 0;
-    background-color: rgba(0,0,0,0.15);
-    border-radius: var(--border-radius-sm);
-    overflow-x: auto;
-    overflow-y: hidden;
-}
-
-.cv-syndrome-bar {
-    flex: 0 0 5px;
-    min-width: 3px;
-    border-radius: 1px;
-    transition: background-color 0.1s ease-in-out, transform 0.1s ease;
-    cursor: help;
-}
-
-.cv-syndrome-bar:hover {
-    transform: scale(1.1);
-    z-index: 1;
-    position: relative;
-    outline: 1px solid white;
-}
-
-.cv-syndrome-container::-webkit-scrollbar { height: 4px; }
-.cv-syndrome-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 2px; }
-.cv-syndrome-container::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
-.cv-syndrome-container::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
-.cv-syndrome-container { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) rgba(0,0,0,0.1); }
 
 /* Utilities */
 #live2d-offscreen-canvas {
@@ -936,10 +957,11 @@ section[aria-labelledby="theory-heading"] {
 /* ============================================= */
 /* == Scrollbar Styles == */
 /* ============================================= */
+/* Apply to all overlay panels and specific scrollable content */
 .overlay-panel::-webkit-scrollbar,
 #chat-output::-webkit-scrollbar,
 #tensor-inspector-content::-webkit-scrollbar,
-#expressions-list::-webkit-scrollbar,
+#expressions-list::-webkit-scrollbar, /* Included from .timeline-container */
 #cascade-viewer-content::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -972,185 +994,221 @@ section[aria-labelledby="theory-heading"] {
     background: var(--scrollbar-thumb-hover);
 }
 
+/* Firefox Scrollbar Styles */
 .overlay-panel,
 #chat-output,
 #tensor-inspector-content,
-#expressions-list,
+.timeline-container, /* Apply to container for #expressions-list */
 #cascade-viewer-content {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 /* ============================================= */
-/* == Responsiveness == */
+/* == Responsiveness (Adjusted) == */
 /* ============================================= */
-@media (max-width: 1200px) {
-    .visualization-wrapper section {
-        max-width: 100%; /* Stack visualization sections */
-    }
-    section[aria-labelledby="theory-heading"] {
-        width: 100%; /* Ensure theory section remains full width */
-    }
-    .visualization-container {
-        height: clamp(700px, 90vh, 1000px);
+
+@media (max-width: 1300px) { /* Adjust breakpoint if needed */
+    /* On slightly smaller screens, maybe reduce Live2D size */
+    :root {
+        --panel-live2d-height: 240px;
     }
     #dashboard-panel {
-        width: 280px;
-        top: calc(var(--space-md) + 360px + var(--space-sm)); /* Adjusted for doubled controls height */
-        max-height: calc(100% - 380px - 2 * var(--space-md));
-    }
-    .dashboard-metrics {
-        grid-template-columns: 1fr;
-        gap: var(--space-xs);
-    }
-    .metric-item-full-width {
-        grid-column: auto;
-    }
-    .metric-value {
-        margin-left: var(--space-sm);
-        text-align: left;
-    }
-    #live2d-container {
-        width: 200px;
-        height: 266px;
+        /* Recalculate max-height based on new Live2D height */
+         max-height: calc(100% - (var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap)) - var(--panel-live2d-height) - var(--panel-v-gap) - var(--space-md));
     }
     .tensor-inspector-container {
-        width: 250px;
-        max-height: 300px; /* Adjusted */
-    }
-    .heatmap-container {
-        top: calc(var(--space-md) + 360px + var(--space-sm));
-        height: calc(100% - 360px - 360px - 4 * var(--space-md));
-        min-height: 360px; /* Adjusted */
-    }
-    #metrics {
-        max-height: 320px; /* Adjusted */
-    }
-    #controls {
-        max-height: 360px; /* Adjusted */
-    }
-    #chat-container {
-        max-height: 360px; /* Adjusted */
-    }
-    .cascade-viewer-container {
-        max-height: 400px; /* Adjusted */
-    }
-    .timeline-container {
-        max-height: 160px; /* Adjusted */
-    }
-    .chart-container {
-        min-height: 240px; /* Adjusted */
+        /* Adjust position based on new Live2D width */
+         right: calc(var(--space-md) + var(--panel-live2d-width) + var(--space-sm));
     }
 }
 
-@media (max-width: 1024px) {
-    body {
-        font-size: calc(var(--font-size-base) * 0.95);
-    }
-    main {
-        padding: 0 var(--space-sm);
-        gap: var(--space-md);
-    }
-    section {
+
+@media (max-width: 1100px) { /* Existing 1200px breakpoint adjusted */
+    /* Stack visualization sections if using the wrapper */
+     .visualization-wrapper section {
         max-width: 100%;
     }
-    .visualization-container {
-        height: clamp(700px, 80vh, 1000px);
-        margin: var(--space-sm) 0;
+    section[aria-labelledby="theory-heading"] {
+        width: 100%;
     }
-    .overlay-panel {
-        width: clamp(200px, 30vw, 250px);
-        max-height: 360px;
+
+    /* Adjust panel sizes and possibly hide some */
+    :root {
+        --panel-metrics-height: 220px;
+        --panel-controls-height: 220px;
+        --panel-chat-height: 180px;
+        --panel-live2d-height: 200px;
+        --panel-heatmap-height: 200px;
+        --panel-tensor-height: 180px;
     }
-    #metrics { width: 220px; max-height: 320px; }
-    #controls { width: 220px; max-height: 360px; }
-    #chat-container { width: 250px; max-height: 360px; }
-    #info-panel { width: 250px; top: calc(var(--space-md) + 50px); }
-    #live2d-container { width: 180px; height: 240px; }
-    .heatmap-container {
-        width: clamp(200px, 30vw, 220px);
-        height: calc(100% - 320px - 320px - 4 * var(--space-md));
-        top: calc(var(--space-md) + 320px + var(--space-sm));
-        min-height: 320px;
-    }
-    #dashboard-panel {
-        width: 250px;
-        top: calc(var(--space-md) + 360px + var(--space-sm));
-        max-height: calc(100% - 380px - 2 * var(--space-md));
-    }
-    .tensor-inspector-container {
-        width: 220px;
-        max-height: 300px;
-    }
-    .cascade-viewer-container {
-        display: none;
-    }
-    header h1 { font-size: 1.9rem; }
-    header p { font-size: var(--font-size-md); }
-    .chart-container {
-        min-height: 240px;
-    }
-    .timeline-container {
-        max-height: 160px;
-    }
+
+    /* Recalculate positions based on new heights */
+     .heatmap-container {
+        top: calc(var(--space-md) + var(--panel-metrics-height) + var(--panel-v-gap));
+        max-height: var(--panel-heatmap-height); /* Update max-height */
+        width: 220px; /* Narrower */
+     }
+     #dashboard-panel {
+         top: calc(var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap));
+         max-height: calc(100% - (var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap)) - var(--panel-live2d-height) - var(--panel-v-gap) - var(--space-md));
+         width: 250px; /* Narrower dashboard */
+     }
+     .cascade-viewer-container {
+         /* Hide Cascade Viewer earlier */
+         display: none;
+     }
+     .tensor-inspector-container {
+         width: 200px; /* Narrower tensor */
+         max-height: var(--panel-tensor-height); /* Update max-height */
+         right: calc(var(--space-md) + var(--panel-live2d-width) + var(--space-sm));
+     }
+     .chart-container { min-height: 150px; }
+     .timeline-container { max-height: 80px; }
+     #metrics {
+         max-height: var(--panel-metrics-height);
+         width: 220px;
+     }
+     #controls {
+         max-height: var(--panel-controls-height);
+         width: 220px;
+      }
+     #chat-container {
+         width: 250px;
+         max-height: var(--panel-chat-height);
+      }
+     #live2d-container {
+         width: var(--panel-live2d-width);
+         height: var(--panel-live2d-height);
+     }
 }
 
-@media (max-width: 768px) {
-    body {
-        font-size: calc(var(--font-size-base) * 0.9);
-    }
-    header { padding: var(--space-md) var(--space-sm); }
-    main { gap: var(--space-md); }
-    section { padding: var(--space-md); max-width: 100%; }
-    h2 { font-size: 1.4rem; margin-bottom: var(--space-md); }
-    h3 { font-size: 1.1rem; margin-bottom: var(--space-xs); }
+@media (max-width: 850px) { /* Existing 1024px breakpoint adjusted */
     .visualization-container {
-        height: clamp(600px, 80vh, 900px);
+        height: clamp(700px, 85vh, 900px); /* Adjust height */
     }
-    .overlay-panel {
-        max-height: 240px;
-        font-size: var(--font-size-xs);
-        padding: var(--space-sm);
+
+    /* Update panel sizes for this breakpoint */
+    :root {
+        --panel-chat-height: 160px; /* Smaller chat */
+        --panel-live2d-height: 180px; /* Smaller Live2D */
     }
-    #metrics { display: none; }
-    #controls {
-        top: var(--space-sm);
-        left: var(--space-sm);
-        right: auto;
-        width: calc(50% - var(--space-md));
-        max-height: 240px;
-    }
-    #chat-container {
-        bottom: var(--space-sm);
-        left: var(--space-sm);
+
+    /* Hide more panels */
+    .heatmap-container { display: none !important; } /* Use important to ensure hiding */
+    .tensor-inspector-container { display: none !important; }
+    #info-panel { display: none !important; }
+    .cascade-viewer-container { display: none !important; }
+
+
+     /* Stack remaining panels vertically on sides or top/bottom */
+     #metrics {
+         top: var(--space-sm);
+         left: var(--space-sm);
+         right: auto; /* Clear right */
+         width: calc(50% - var(--space-sm) - var(--space-xs)); /* Half width */
+         max-height: 180px;
+         z-index: 11;
+     }
+     #controls {
+         top: var(--space-sm);
+         right: var(--space-sm);
+         left: auto; /* Clear left */
+         width: calc(50% - var(--space-sm) - var(--space-xs)); /* Half width */
+         max-height: 180px;
+         z-index: 11;
+     }
+     #dashboard-panel {
+         /* Position below metrics */
+         top: calc(var(--space-sm) + 180px + var(--panel-v-gap));
+         left: var(--space-sm);
+         right: auto; /* Clear right */
+         bottom: auto; /* Clear bottom */
+         width: calc(50% - var(--space-sm) - var(--space-xs));
+         max-height: 250px; /* Fixed max-height */
+         z-index: 9;
+     }
+     #live2d-container {
+        /* Position below controls */
+        top: calc(var(--space-sm) + 180px + var(--panel-v-gap));
         right: var(--space-sm);
-        width: auto;
-        max-height: 200px;
-    }
-    #info-panel { display: none; }
-    #live2d-container { display: none; }
-    .heatmap-container { display: none; }
-    #dashboard-panel {
+        left: auto; /* Clear left */
+        bottom: auto; /* Clear bottom */
+        width: var(--panel-live2d-width);
+        height: var(--panel-live2d-height);
+        z-index: 10; /* Above dashboard if overlaps */
+     }
+     #chat-container {
+         /* Full width at bottom */
+         bottom: var(--space-sm);
+         left: var(--space-sm);
+         right: var(--space-sm);
+         top: auto; /* Clear top */
+         width: auto; /* Auto width */
+         max-height: var(--panel-chat-height); /* Use variable */
+         z-index: 12;
+     }
+}
+
+@media (max-width: 600px) { /* Existing 768px breakpoint adjusted */
+     body {
+        font-size: calc(var(--font-size-base) * 0.85);
+     }
+     .visualization-container {
+        height: clamp(550px, 80vh, 700px); /* Further reduce height */
+     }
+     /* Simplify further: Controls top-left, Dashboard top-right, Chat bottom */
+     #metrics { display: none !important; }
+     #live2d-container { display: none !important; }
+
+     #controls {
+         top: var(--space-sm);
+         left: var(--space-sm);
+         right: auto;
+         width: calc(50% - var(--space-sm) - var(--space-xs));
+         max-height: 220px; /* Adjust max height */
+     }
+     #dashboard-panel {
+        /* Move dashboard to top-right */
         top: var(--space-sm);
         right: var(--space-sm);
-        left: calc(50% + var(--space-xs));
-        width: calc(50% - var(--space-md));
-        max-height: calc(100% - 20px - 2 * var(--space-md));
-    }
-    #emotion-intensities { display: none; }
-    .chart-container { display: none; }
-    #expression-timeline { display: none; }
-    .tensor-inspector-container { display: none; }
-    .cascade-viewer-container { display: none; }
-    .button-group { flex-direction: column; gap: var(--space-xs); }
-    .button-group button { padding: var(--space-sm); }
+        left: auto; /* Ensure left is auto */
+        bottom: auto; /* Clear bottom */
+        width: calc(50% - var(--space-sm) - var(--space-xs));
+        max-height: 220px; /* Match controls height */
+        z-index: 10;
+     }
+     #chat-container {
+         max-height: 150px; /* Reduce chat height */
+         width: auto;
+         left: var(--space-sm);
+         right: var(--space-sm);
+         bottom: var(--space-sm);
+         top: auto;
+     }
+     /* Hide elements inside panels if needed */
+     .chart-container { display: none; }
+     .emotion-bar-container { display: none; } /* Hide emotion bars */
+     .timeline-container { display: none; } /* Hide timeline */
+
+     .button-group { flex-direction: column; gap: var(--space-xs); }
+     .button-group button { padding: var(--space-sm); }
 }
 
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
-    * {
-        transition: none !important;
-        animation: none !important;
+    html {
         scroll-behavior: auto !important;
     }
+    *, *::before, *::after {
+        transition-duration: 0.01ms !important; /* Basically disable transitions */
+        transition-delay: 0ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        animation-delay: 0ms !important;
+    }
+    /* Disable transform transitions specifically */
+     .tensor-inspector-container {
+        transform: none !important;
+     }
 }
