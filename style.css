@@ -42,7 +42,7 @@
     --space-xs: calc(var(--space-unit) * 1); /* 8px */
     --space-sm: calc(var(--space-unit) * 1.5); /* 12px */
     --space-md: calc(var(--space-unit) * 2); /* 16px */
-    --space-lg: calc(var(--space-unit) * 3); /* 24px */
+    --space-lg: calctalks: calc(var(--space-unit) * 3); /* 24px */
     --space-xl: calc(var(--space-unit) * 4); /* 32px */
 
     /* Borders */
@@ -77,17 +77,17 @@
     --transition-speed: 0.3s;
     --transition-func: ease;
 
-    /* NEW: Define panel heights/widths for easier calculation */
+    /* Panel heights/widths */
     --panel-metrics-height: 280px;
     --panel-controls-height: 280px;
     --panel-chat-height: 220px;
-    --panel-live2d-height: 280px; /* Adjusted for consistency */
-    --panel-live2d-width: calc(var(--panel-live2d-height) * 0.75); /* Keep aspect ratio */
-    --panel-heatmap-height: 260px;
+    --panel-live2d-height: 280px;
+    --panel-live2d-width: calc(var(--panel-live2d-height) * 0.75);
+    --panel-heatmap-height: 250px; /* Set to match width for square shape */
     --panel-tensor-height: 220px;
-    --panel-cascade-height: 240px;
+    --panel-cascade-height: 400px; /* Increased for taller Strukturekaskade */
 
-    /* Adjust vertical gap between stacked panels */
+    /* Vertical gap between stacked panels */
     --panel-v-gap: var(--space-md);
 }
 
@@ -158,10 +158,7 @@ h2 {
 }
 
 h3 {
-    font-size: var(--font-size-lg); /* Adjusted from h3 size */
-    /* Optional: Keep border or remove for panel titles */
-    /* border-bottom: var(--border-width) solid rgba(0, 170, 255, 0.5); */
-    /* padding-bottom: var(--space-sm); */
+    font-size: var(--font-size-lg);
 }
 
 p {
@@ -236,13 +233,11 @@ section {
     min-width: 300px;
 }
 
-/* Ensure Syntrometric Theory section spans full width */
 section[aria-labelledby="theory-heading"] {
     width: 100%;
     flex: 0 0 100%;
 }
 
-/* Visualization wrapper for side-by-side sections */
 .visualization-wrapper {
     display: flex;
     flex-wrap: wrap;
@@ -252,7 +247,7 @@ section[aria-labelledby="theory-heading"] {
 }
 
 .visualization-wrapper section {
-    max-width: calc(50% - var(--space-lg) / 2); /* Two visualization sections per row */
+    max-width: calc(50% - var(--space-lg) / 2);
 }
 
 /* Utility Classes */
@@ -269,15 +264,14 @@ section[aria-labelledby="theory-heading"] {
 /* ============================================= */
 .visualization-container {
     position: relative;
-    /* Increased minimum height slightly */
     height: clamp(850px, 95vh, 1300px);
     width: 100%;
-    margin: var(--space-md) 0;
+    margin: var(--space-md);
     background: var(--viz-bg);
     border-radius: var(--border-radius-md);
     border: var(--border-width) solid var(--container-border);
     box-shadow: inset 0 0 10px var(--shadow-color);
-    overflow: hidden; /* Keep hidden to clip content within bounds */
+    overflow: hidden;
 }
 
 .threejs-container > canvas,
@@ -294,20 +288,18 @@ section[aria-labelledby="theory-heading"] {
 .overlay-panel {
     position: absolute;
     background: var(--overlay-bg);
-    padding: var(--space-sm); /* Slightly reduced padding */
+    padding: var(--space-sm);
     border-radius: var(--border-radius-md);
     box-shadow: var(--overlay-shadow);
     border: var(--border-width) solid var(--overlay-border);
     color: var(--text-color);
     font-size: var(--font-size-sm);
     overflow-y: auto;
-    transition: opacity var(--transition-speed) var(--transition-func), visibility var(--transition-speed) var(--transition-func), transform var(--transition-speed) var(--transition-func); /* Added transform transition */
+    transition: opacity var(--transition-speed) var(--transition-func), visibility var(--transition-speed) var(--transition-func), transform var(--transition-speed) var(--transition-func);
     backdrop-filter: blur(3px);
     z-index: 10;
-    display: flex; /* Use flexbox for internal layout */
-    flex-direction: column; /* Stack content vertically */
-    /* Removed max-height here, will set per panel */
-    /* Removed width here, will set per panel */
+    display: flex;
+    flex-direction: column;
 }
 
 /* == Panel Positioning and Sizing == */
@@ -318,19 +310,17 @@ section[aria-labelledby="theory-heading"] {
     left: var(--space-md);
     width: 250px;
     max-height: var(--panel-metrics-height);
-    z-index: 11; /* Ensure it's above heatmap */
+    z-index: 11;
 }
 
 /* Mid-Left Zone (Below Metrics) */
 .heatmap-container {
-    /* Positioned below #metrics */
-    top: calc(var(--space-md) + var(--panel-metrics-height) + var(--panel-v-gap));
+    top: var(--space-md);
     left: var(--space-md);
     width: 250px;
-    max-height: var(--panel-heatmap-height);
+    max-height: var(--panel-heatmap-height); /* e.g., 250px for square */
     padding: var(--space-sm);
-    z-index: 5;
-    /* Ensure flex properties for internal layout */
+    z-index: 11; /* Same as metrics used to be */
     display: flex;
     flex-direction: column;
 }
@@ -339,19 +329,18 @@ section[aria-labelledby="theory-heading"] {
     color: var(--text-muted);
     margin-bottom: var(--space-sm);
     text-align: center;
-    flex-shrink: 0; /* Prevent title from shrinking */
+    flex-shrink: 0;
 }
 #heatmap-content {
     display: grid;
     gap: 1px;
     width: 100%;
-    /* height: 100%; REMOVED height: 100% */
-    flex-grow: 1; /* Allow content to take remaining space */
+    flex-grow: 1;
     background: #111;
     border: var(--border-width) solid var(--input-border);
     border-radius: var(--border-radius-sm);
-    min-height: 100px; /* Prevent collapsing completely */
-    overflow: hidden; /* Hide overflow if grid becomes too large */
+    min-height: 100px;
+    overflow: hidden;
 }
 .heatmap-cell {
     min-width: 2px;
@@ -371,13 +360,12 @@ section[aria-labelledby="theory-heading"] {
 #chat-container {
     bottom: var(--space-md);
     left: var(--space-md);
-    width: 280px; /* Slightly wider */
+    width: 280px;
     max-height: var(--panel-chat-height);
     z-index: 12;
 }
 #chat-output {
-    /* Adjusted height calculation based on container padding and input height */
-    height: calc(100% - 40px - var(--space-sm) * 2); /* Assuming input height approx 40px */
+    height: calc(100% - 40px - var(--space-sm) * 2);
     overflow-y: auto;
     color: var(--text-muted);
     margin-bottom: var(--space-sm);
@@ -385,8 +373,8 @@ section[aria-labelledby="theory-heading"] {
     padding: var(--space-sm);
     background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-sm);
-    flex-grow: 1; /* Let output take available space */
-    min-height: 50px; /* Prevent collapsing */
+    flex-grow: 1;
+    min-height: 50px;
 }
 #chat-output div {
     margin-bottom: var(--space-xs);
@@ -406,7 +394,7 @@ section[aria-labelledby="theory-heading"] {
     font-family: inherit;
     font-size: var(--font-size-sm);
     transition: border-color var(--transition-speed) var(--transition-func);
-    flex-shrink: 0; /* Prevent input shrinking */
+    flex-shrink: 0;
 }
 #chat-input::placeholder {
     color: var(--text-muted);
@@ -426,13 +414,13 @@ section[aria-labelledby="theory-heading"] {
     right: var(--space-md);
     width: 250px;
     max-height: var(--panel-controls-height);
-    z-index: 11; /* Ensure it's above dashboard */
+    z-index: 11;
 }
 .control-group {
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
-    margin-bottom: var(--space-sm); /* Add margin between groups */
+    margin-bottom: var(--space-sm);
 }
 .control-group label {
     font-size: var(--font-size-sm);
@@ -472,20 +460,18 @@ section[aria-labelledby="theory-heading"] {
 
 /* Mid-Right Zone (Below Controls) */
 #dashboard-panel {
-    /* Positioned below #controls */
     top: calc(var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap));
     right: var(--space-md);
-    width: 280px; /* Slightly wider */
-    /* Calculate max-height to fit above bottom elements, leave space for Live2D */
+    width: 280px;
     max-height: calc(100% - (var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap)) - var(--panel-live2d-height) - var(--panel-v-gap) - var(--space-md));
-    min-height: 150px; /* Ensure it doesn't collapse too much */
+    min-height: 150px;
     z-index: 10;
 }
 .dashboard-metrics {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-sm) var(--space-md);
-    margin-bottom: var(--space-md); /* Space before chart */
+    margin-bottom: var(--space-md);
 }
 .metric-item {
     display: flex;
@@ -510,7 +496,7 @@ section[aria-labelledby="theory-heading"] {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 180px; /* Adjust as needed */
+    max-width: 180px;
 }
 .metric-item progress {
     flex-grow: 1;
@@ -534,30 +520,27 @@ section[aria-labelledby="theory-heading"] {
 #metric-trust-progress::-webkit-progress-value { background: var(--emotion-calm); }
 #metric-rih-progress::-webkit-progress-value { background: var(--emotion-curiosity); }
 .chart-container {
-    /* Reduced min-height */
     min-height: 180px;
     position: relative;
-    flex-grow: 1; /* Allow chart to take space in dashboard */
-    width: 100%; /* Ensure it takes full width */
+    flex-grow: 1;
+    width: 100%;
 }
 #metrics-chart {
     background: rgba(0, 0, 0, 0.2);
     border-radius: var(--border-radius-sm);
     border: var(--border-width) solid var(--input-border);
-    /* Ensure canvas fills container */
     display: block;
     width: 100%;
     height: 100%;
 }
-
 
 /* Bottom-Right Zone */
 #live2d-container {
     position: absolute;
     bottom: var(--space-md);
     right: var(--space-md);
-    width: var(--panel-live2d-width); /* Use variable width */
-    height: var(--panel-live2d-height); /* Use variable height */
+    width: var(--panel-live2d-width);
+    height: var(--panel-live2d-height);
     border: var(--border-width) solid var(--overlay-border);
     background: rgba(0, 0, 0, 0.2);
     border-radius: var(--border-radius-md);
@@ -566,43 +549,38 @@ section[aria-labelledby="theory-heading"] {
     z-index: 13;
     visibility: visible;
     opacity: 1;
-    /* Ensure canvas fills container using flex */
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 0; /* Override default panel padding */
+    padding: 0;
 }
 #live2d-container canvas {
-    display: block; /* Ensure block display */
+    display: block;
     width: 100% !important;
     height: 100% !important;
-    object-fit: contain; /* Scale while maintaining aspect ratio */
+    object-fit: contain;
 }
 #live2d-container:empty {
-    background: rgba(255, 0, 0, 0.2); /* Debug: Red tint if canvas fails */
+    background: rgba(255, 0, 0, 0.2);
 }
 
-/* Optional/Toggleable Panels - Place them strategically */
-
-/* Tensor Inspector - Near Bottom-Right, next to Live2D */
+/* Tensor Inspector - Near Bottom-Right */
 .tensor-inspector-container {
     bottom: var(--space-md);
-    /* Position next to live2d container */
     right: calc(var(--space-md) + var(--panel-live2d-width) + var(--space-sm));
     width: 240px;
     max-height: var(--panel-tensor-height);
     padding: var(--space-sm);
     opacity: 0;
     visibility: hidden;
-    z-index: 15; /* High z-index when visible */
-    transition: opacity 0.4s ease, visibility 0.4s ease, transform 0.3s ease; /* Added transform */
-    transform: translateX(20px); /* Start slightly off-screen */
-    /* Inherits flex from .overlay-panel */
+    z-index: 15;
+    transition: opacity 0.4s ease, visibility 0.4s ease, transform 0.3s ease;
+    transform: translateX(20px);
 }
 .tensor-inspector-container.visible {
     opacity: 1;
     visibility: visible;
-    transform: translateX(0); /* Slide in */
+    transform: translateX(0);
 }
 .tensor-inspector-title {
     font-size: var(--font-size-sm);
@@ -613,7 +591,7 @@ section[aria-labelledby="theory-heading"] {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-shrink: 0; /* Prevent shrinking */
+    flex-shrink: 0;
 }
 #toggle-inspector {
     background: none;
@@ -627,29 +605,33 @@ section[aria-labelledby="theory-heading"] {
     color: var(--primary-color-hover);
 }
 #tensor-inspector-content {
-    flex-grow: 1; /* Allow content to take available space */
+    flex-grow: 1;
     overflow-y: auto;
     background: rgba(0, 0, 0, 0.3);
     padding: var(--space-xs);
     border-radius: var(--border-radius-sm);
     border: var(--border-width) solid var(--input-border);
-    min-height: 50px; /* Prevent collapsing */
+    min-height: 50px;
 }
 
+/* Cascade Viewer - Bottom-Left, Above Chat, Below Heatmap */
 
-/* Cascade Viewer - Mid-Left, Below Heatmap */
 .cascade-viewer-container {
-    /* Position below heatmap */
-    top: calc(var(--space-md) + var(--panel-metrics-height) + var(--panel-v-gap) + var(--panel-heatmap-height) + var(--panel-v-gap));
+    bottom: calc(var(--space-md) + var(--panel-chat-height) + var(--panel-v-gap));
     left: var(--space-md);
+    right: auto;
     width: 250px;
-    /* Calculate max-height to fit above chat */
-    max-height: calc(100% - (var(--space-md) + var(--panel-metrics-height) + var(--panel-v-gap) + var(--panel-heatmap-height) + var(--panel-v-gap)) - var(--panel-chat-height) - var(--panel-v-gap) - var(--space-md));
+    max-height: var(--panel-cascade-height);
     min-height: 100px;
-    z-index: 4; /* Below heatmap */
-    opacity: 0.9; /* Slightly transparent */
-    /* Inherits flex from .overlay-panel */
+    z-index: 4;
+    opacity: 0.9;
+    /* Add these for layout control */
+    height: var(--panel-cascade-height);
+    display: flex;
+    flex-direction: column-reverse; /* Makes content start from bottom */
+    overflow-y: auto;
 }
+
 .cascade-viewer-title {
     margin-bottom: var(--space-sm);
     padding-bottom: var(--space-xs);
@@ -660,14 +642,13 @@ section[aria-labelledby="theory-heading"] {
     font-weight: var(--font-weight-semibold);
 }
 #cascade-viewer-content {
-    flex-grow: 1; /* Allow content to take available space */
+    flex-grow: 1;
     overflow-y: auto;
     overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
-    min-height: 50px; /* Prevent collapsing */
-    /* Remove background/border from content, rely on panel */
+    min-height: 100%;
 }
 .cascade-placeholder {
     color: var(--text-muted);
@@ -675,10 +656,14 @@ section[aria-labelledby="theory-heading"] {
     font-size: var(--font-size-xs);
     text-align: center;
     padding: var(--space-sm);
+    order: 2; /* Below syndrome bars */
 }
 .cv-level {
     border-bottom: 1px dashed var(--input-border);
     padding-bottom: var(--space-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
 }
 .cv-level:last-child {
     border-bottom: none;
@@ -688,6 +673,7 @@ section[aria-labelledby="theory-heading"] {
     font-weight: bold;
     font-size: var(--font-size-xs);
     margin-bottom: var(--space-xs);
+    order: 2; /* Below syndrome container */
 }
 .cv-syndrome-container {
     display: flex;
@@ -699,7 +685,8 @@ section[aria-labelledby="theory-heading"] {
     border-radius: var(--border-radius-sm);
     overflow-x: auto;
     overflow-y: hidden;
-    min-height: 20px; /* Give it some base height */
+    min-height: 20px;
+    order: 1; /* At top of cv-level */
 }
 .cv-syndrome-bar {
     flex: 0 0 5px;
@@ -710,7 +697,7 @@ section[aria-labelledby="theory-heading"] {
 }
 .cv-syndrome-bar:hover {
     transform: scale(1.1);
-    z-index: 1;
+    z-index: 2; /* Higher to avoid overlap */
     position: relative;
     outline: 1px solid white;
 }
@@ -720,24 +707,23 @@ section[aria-labelledby="theory-heading"] {
 .cv-syndrome-container::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 .cv-syndrome-container { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) rgba(0,0,0,0.1); }
 
-
-/* Info Panel - Keep hidden, position center top when shown */
+/* Info Panel */
 #info-panel {
     top: var(--space-md);
-    left: 50%; /* Center horizontally */
-    transform: translateX(-50%); /* Adjust for centering */
-    width: clamp(300px, 50vw, 450px); /* Wider, responsive */
+    left: 50%;
+    transform: translateX(-50%);
+    width: clamp(300px, 50vw, 450px);
     max-height: 300px;
     visibility: hidden;
     opacity: 0;
-    z-index: 20; /* Very high z-index */
+    z-index: 20;
 }
 #info-panel.visible {
     visibility: visible;
     opacity: 1;
 }
 #info-panel p,
-#metrics p { /* Group similar panel paragraph styles */
+#metrics p {
     margin: var(--space-sm) 0;
     font-size: var(--font-size-sm);
     line-height: 1.6;
@@ -755,7 +741,7 @@ section[aria-labelledby="theory-heading"] {
     margin-bottom: var(--space-xs);
     padding-left: 1.5em;
     font-size: var(--font-size-sm);
-    position: relative; /* Needed for ::before positioning */
+    position: relative;
 }
 #info-panel li::before {
     content: '↪';
@@ -772,14 +758,13 @@ section[aria-labelledby="theory-heading"] {
     font-weight: var(--font-weight-bold);
 }
 
-
 /* Buttons */
 .button-group {
     display: flex;
     gap: var(--space-sm);
-    margin-top: auto; /* Push buttons to bottom in flex container */
-    padding-top: var(--space-sm); /* Add space above buttons */
-    flex-shrink: 0; /* Prevent shrinking */
+    margin-top: auto;
+    padding-top: var(--space-sm);
+    flex-shrink: 0;
 }
 .button-group button {
     flex: 1;
@@ -792,7 +777,7 @@ section[aria-labelledby="theory-heading"] {
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
     transition: background-color var(--transition-speed) var(--transition-func);
-    text-align: center; /* Ensure text is centered */
+    text-align: center;
 }
 .button-group button:hover,
 .button-group button:focus {
@@ -811,7 +796,7 @@ section[aria-labelledby="theory-heading"] {
     box-shadow: 0 0 8px 2px rgba(0, 170, 255, 0.4);
 }
 
-/* Lists (Non-panel specific) */
+/* Lists */
 .quick-links-list li::before {
     content: '🔗';
     font-weight: normal;
@@ -841,7 +826,7 @@ section[aria-labelledby="theory-heading"] {
 
 /* Error Messages */
 .error-message {
-    display: none; /* Show via JS */
+    display: none;
     color: var(--error-color);
     background: var(--error-bg);
     border: var(--border-width) solid var(--error-border);
@@ -862,7 +847,7 @@ section[aria-labelledby="theory-heading"] {
     max-width: 80%;
     margin: 0;
     box-shadow: 0 4px 15px var(--shadow-color);
-    z-index: 20; /* Ensure it's above overlays */
+    z-index: 20;
 }
 
 /* Emotion Intensity Bars */
@@ -873,7 +858,7 @@ section[aria-labelledby="theory-heading"] {
     margin-top: var(--space-sm);
     padding-top: var(--space-sm);
     border-top: var(--border-width) solid var(--input-border);
-    flex-shrink: 0; /* Prevent shrinking in flex panel */
+    flex-shrink: 0;
 }
 .intensity-bar {
     display: flex;
@@ -891,8 +876,8 @@ section[aria-labelledby="theory-heading"] {
     font-weight: var(--font-weight-semibold);
     color: #fff;
     z-index: 2;
-    mix-blend-mode: difference; /* Good for contrast */
-    pointer-events: none; /* Don't block hover on bar */
+    mix-blend-mode: difference;
+    pointer-events: none;
 }
 .bar-fill {
     height: 100%;
@@ -913,18 +898,16 @@ section[aria-labelledby="theory-heading"] {
     margin-top: var(--space-sm);
     padding-top: var(--space-sm);
     border-top: var(--border-width) solid var(--input-border);
-    /* Reduced max-height */
     max-height: 100px;
     overflow-y: auto;
-    flex-shrink: 0; /* Prevent shrinking */
+    flex-shrink: 0;
 }
-.timeline-container h5 { /* Assuming an H5 title */
+.timeline-container h5 {
     margin-bottom: var(--space-xs);
     font-size: var(--font-size-sm);
-    color: var(--text-muted); /* Subdued title color */
+    color: var(--text-muted);
 }
 #expressions-list {
-    /* Remove ul default margin */
     margin: 0;
     padding: 0;
     list-style: none;
@@ -941,7 +924,6 @@ section[aria-labelledby="theory-heading"] {
     text-overflow: ellipsis;
 }
 
-
 /* Utilities */
 #live2d-offscreen-canvas {
     position: fixed;
@@ -957,11 +939,10 @@ section[aria-labelledby="theory-heading"] {
 /* ============================================= */
 /* == Scrollbar Styles == */
 /* ============================================= */
-/* Apply to all overlay panels and specific scrollable content */
 .overlay-panel::-webkit-scrollbar,
 #chat-output::-webkit-scrollbar,
 #tensor-inspector-content::-webkit-scrollbar,
-#expressions-list::-webkit-scrollbar, /* Included from .timeline-container */
+#expressions-list::-webkit-scrollbar,
 #cascade-viewer-content::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -994,205 +975,195 @@ section[aria-labelledby="theory-heading"] {
     background: var(--scrollbar-thumb-hover);
 }
 
-/* Firefox Scrollbar Styles */
 .overlay-panel,
 #chat-output,
 #tensor-inspector-content,
-.timeline-container, /* Apply to container for #expressions-list */
+.timeline-container,
 #cascade-viewer-content {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 /* ============================================= */
-/* == Responsiveness (Adjusted) == */
+/* == Responsiveness == */
 /* ============================================= */
 
-@media (max-width: 1300px) { /* Adjust breakpoint if needed */
-    /* On slightly smaller screens, maybe reduce Live2D size */
+@media (max-width: 1300px) {
     :root {
         --panel-live2d-height: 240px;
     }
     #dashboard-panel {
-        /* Recalculate max-height based on new Live2D height */
-         max-height: calc(100% - (var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap)) - var(--panel-live2d-height) - var(--panel-v-gap) - var(--space-md));
+        max-height: calc(100% - (var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap)) - var(--panel-live2d-height) - var(--panel-v-gap) - var(--space-md));
     }
     .tensor-inspector-container {
-        /* Adjust position based on new Live2D width */
-         right: calc(var(--space-md) + var(--panel-live2d-width) + var(--space-sm));
+        right: calc(var(--space-md) + var(--panel-live2d-width) + var(--space-sm));
     }
 }
 
-
-@media (max-width: 1100px) { /* Existing 1200px breakpoint adjusted */
-    /* Stack visualization sections if using the wrapper */
-     .visualization-wrapper section {
+@media (max-width: 1100px) {
+    .visualization-wrapper section {
         max-width: 100%;
     }
     section[aria-labelledby="theory-heading"] {
         width: 100%;
     }
-
-    /* Adjust panel sizes and possibly hide some */
     :root {
         --panel-metrics-height: 220px;
         --panel-controls-height: 220px;
         --panel-chat-height: 180px;
         --panel-live2d-height: 200px;
-        --panel-heatmap-height: 200px;
+        --panel-heatmap-height: 220px; /* Square with width */
         --panel-tensor-height: 180px;
+        --panel-cascade-height: 300px; /* Unchanged */
     }
-
-    /* Recalculate positions based on new heights */
-     .heatmap-container {
+    .heatmap-container {
         top: calc(var(--space-md) + var(--panel-metrics-height) + var(--panel-v-gap));
-        max-height: var(--panel-heatmap-height); /* Update max-height */
-        width: 220px; /* Narrower */
-     }
-     #dashboard-panel {
-         top: calc(var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap));
-         max-height: calc(100% - (var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap)) - var(--panel-live2d-height) - var(--panel-v-gap) - var(--space-md));
-         width: 250px; /* Narrower dashboard */
-     }
-     .cascade-viewer-container {
-         /* Hide Cascade Viewer earlier */
-         display: none;
-     }
-     .tensor-inspector-container {
-         width: 200px; /* Narrower tensor */
-         max-height: var(--panel-tensor-height); /* Update max-height */
-         right: calc(var(--space-md) + var(--panel-live2d-width) + var(--space-sm));
-     }
-     .chart-container { min-height: 150px; }
-     .timeline-container { max-height: 80px; }
-     #metrics {
-         max-height: var(--panel-metrics-height);
-         width: 220px;
-     }
-     #controls {
-         max-height: var(--panel-controls-height);
-         width: 220px;
-      }
-     #chat-container {
-         width: 250px;
-         max-height: var(--panel-chat-height);
-      }
-     #live2d-container {
-         width: var(--panel-live2d-width);
-         height: var(--panel-live2d-height);
-     }
-}
-
-@media (max-width: 850px) { /* Existing 1024px breakpoint adjusted */
-    .visualization-container {
-        height: clamp(700px, 85vh, 900px); /* Adjust height */
+        max-height: var(--panel-heatmap-height);
+        width: 220px;
     }
-
-    /* Update panel sizes for this breakpoint */
-    :root {
-        --panel-chat-height: 160px; /* Smaller chat */
-        --panel-live2d-height: 180px; /* Smaller Live2D */
+    #dashboard-panel {
+        top: calc(var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap));
+        max-height: calc(100% - (var(--space-md) + var(--panel-controls-height) + var(--panel-v-gap)) - var(--panel-live2d-height) - var(--panel-v-gap) - var(--space-md));
+        width: 250px;
     }
-
-    /* Hide more panels */
-    .heatmap-container { display: none !important; } /* Use important to ensure hiding */
-    .tensor-inspector-container { display: none !important; }
-    #info-panel { display: none !important; }
-    .cascade-viewer-container { display: none !important; }
-
-
-     /* Stack remaining panels vertically on sides or top/bottom */
-     #metrics {
-         top: var(--space-sm);
-         left: var(--space-sm);
-         right: auto; /* Clear right */
-         width: calc(50% - var(--space-sm) - var(--space-xs)); /* Half width */
-         max-height: 180px;
-         z-index: 11;
-     }
-     #controls {
-         top: var(--space-sm);
-         right: var(--space-sm);
-         left: auto; /* Clear left */
-         width: calc(50% - var(--space-sm) - var(--space-xs)); /* Half width */
-         max-height: 180px;
-         z-index: 11;
-     }
-     #dashboard-panel {
-         /* Position below metrics */
-         top: calc(var(--space-sm) + 180px + var(--panel-v-gap));
-         left: var(--space-sm);
-         right: auto; /* Clear right */
-         bottom: auto; /* Clear bottom */
-         width: calc(50% - var(--space-sm) - var(--space-xs));
-         max-height: 250px; /* Fixed max-height */
-         z-index: 9;
-     }
-     #live2d-container {
-        /* Position below controls */
-        top: calc(var(--space-sm) + 180px + var(--panel-v-gap));
-        right: var(--space-sm);
-        left: auto; /* Clear left */
-        bottom: auto; /* Clear bottom */
+    .cascade-viewer-container {
+        top: calc(var(--space-md) + var(--panel-metrics-height) + var(--panel-v-gap) + var(--panel-heatmap-height) + var(--panel-v-gap));
+        bottom: calc(var(--space-md) + var(--panel-chat-height) + var(--panel-v-gap));
+        left: var(--space-md);
+        right: auto;
+        width: 220px;
+        max-height: var(--panel-cascade-height); /* 300px */
+        display: block;
+    }
+    .tensor-inspector-container {
+        width: 200px;
+        max-height: var(--panel-tensor-height);
+        right: calc(var(--space-md) + var(--panel-live2d-width) + var(--space-sm));
+    }
+    .chart-container { min-height: 150px; }
+    .timeline-container { max-height: 80px; }
+    #metrics {
+        max-height: var(--panel-metrics-height);
+        width: 220px;
+    }
+    #controls {
+        max-height: var(--panel-controls-height);
+        width: 220px;
+    }
+    #chat-container {
+        width: 250px;
+        max-height: var(--panel-chat-height);
+    }
+    #live2d-container {
         width: var(--panel-live2d-width);
         height: var(--panel-live2d-height);
-        z-index: 10; /* Above dashboard if overlaps */
-     }
-     #chat-container {
-         /* Full width at bottom */
-         bottom: var(--space-sm);
-         left: var(--space-sm);
-         right: var(--space-sm);
-         top: auto; /* Clear top */
-         width: auto; /* Auto width */
-         max-height: var(--panel-chat-height); /* Use variable */
-         z-index: 12;
-     }
+    }
 }
 
-@media (max-width: 600px) { /* Existing 768px breakpoint adjusted */
-     body {
-        font-size: calc(var(--font-size-base) * 0.85);
-     }
-     .visualization-container {
-        height: clamp(550px, 80vh, 700px); /* Further reduce height */
-     }
-     /* Simplify further: Controls top-left, Dashboard top-right, Chat bottom */
-     #metrics { display: none !important; }
-     #live2d-container { display: none !important; }
-
-     #controls {
-         top: var(--space-sm);
-         left: var(--space-sm);
-         right: auto;
-         width: calc(50% - var(--space-sm) - var(--space-xs));
-         max-height: 220px; /* Adjust max height */
-     }
-     #dashboard-panel {
-        /* Move dashboard to top-right */
+@media (max-width: 850px) {
+    .visualization-container {
+        height: clamp(700px, 85vh, 900px);
+    }
+    :root {
+        --panel-chat-height: 160px;
+        --panel-live2d-height: 180px;
+    }
+    .heatmap-container { display: none !important; }
+    .tensor-inspector-container { display: none !important; }
+    .cascade-viewer-container {
+        bottom: calc(var(--space-sm) + var(--panel-chat-height) + var(--panel-v-gap));
+        top: auto;
+        left: var(--space-sm);
+        right: var(--space-sm);
+        width: auto;
+        max-height: 700px; /* Reduced to fit */
+        display: block;
+    }
+    #info-panel { display: none !important; }
+    #metrics {
+        top: var(--space-sm);
+        left: var(--space-sm);
+        right: auto;
+        width: calc(50% - var(--space-sm) - var(--space-xs));
+        max-height: 180px;
+        z-index: 11;
+    }
+    #controls {
         top: var(--space-sm);
         right: var(--space-sm);
-        left: auto; /* Ensure left is auto */
-        bottom: auto; /* Clear bottom */
+        left: auto;
         width: calc(50% - var(--space-sm) - var(--space-xs));
-        max-height: 220px; /* Match controls height */
+        max-height: 180px;
+        z-index: 11;
+    }
+    #dashboard-panel {
+        top: calc(var(--space-sm) + 180px + var(--panel-v-gap));
+        left: var(--space-sm);
+        right: auto;
+        bottom: auto;
+        width: calc(50% - var(--space-sm) - var(--space-xs));
+        max-height: 250px;
+        z-index: 9;
+    }
+    #live2d-container {
+        top: calc(var(--space-sm) + 180px + var(--panel-v-gap));
+        right: var(--space-sm);
+        left: auto;
+        bottom: auto;
+        width: var(--panel-live2d-width);
+        height: var(--panel-live2d-height);
         z-index: 10;
-     }
-     #chat-container {
-         max-height: 150px; /* Reduce chat height */
-         width: auto;
-         left: var(--space-sm);
-         right: var(--space-sm);
-         bottom: var(--space-sm);
-         top: auto;
-     }
-     /* Hide elements inside panels if needed */
-     .chart-container { display: none; }
-     .emotion-bar-container { display: none; } /* Hide emotion bars */
-     .timeline-container { display: none; } /* Hide timeline */
+    }
+    #chat-container {
+        bottom: var(--space-sm);
+        left: var(--space-sm);
+        right: var(--space-sm);
+        top: auto;
+        width: auto;
+        max-height: var(--panel-chat-height);
+        z-index: 12;
+    }
+}
 
-     .button-group { flex-direction: column; gap: var(--space-xs); }
-     .button-group button { padding: var(--space-sm); }
+@media (max-width: 600px) {
+    body {
+        font-size: calc(var(--font-size-base) * 0.85);
+    }
+    .visualization-container {
+        height: clamp(550px, 80vh, 700px);
+    }
+    #metrics { display: none !important; }
+    #live2d-container { display: none !important; }
+    .cascade-viewer-container { display: none !important; }
+    #controls {
+        top: var(--space-sm);
+        left: var(--space-sm);
+        right: auto;
+        width: calc(50% - var(--space-sm) - var(--space-xs));
+        max-height: 220px;
+    }
+    #dashboard-panel {
+        top: var(--space-sm);
+        right: var(--space-sm);
+        left: auto;
+        bottom: auto;
+        width: calc(50% - var(--space-sm) - var(--space-xs));
+        max-height: 220px;
+        z-index: 10;
+    }
+    #chat-container {
+        max-height: 150px;
+        width: auto;
+        left: var(--space-sm);
+        right: var(--space-sm);
+        bottom: var(--space-sm);
+        top: auto;
+    }
+    .chart-container { display: none; }
+    .emotion-bar-container { display: none; }
+    .timeline-container { display: none; }
+    .button-group { flex-direction: column; gap: var(--space-xs); }
+    .button-group button { padding: var(--space-sm); }
 }
 
 /* Reduced Motion */
@@ -1201,14 +1172,13 @@ section[aria-labelledby="theory-heading"] {
         scroll-behavior: auto !important;
     }
     *, *::before, *::after {
-        transition-duration: 0.01ms !important; /* Basically disable transitions */
+        transition-duration: 0.01ms !important;
         transition-delay: 0ms !important;
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         animation-delay: 0ms !important;
     }
-    /* Disable transform transitions specifically */
-     .tensor-inspector-container {
+    .tensor-inspector-container {
         transform: none !important;
-     }
+    }
 }
