@@ -4,7 +4,7 @@
 :root {
     /* Colors */
     --primary-color: #00aaff;
-    --primary-color-hover: hsl(from var(--primary-color) h s calc(l + 20%));
+    --primary-color-hover: #33bbff;
     --background-color: #111122;
     --text-color: #eeeeee;
     --text-muted: #aaaaaa;
@@ -208,8 +208,8 @@ main {
     margin: var(--space-xl) auto;
     padding: 0 var(--space-md);
     display: flex;
-    flex-direction: column;
-    gap: var(--space-xl);
+    flex-wrap: wrap;
+    gap: var(--space-lg);
 }
 
 section {
@@ -218,6 +218,27 @@ section {
     border-radius: var(--border-radius-md);
     padding: var(--space-lg);
     box-shadow: var(--container-shadow);
+    flex: 1;
+    min-width: 300px;
+}
+
+/* Ensure Syntrometric Theory section spans full width */
+section[aria-labelledby="theory-heading"] {
+    width: 100%;
+    flex: 0 0 100%;
+}
+
+/* Visualization wrapper for side-by-side sections */
+.visualization-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-lg);
+    width: 100%;
+    justify-content: center;
+}
+
+.visualization-wrapper section {
+    max-width: calc(50% - var(--space-lg) / 2); /* Two visualization sections per row */
 }
 
 /* Utility Classes */
@@ -234,9 +255,9 @@ section {
 /* ============================================= */
 .visualization-container {
     position: relative;
-    height: clamp(500px, 70vh, 750px);
+    height: clamp(800px, 100vh, 1200px);
     width: 100%;
-    margin: var(--space-lg) 0;
+    margin: var(--space-md) 0;
     background: var(--viz-bg);
     border-radius: var(--border-radius-md);
     border: var(--border-width) solid var(--container-border);
@@ -275,21 +296,21 @@ section {
     top: var(--space-md);
     left: var(--space-md);
     width: 260px;
-    max-height: 180px;
+    max-height: 360px; /* Doubled from 180px */
 }
 
 #controls {
     top: var(--space-md);
     right: var(--space-md);
     width: 260px;
-    max-height: 200px;
+    max-height: 400px; /* Doubled from 200px */
 }
 
 #chat-container {
     bottom: var(--space-md);
     left: var(--space-md);
     width: 300px;
-    max-height: 200px;
+    max-height: 400px; /* Doubled from 200px */
     z-index: 12;
 }
 
@@ -333,10 +354,10 @@ section {
 
 /* Dashboard Panel */
 #dashboard-panel {
-    top: calc(var(--space-md) + 200px + var(--space-sm));
+    top: calc(var(--space-md) + 400px + var(--space-sm)); /* Adjusted for doubled controls height */
     right: var(--space-md);
     width: 320px;
-    max-height: calc(100% - 220px - 2 * var(--space-md));
+    max-height: calc(100% - 420px - 2 * var(--space-md)); /* Adjusted for new top position */
 }
 
 .dashboard-metrics {
@@ -403,7 +424,7 @@ section {
 
 .chart-container {
     flex-grow: 1;
-    min-height: 150px;
+    min-height: 300px; /* Doubled from 150px */
     position: relative;
 }
 
@@ -649,11 +670,11 @@ section {
 
 /* Heatmap */
 .heatmap-container {
-    top: calc(var(--space-md) + 160px + var(--space-sm));
+    top: calc(var(--space-md) + 360px + var(--space-sm)); /* Adjusted for doubled metrics height */
     left: var(--space-md);
     width: clamp(280px, 35vw, 320px);
-    height: calc(100% - 150px - 150px - 4 * var(--space-md));
-    min-height: 200px;
+    height: calc(100% - 360px - 360px - 4 * var(--space-md)); /* Adjusted for new top position */
+    min-height: 400px; /* Doubled from 200px */
     padding: var(--space-sm);
     z-index: 5;
 }
@@ -741,7 +762,7 @@ section {
     margin-top: var(--space-sm);
     padding-top: var(--space-sm);
     border-top: var(--border-width) solid var(--input-border);
-    max-height: 100px;
+    max-height: 200px; /* Doubled from 100px */
     overflow-y: auto;
 }
 
@@ -767,7 +788,7 @@ section {
     bottom: var(--space-md);
     right: var(--space-md);
     width: 280px;
-    max-height: 180px;
+    max-height: 360px; /* Doubled from 180px */
     padding: var(--space-sm);
     opacity: 0;
     visibility: hidden;
@@ -815,39 +836,90 @@ section {
 
 /* Cascade Viewer */
 .cascade-viewer-container {
-    top: calc(var(--space-md) + 180px + var(--space-sm));
-    left: calc(var(--space-md) + 320px + var(--space-md)); /* Adjusted for larger heatmap */
-    width: 300px;
-    max-height: calc(100% - 200px - 2 * var(--space-md));
-    padding: var(--space-sm);
+    top: var(--space-md);
+    left: calc(var(--space-md) + clamp(200px, 20vw, 260px) + var(--space-md));
+    width: clamp(280px, 28vw, 320px);
+    max-height: 500px; /* Doubled from 250px */
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
 }
 
 .cascade-viewer-title {
-    font-size: var(--font-size-sm);
-    color: var(--text-muted);
     margin-bottom: var(--space-sm);
     padding-bottom: var(--space-xs);
-    border-bottom: var(--border-width) solid var(--input-border);
+    border-bottom: 1px solid var(--input-border);
+    flex-shrink: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    font-weight: var(--font-weight-semibold);
 }
 
 #cascade-viewer-content {
     flex-grow: 1;
     overflow-y: auto;
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-xs);
-    line-height: 1.5;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.cascade-placeholder {
     color: var(--text-muted);
+    font-style: italic;
+    font-size: var(--font-size-xs);
+    text-align: center;
+    padding: var(--space-sm);
 }
 
-#cascade-viewer-content .level-title {
+.cv-level {
+    border-bottom: 1px dashed var(--input-border);
+    padding-bottom: var(--space-sm);
+}
+
+.cv-level:last-child {
+    border-bottom: none;
+}
+
+.cv-level-title {
     color: var(--primary-color);
-    font-weight: var(--font-weight-bold);
+    font-weight: bold;
+    font-size: var(--font-size-xs);
+    margin-bottom: var(--space-xs);
 }
 
-#cascade-viewer-content .level-data {
-    color: var(--text-color);
-    word-break: break-all;
+.cv-syndrome-container {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 2px;
+    align-items: flex-end;
+    padding: 2px 0;
+    background-color: rgba(0,0,0,0.15);
+    border-radius: var(--border-radius-sm);
+    overflow-x: auto;
+    overflow-y: hidden;
 }
+
+.cv-syndrome-bar {
+    flex: 0 0 5px;
+    min-width: 3px;
+    border-radius: 1px;
+    transition: background-color 0.1s ease-in-out, transform 0.1s ease;
+    cursor: help;
+}
+
+.cv-syndrome-bar:hover {
+    transform: scale(1.1);
+    z-index: 1;
+    position: relative;
+    outline: 1px solid white;
+}
+
+.cv-syndrome-container::-webkit-scrollbar { height: 4px; }
+.cv-syndrome-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 2px; }
+.cv-syndrome-container::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+.cv-syndrome-container::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+.cv-syndrome-container { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) rgba(0,0,0,0.1); }
 
 /* Utilities */
 #live2d-offscreen-canvas {
@@ -913,8 +985,19 @@ section {
 /* == Responsiveness == */
 /* ============================================= */
 @media (max-width: 1200px) {
+    .visualization-wrapper section {
+        max-width: 100%; /* Stack visualization sections */
+    }
+    section[aria-labelledby="theory-heading"] {
+        width: 100%; /* Ensure theory section remains full width */
+    }
+    .visualization-container {
+        height: clamp(700px, 90vh, 1000px);
+    }
     #dashboard-panel {
         width: 280px;
+        top: calc(var(--space-md) + 360px + var(--space-sm)); /* Adjusted for doubled controls height */
+        max-height: calc(100% - 380px - 2 * var(--space-md));
     }
     .dashboard-metrics {
         grid-template-columns: 1fr;
@@ -933,6 +1016,30 @@ section {
     }
     .tensor-inspector-container {
         width: 250px;
+        max-height: 300px; /* Adjusted */
+    }
+    .heatmap-container {
+        top: calc(var(--space-md) + 360px + var(--space-sm));
+        height: calc(100% - 360px - 360px - 4 * var(--space-md));
+        min-height: 360px; /* Adjusted */
+    }
+    #metrics {
+        max-height: 320px; /* Adjusted */
+    }
+    #controls {
+        max-height: 360px; /* Adjusted */
+    }
+    #chat-container {
+        max-height: 360px; /* Adjusted */
+    }
+    .cascade-viewer-container {
+        max-height: 400px; /* Adjusted */
+    }
+    .timeline-container {
+        max-height: 160px; /* Adjusted */
+    }
+    .chart-container {
+        min-height: 240px; /* Adjusted */
     }
 }
 
@@ -942,26 +1049,50 @@ section {
     }
     main {
         padding: 0 var(--space-sm);
-        gap: var(--space-lg);
+        gap: var(--space-md);
+    }
+    section {
+        max-width: 100%;
     }
     .visualization-container {
-        height: clamp(500px, 60vh, 650px);
+        height: clamp(700px, 80vh, 1000px);
+        margin: var(--space-sm) 0;
     }
     .overlay-panel {
         width: clamp(200px, 30vw, 250px);
-        max-height: 180px;
+        max-height: 360px;
     }
-    #metrics { width: 220px; max-height: 160px; }
-    #controls { width: 220px; max-height: 180px; }
-    #chat-container { width: 250px; max-height: 180px; }
+    #metrics { width: 220px; max-height: 320px; }
+    #controls { width: 220px; max-height: 360px; }
+    #chat-container { width: 250px; max-height: 360px; }
     #info-panel { width: 250px; top: calc(var(--space-md) + 50px); }
     #live2d-container { width: 180px; height: 240px; }
-    .heatmap-container { width: clamp(200px, 30vw, 220px); height: calc(100% - 160px - 180px - 4 * var(--space-md)); top: calc(var(--space-md) + 160px + var(--space-sm)); }
-    #dashboard-panel { width: 250px; top: calc(var(--space-md) + 180px + var(--space-sm)); }
-    .tensor-inspector-container { width: 220px; max-height: 150px; }
-    .cascade-viewer-container { display: none; }
+    .heatmap-container {
+        width: clamp(200px, 30vw, 220px);
+        height: calc(100% - 320px - 320px - 4 * var(--space-md));
+        top: calc(var(--space-md) + 320px + var(--space-sm));
+        min-height: 320px;
+    }
+    #dashboard-panel {
+        width: 250px;
+        top: calc(var(--space-md) + 360px + var(--space-sm));
+        max-height: calc(100% - 380px - 2 * var(--space-md));
+    }
+    .tensor-inspector-container {
+        width: 220px;
+        max-height: 300px;
+    }
+    .cascade-viewer-container {
+        display: none;
+    }
     header h1 { font-size: 1.9rem; }
     header p { font-size: var(--font-size-md); }
+    .chart-container {
+        min-height: 240px;
+    }
+    .timeline-container {
+        max-height: 160px;
+    }
 }
 
 @media (max-width: 768px) {
@@ -970,24 +1101,42 @@ section {
     }
     header { padding: var(--space-md) var(--space-sm); }
     main { gap: var(--space-md); }
-    section { padding: var(--space-md); }
+    section { padding: var(--space-md); max-width: 100%; }
     h2 { font-size: 1.4rem; margin-bottom: var(--space-md); }
     h3 { font-size: 1.1rem; margin-bottom: var(--space-xs); }
     .visualization-container {
-        height: clamp(400px, 60vh, 550px);
+        height: clamp(600px, 80vh, 900px);
     }
     .overlay-panel {
-        max-height: 120px;
+        max-height: 240px;
         font-size: var(--font-size-xs);
         padding: var(--space-sm);
     }
     #metrics { display: none; }
-    #controls { top: var(--space-sm); left: var(--space-sm); right: auto; width: calc(50% - var(--space-md)); max-height: 120px; }
-    #chat-container { bottom: var(--space-sm); left: var(--space-sm); right: var(--space-sm); width: auto; max-height: 100px; }
+    #controls {
+        top: var(--space-sm);
+        left: var(--space-sm);
+        right: auto;
+        width: calc(50% - var(--space-md));
+        max-height: 240px;
+    }
+    #chat-container {
+        bottom: var(--space-sm);
+        left: var(--space-sm);
+        right: var(--space-sm);
+        width: auto;
+        max-height: 200px;
+    }
     #info-panel { display: none; }
     #live2d-container { display: none; }
     .heatmap-container { display: none; }
-    #dashboard-panel { top: var(--space-sm); right: var(--space-sm); left: calc(50% + var(--space-xs)); width: calc(50% - var(--space-md)); }
+    #dashboard-panel {
+        top: var(--space-sm);
+        right: var(--space-sm);
+        left: calc(50% + var(--space-xs));
+        width: calc(50% - var(--space-md));
+        max-height: calc(100% - 20px - 2 * var(--space-md));
+    }
     #emotion-intensities { display: none; }
     .chart-container { display: none; }
     #expression-timeline { display: none; }
