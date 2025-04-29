@@ -38,11 +38,11 @@ export function initThreeJS() {
     }
     try {
         syntrometryContainer = document.getElementById('syntrometry-panel');
-        syntrometryInfoPanel = document.getElementById('metrics');
+        syntrometryInfoPanel = document.getElementById('dashboard-panel'); // Use the new dashboard panel ID
+        syntrometryInfoPanel = document.getElementById('dashboard-panel'); // Re-get element just in case
         if (!syntrometryContainer || !syntrometryInfoPanel) {
-            displayError("Syntrometry panel container or info panel not found.", false, 'error-message');
-            threeInitialized = false;
-            return false;
+            console.warn("Syntrometry container or dashboard panel not found for interaction setup.");
+            return;
         }
 
         const width = syntrometryContainer.clientWidth;
@@ -213,41 +213,26 @@ function onSyntrometryClick(event, interactableObjects) {
 
 
 // Updates the Syntrometry info panel
+// In viz-syntrometry.js
+
 export function updateSyntrometryInfoPanel() {
-    if (!syntrometryInfoPanel) return;
+    // This function no longer updates the DOM directly,
+    // as the dashboard handles primary metric display.
+    // We can log hover/select events for debugging if needed.
+
     let displayObject = null;
     if (selectedDimension?.userData) { displayObject = selectedDimension; }
     else if (hoveredDimension?.userData) { displayObject = hoveredDimension; }
 
     if (displayObject?.userData) {
         const data = displayObject.userData;
-        let infoHtml = '';
         if (data.type === 'rih_node') {
-            infoHtml = `<h3>Reflexive Integration (RIH)</h3><p>Central coherence/awareness metric.</p><p>Based on correlations across cascade levels.</p><p><i>Updates dynamically based on simulation.</i></p><p><span class="simulated-data">Current RIH: ${(latestRihScore * 100).toFixed(1)}%</span></p><p><span class="simulated-data">Average Affinity: ${(latestAffinities && latestAffinities.length > 0 ? latestAffinities.reduce((a,b)=>a+b,0)/latestAffinities.length : 0).toFixed(2)}</span></p>`;
+            // console.log(`Info: Hover/Select RIH Node (Score: ${latestRihScore.toFixed(2)})`);
         } else if (data.type === 'dimension' && data.dimensionIndex !== undefined) {
-             const dimIndex = data.dimensionIndex;
-             const initialValue = (latestStateVector && latestStateVector.length > dimIndex) ? latestStateVector[dimIndex] : 0;
-             let finalCascadeValue = null;
-             if (latestCascadeHistory && latestCascadeHistory.length > 0) {
-                 for(let levelIndex = latestCascadeHistory.length - 1; levelIndex >= 0; levelIndex--) {
-                     const level = latestCascadeHistory[levelIndex];
-                     if (level && Array.isArray(level) && level.length > dimIndex && level[dimIndex] !== undefined && level[dimIndex] !== null) { finalCascadeValue = level[dimIndex]; break; }
-                 }
-             }
-              const finalCascadeValueDisplay = finalCascadeValue !== null ? finalCascadeValue.toFixed(3) : 'N/A';
-             infoHtml = `<h3>Dimension ${dimIndex + 1}</h3><p>An abstract dimension in the state vector.</p><p>Value influenced by environment emotions and internal dynamics.</p><p><i>Updates dynamically based on simulation.</i></p><p><span class="simulated-data">Initial Value: ${initialValue.toFixed(3)}</span></p><p><span class="simulated-data">Final Cascade Value: ${finalCascadeValueDisplay}</span></p>`;
-             if (latestCascadeHistory && latestCascadeHistory.length > 0) {
-                  infoHtml += `<p><b>Cascade Values:</b></p><ul>`;
-                  latestCascadeHistory.forEach((level, levelIndex) => {
-                       if (level && Array.isArray(level) && level.length > dimIndex && level[dimIndex] !== undefined && level[dimIndex] !== null) { infoHtml += `<li>Level ${levelIndex}: ${level[dimIndex].toFixed(3)}</li>`; }
-                  });
-                 infoHtml += `</ul>`;
-             }
+            const dimIndex = data.dimensionIndex;
+            const value = (latestStateVector && latestStateVector.length > dimIndex) ? latestStateVector[dimIndex] : 0;
+            // console.log(`Info: Hover/Select Dimension ${dimIndex + 1} (Value: ${value.toFixed(3)})`);
         }
-        if (infoHtml) { syntrometryInfoPanel.innerHTML = infoHtml; }
-        else { syntrometryInfoPanel.innerHTML = `<h3>Object Selected</h3><p>Type: ${data.type || 'Unknown'}</p>`; }
-    } else {
-        syntrometryInfoPanel.innerHTML = `<h3>Simulation Metrics</h3><p>Hover or click dimensions/RIH node for details.</p><p><i>Updates dynamically based on agent processing.</i></p><p><span class="simulated-data">Current RIH: ${(latestRihScore * 100).toFixed(1)}%</span></p><p><span class="simulated-data">Average Affinity: ${(latestAffinities && latestAffinities.length > 0 ? latestAffinities.reduce((a,b)=>a+b,0)/latestAffinities.length : 0).toFixed(2)}</span></p><p>Environment Context: ${latestContext || 'Stable'}</p>`;
     }
 }
 
