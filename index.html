@@ -33,17 +33,20 @@
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"
         onerror="handleScriptError('pixi-live2d-display', 'https://unpkg.com/pixi-live2d-display@0.4.0/dist/cubism4.min.js', 'Could not load pixi-live2d-display.')"></script>
 
-    <!-- Basic error handling for CDNs -->
+    <!-- Chart.js Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@^4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@^3"></script> <!-- Updated Luxon version -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@^1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@^2"></script> <!-- Realtime Scale Plugin -->
+
+    <!-- Basic error handling for scripts failing before utils.js loads -->
     <script>
-        // Basic fallback error handler for scripts that fail before app.js utils load
         function handleScriptError(library, fallback, message) {
             console.error(`[Early Error] Failed to load ${library}. ${message || ''}`);
             const errorBar = document.createElement('div');
             errorBar.style.cssText = 'position:fixed; top:0; left:0; width:100%; background:red; color:white; padding:10px; z-index:9999; text-align:center; font-family: sans-serif;';
             errorBar.innerHTML = `<strong>[Error] Failed to load ${library}.</strong> Please check console. ${message || ''}`;
-            // Use prepend to ensure it's at the top, even if body isn't fully parsed
-            (document.body || document.documentElement).prepend(errorBar);
-
+            (document.body || document.documentElement).prepend(errorBar); // Prepend for early errors
             if (fallback) {
                 console.log(`[Early Error] Attempting to load fallback: ${fallback}`);
                 const script = document.createElement('script');
@@ -52,12 +55,9 @@
                 document.head.appendChild(script);
             }
         }
-        // Suppress specific D3D compiler warning if needed (Keep as is)
         const originalConsoleWarn = console.warn;
         console.warn = function (...args) {
-            if (typeof args[0] === 'string' && args[0].includes('gl.getProgramInfoLog') && args[0].includes('X3557')) {
-                return;
-            }
+            if (typeof args[0] === 'string' && args[0].includes('gl.getProgramInfoLog') && args[0].includes('X3557')) return; // Suppress specific D3D warning
             originalConsoleWarn.apply(console, args);
         };
     </script>
@@ -65,13 +65,11 @@
 <body>
     <header role="banner">
         <h1>Heim's Syntrometric Theory & Live2D Agent Demo</h1>
-        <p>Interactive visualization of Syntrometric concepts with an AI-driven Live2D agent.</p>
+        <p>Interactive visualization of Syntrometric concepts with an AI-driven Live2D agent (V2.3).</p>
     </header>
 
     <!-- General Error Message Container -->
-    <div id="error-message" class="error-message" role="alert" aria-live="assertive" style="display: none;">
-        <!-- General errors will be displayed here by displayError utility -->
-    </div>
+    <div id="error-message" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
 
     <main role="main">
         <!-- Syntrometric Theory Section -->
@@ -83,9 +81,9 @@
             <nav aria-label="Quick Links">
                 <h3>Quick Links</h3>
                 <ul class="quick-links-list">
-                    <li><a href="https://marko0marky.github.io/syntrometry-agent-live2d/syntrometrie_framework.html" title="View 2D Diagram">Syntrometrie Framework Diagram</a></li>
-                    <li><a href="https://marko0marky.github.io/syntrometry-agent-live2d/conscious_agent_arch.html" title="View Agent Architecture">Conscious Agent Architecture Diagram</a></li>
-                    <li><a href="https://github.com/Marko0Marky/syntrometry-agent-live2d" title="Go to Main Project Readme">Main Project README</a></li>
+                    <li><a href="research/syntrometrie_framework.html" title="View 2D Diagram">Syntrometrie Framework Diagram</a></li>
+                    <li><a href="research/conscious_agent_arch.html" title="View Agent Architecture">Conscious Agent Architecture Diagram</a></li>
+                    <li><a href="../README.md" title="Go to Main Project Readme">Main Project README</a></li>
                     <li><a href="https://heim-theory.com/" target="_blank" title="External Resource (Opens New Tab)">Heim Theory Resources</a></li>
                 </ul>
             </nav>
@@ -96,13 +94,10 @@
             <h2 id="syntrometry-viz-heading">Interactive Visualization</h2>
             <p>Explore the Syntrometric simulation with real-time agent responses.</p>
             <div class="visualization-container threejs-container" id="syntrometry-panel" aria-label="Syntrometric Simulation Panel">
-                <!-- Error message specific to this container -->
-                <div id="syntrometry-error-message" class="error-message"></div>
+                <div id="syntrometry-error-message" class="error-message"></div> <!-- Error message specific to this panel -->
+                <div id="live2d-container" aria-label="Live2D Avatar Display"></div> <!-- Live2D display -->
 
-                <!-- Live2D Canvas Container -->
-                <div id="live2d-container" aria-label="Live2D Avatar Display"></div>
-
-                <!-- Controls Panel (Sliders now reflect internal state, still trigger visual pulse) -->
+                <!-- Controls Panel -->
                 <div id="controls" class="overlay-panel controls-container" aria-label="Simulation Controls">
                     <div class="control-group">
                         <label for="integration-slider">Integration (I(S)) [Agent Learned]: <span id="integration-value">0.50</span></label>
@@ -120,21 +115,82 @@
 
                 <!-- Chat Panel -->
                 <div id="chat-container" class="overlay-panel chat-container" aria-label="Simulation Chat">
-                    <div id="chat-output" aria-live="polite"><div><b>System:</b> Welcome to the Syntrometric Simulation.</div></div>
+                    <div id="chat-output" aria-live="polite"><div><b>System:</b> Welcome to the Syntrometric Simulation (V2.3).</div></div>
                     <input id="chat-input" type="text" placeholder="Interact with the simulation..." aria-label="Chat Input">
                 </div>
 
-                <!-- Metrics Panel (Content dynamically updated) -->
-                <div id="metrics" class="overlay-panel metrics-container" aria-label="Simulation Metrics and Details">Loading metrics...</div>
+                <!-- Metrics Dashboard Panel -->
+                <div id="dashboard-panel" class="overlay-panel dashboard-container" aria-label="Real-time Metrics Dashboard">
+                    <h3>Agent Dashboard</h3>
+                    <div class="dashboard-metrics">
+                        <div class="metric-item">
+                            <span class="metric-label">RIH:</span>
+                            <progress id="metric-rih-progress" value="0" max="100"></progress>
+                            <span id="metric-rih-value" class="metric-value">0.0%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Affinity:</span>
+                            <progress id="metric-affinity-progress" value="50" max="100"></progress> <!-- Range -1 to 1 centered at 50 -->
+                            <span id="metric-affinity-value" class="metric-value">0.00</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Trust:</span>
+                            <progress id="metric-trust-progress" value="100" max="100"></progress>
+                            <span id="metric-trust-value" class="metric-value">100.0%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Belief Norm:</span>
+                            <span id="metric-belief-norm" class="metric-value">0.000</span>
+                        </div>
+                         <div class="metric-item">
+                            <span class="metric-label">Self Norm:</span>
+                            <span id="metric-self-norm" class="metric-value">0.000</span>
+                        </div>
+                        <div class="metric-item metric-item-full-width">
+                            <span class="metric-label">Context:</span>
+                            <span id="metric-context" class="metric-value context-value">Initializing...</span>
+                        </div>
+                    </div>
+                    <!-- New: Emotion Intensity Bars -->
+                    <div id="emotion-intensities" class="emotion-bar-container">
+                        <div class="intensity-bar joy" data-emotion="Joy"><span class="bar-label">Joy</span><div class="bar-fill"></div></div>
+                        <div class="intensity-bar fear" data-emotion="Fear"><span class="bar-label">Fear</span><div class="bar-fill"></div></div>
+                        <div class="intensity-bar curiosity" data-emotion="Curiosity"><span class="bar-label">Curiosity</span><div class="bar-fill"></div></div>
+                        <div class="intensity-bar frustration" data-emotion="Frustration"><span class="bar-label">Frustration</span><div class="bar-fill"></div></div>
+                        <div class="intensity-bar calm" data-emotion="Calm"><span class="bar-label">Calm</span><div class="bar-fill"></div></div>
+                        <div class="intensity-bar surprise" data-emotion="Surprise"><span class="bar-label">Surprise</span><div class="bar-fill"></div></div>
+                    </div>
+                    <!-- New: Chart Container -->
+                    <div class="chart-container">
+                        <canvas id="metrics-chart"></canvas>
+                    </div>
+                    <!-- New: Expression Timeline -->
+                    <div id="expression-timeline" class="timeline-container">
+                        <h5>Recent Actions/Expressions</h5>
+                        <ul id="expressions-list"></ul>
+                    </div>
+                </div>
 
-                <!-- NEW: Heatmap Panel -->
-                <div id="heatmap-panel" class="overlay-panel heatmap-container" aria-label="Agent Internal State Heatmap">
+                <!-- Heatmap Panel -->
+                 <div id="heatmap-panel" class="overlay-panel heatmap-container" aria-label="Agent Internal State Heatmap">
                     <div class="heatmap-title">Self-State Activation</div>
                     <div id="heatmap-content">
                         <!-- Heatmap cells will be generated here by JS -->
                     </div>
                 </div>
-                <!-- End Heatmap Panel -->
+
+                <!-- New: Tensor Inspector Panel -->
+                 <div id="tensor-inspector-panel" class="overlay-panel tensor-inspector-container" aria-label="Tensor Inspector">
+                     <div class="tensor-inspector-title">Belief Embedding Inspector <button id="toggle-inspector" title="Toggle Inspector View">👁️</button></div>
+                     <pre id="tensor-inspector-content">Initializing...</pre>
+                 </div>
+
+                 <!-- New: Basic Cascade Viewer Panel -->
+                 <div id="cascade-viewer-panel" class="overlay-panel cascade-viewer-container" aria-label="Cascade Viewer">
+                    <div class="cascade-viewer-title">Strukturkaskade Viewer</div>
+                    <div id="cascade-viewer-content">Initializing...</div>
+                 </div>
+
 
             </div>
         </section>
@@ -144,10 +200,8 @@
             <h2 id="concept-viz-heading">Concept Graph Visualization</h2>
             <p>Explore the relationships between Syntrometric concepts with interactive tooltips.</p>
              <div class="visualization-container threejs-container-concept" id="concept-panel" aria-label="Concept Graph Panel">
-                <!-- Error message specific to this container -->
-                <div id="concept-error-message" class="error-message"></div>
-
-                <!-- Info Panel (Displays details on hover/click) -->
+                <div id="concept-error-message" class="error-message"></div> <!-- Error message specific to this panel -->
+                <!-- Info Panel -->
                 <div id="info-panel" class="overlay-panel info-panel-container" aria-label="Concept Details">
                      <h3>Concept Information</h3>
                      <p>Hover over or click on a concept node to see details.</p>
