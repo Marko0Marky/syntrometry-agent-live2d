@@ -1,4 +1,4 @@
-// Utility functions here// js/utils.js
+// js/utils.js
 
 /**
  * Handles script loading errors and displays messages.
@@ -33,17 +33,18 @@ export function displayError(message, isCritical = false, targetId = 'error-mess
     console.error(message);
     const errorDiv = document.getElementById(targetId);
      if (errorDiv) {
-        errorDiv.innerHTML += message + '<br>';
-        errorDiv.style.display = 'block';
+        // Prevent excessive error messages
+        if (!errorDiv.innerHTML.includes(message.substring(0, 50))) { // Check for partial match
+             errorDiv.innerHTML += message + '<br>';
+             errorDiv.style.display = 'block';
+        }
      } else {
         console.error("Target error message container not found:", targetId);
      }
 
     // Critical error handling is managed in app.js
-    if (isCritical) {
-        // You might want to set a global flag or trigger an event here
-        // For now, the app.js main loop checks a global criticalError flag.
-    }
+    // if (isCritical) { // app.js handles the flag
+    // }
 }
 
 
@@ -115,9 +116,11 @@ export function norm(arr) {
  * @returns {number[]} The array with softmax applied.
  */
 export function softmax(arr) {
+    if (!arr || arr.length === 0) return [];
     const maxVal = Math.max(...arr);
     const exps = arr.map(x => Math.exp(x - maxVal));
     const sumExps = exps.reduce((a, b) => a + b, 0);
+    if (sumExps === 0) return zeros([arr.length]); // Handle case where all exponents are zero
     return exps.map(e => e / sumExps);
 }
 
@@ -142,7 +145,87 @@ export function appendChatMessage(sender, message) {
     const chatOutput = document.getElementById('chat-output');
     if (!chatOutput) return;
     const messageDiv = document.createElement('div');
-    messageDiv.innerHTML = `<b>${sender}:</b> ${message}`;
+    // Basic sanitization (replace < and > to prevent HTML injection)
+    const sanitizedMessage = message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    messageDiv.innerHTML = `<b>${sender}:</b> ${sanitizedMessage}`;
     chatOutput.appendChild(messageDiv);
     chatOutput.scrollTop = chatOutput.scrollHeight; // Auto-scroll to bottom
+}
+
+/**
+ * Logs a message to a timeline list UI element.
+ * @param {string} message The message to log.
+ * @param {string} listId The ID of the UL element for the timeline.
+ * @param {number} [maxItems=10] Maximum number of items to keep in the timeline.
+ */
+export function logToTimeline(message, listId, maxItems = 10) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+
+    const item = document.createElement('li');
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    // Basic sanitization
+    const sanitizedMessage = message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    item.innerHTML = `<span class="timeline-time">${timestamp}</span> ${sanitizedMessage}`;
+
+    list.appendChild(item);
+
+    // Limit the number of items
+    while (list.children.length > maxItems) {
+        list.removeChild(list.firstChild);
+    }
+     // Scroll to bottom
+     list.scrollTop = list.scrollHeight;
+}
+
+
+/**
+ * Displays the content of a tensor in a designated HTML element.
+ * @param {tf.Tensor | number[] | number | null} tensorOrArray The tensor or array to inspect.
+ * @param {string} elementId The ID of the HTML <pre> element to display the content in.
+ */
+export function inspectTensor(tensorOrArray, elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+
+    try {
+        let dataToShow;
+        let shapeInfo = "";
+
+        if (tensorOrArray instanceof tf.Tensor && !tensorOrArray.isDisposed) {
+            shapeInfo = `Shape: [${tensorOrArray.shape.join(', ')}]`;
+            // For large tensors, consider showing only a slice or summary
+            if (tensorOrArray.size > 100) { // Example threshold
+                 dataToShow = tensorOrArray.slice([0], [Math.min(100, tensorOrArray.shape[0])]).arraySync();
+                 shapeInfo += " (Showing first 100 elements)";
+            } else {
+                dataToShow = tensorOrArray.arraySync();
+            }
+        } else if (Array.isArray(tensorOrArray)) {
+             shapeInfo = `Array Length: ${tensorOrArray.length}`;
+             dataToShow = tensorOrArray.slice(0, 100); // Show first 100 elements of array
+             if(tensorOrArray.length > 100) shapeInfo += " (Showing first 100 elements)";
+        } else if (typeof tensorOrArray === 'number') {
+             shapeInfo = "Scalar";
+             dataToShow = tensorOrArray;
+        } else {
+            el.textContent = 'N/A (Invalid or disposed)';
+            return;
+        }
+
+        // Format the output nicely
+        let formattedData;
+        if (Array.isArray(dataToShow)) {
+            formattedData = dataToShow.map(v => typeof v === 'number' ? v.toFixed(4) : v).join(', ');
+            formattedData = `[${formattedData}]`;
+        } else {
+            formattedData = dataToShow.toFixed(4);
+        }
+
+        el.textContent = `${shapeInfo}\n${formattedData}`;
+
+    } catch (e) {
+        console.error(`Error inspecting data for element ${elementId}:`, e);
+        el.textContent = `Error: ${e.message}`;
+    }
 }
