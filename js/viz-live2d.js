@@ -1,5 +1,3 @@
-// js/viz-live2d.js
-
 import { Config, emotionNames } from './config.js';
 import { clamp, displayError, zeros, lerp } from './utils.js';
 
@@ -50,8 +48,23 @@ export async function initLive2D() {
         const modelUrl = 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@master/Samples/Resources/Hiyori/Hiyori.model3.json';
         console.log(`[Live2D] Loading model from ${modelUrl}`);
         live2dModel = await PIXI.live2d.Live2DModel.from(modelUrl);
-        live2dModel.scale.set(0.15, 0.15); // Adjust as needed
         pixiApp.stage.addChild(live2dModel);
+
+        // Adjust scale to fit container
+        const modelBaseSize = 2000; // Hiyori model approximate size
+        const scaleFactor = Math.min(width, height) / modelBaseSize * 1.0; // Adjusted for visibility
+        live2dModel.scale.set(scaleFactor, scaleFactor);
+        console.log(`[Live2D] Model scale set to ${scaleFactor}`);
+
+        // Center the model with manual offset
+        live2dModel.anchor.set(0.5, 0.5);
+        live2dModel.x = pixiApp.screen.width / 2;
+        live2dModel.y = pixiApp.screen.height / 2 + 20; // Manual offset to adjust for Hiyori
+        console.log(`[Live2D] Initial position: x=${live2dModel.x}, y=${live2dModel.y}, canvas: ${pixiApp.screen.width}x${pixiApp.screen.height}`);
+
+        // Log bounds for debugging
+        const bounds = live2dModel.getBounds();
+        console.log(`[Live2D] Model bounds: width=${bounds.width}, height=${bounds.height}, x=${bounds.x}, y=${bounds.y}`);
 
         // Set up event listeners
         setupHitAreas();
@@ -112,6 +125,11 @@ function interpolateExpressions(a, b, t) {
  */
 export function updateLive2D(deltaTime) {
     if (!live2dInitialized || !live2dModel?.setParameterValueById) return;
+
+    // Keep model centered with manual offset
+    live2dModel.x = pixiApp.screen.width / 2;
+    live2dModel.y = pixiApp.screen.height / 2 + 20; // Manual offset
+    console.log(`[Live2D] Update position: x=${live2dModel.x}, y=${live2dModel.y}, canvas: ${pixiApp.screen.width}x${pixiApp.screen.height}`);
 
     // Update expression
     if (targetExpression && !currentExpression) {
