@@ -1,8 +1,8 @@
 // js/app.js
 
 // --- Imports ---
-import { Config, emotionKeywords } from './config.js';
-import { displayError, appendChatMessage, zeros, tensor, clamp } from './utils.js';
+import { Config, emotionKeywords, emotionNames } from './config.js'; // Added emotionNames import back
+import { displayError, appendChatMessage, zeros, tensor, clamp, inspectTensor, logToTimeline } from './utils.js'; // Added inspectTensor, logToTimeline
 import { SyntrometricAgent } from './agent.js'; // Using the updated V2.3 agent
 import { EmotionalSpace } from './environment.js';
 // --- CORRECTED IMPORT ---
@@ -19,13 +19,13 @@ import {
 } from './viz-concepts.js';
 import { initLive2D, updateLive2DEmotions, updateLive2DHeadMovement, live2dInitialized, cleanupLive2D } from './viz-live2d.js';
 
-const emotionNames = Object.values(emotionKeywords).map(e => e.name);
+// const emotionNames = Object.values(emotionKeywords).map(e => e.name); // Already imported from config
 
 // --- Global State ---
 let criticalError = false;
 let agent = null; // Instance of SyntrometricAgent (V2.3)
 let environment = null;
-let currentStateVector = null; // BASE state from environment (12D)
+let currentStateVector = null; // BASE state from environment (BASE_STATE_DIM)
 let currentAgentEmotions = null; // Agent's output emotions (tensor)
 let currentRIHScore = 0;
 let currentAvgAffinity = 0;
@@ -40,14 +40,17 @@ let currentBeliefNorm = 0.0; // Track norm of belief embedding
 let currentSelfStateNorm = 0.0; // Track norm of self-state
 
 const appClock = new THREE.Clock();
-const SAVED_STATE_KEY = 'syntrometrySimulationState_v2_3'; // New key for V2.3 state
+const SAVED_STATE_KEY = 'syntrometrySimulationState_v2_3_1'; // Increment version for new state format
 
 // Timestamps for Input Feedback
 let lastIntegrationInputTime = -1;
-let lastReflexivityInputTime = -1; // Correct declaration name
+let lastReflexivityInputTime = -1;
 let lastChatImpactTime = -1;
 const inputFeedbackDuration = 0.5; // How long the feedback effect should last (seconds)
 
+// --- NEW: Chart.js Instance ---
+let metricsChart = null;
+const MAX_CHART_POINTS = 150; // Max data points to show
 
 // --- Helper Function ---
 /**
@@ -62,7 +65,7 @@ function calculateArrayNorm(arr) {
         // Ensure value is a number before squaring
         if (typeof val === 'number' && isFinite(val)) {
             sumSq += val * val;
-        }
+        } // Add this closing brace to match the opening brace of the for loop
     }
     return Math.sqrt(sumSq);
 }
@@ -80,56 +83,168 @@ function updateHeatmap(stateVector, targetElementId) {
 
     const vectorLength = stateVector.length;
     if (vectorLength === 0) {
-        heatmapContainer.innerHTML = ''; // Clear if no data
+        heatmapContainer.innerHTML = '<p class="heatmap-placeholder">No State Data</p>'; // Placeholder text
         return;
     }
 
     // Determine Grid Dimensions (approx square)
     const gridDim = Math.ceil(Math.sqrt(vectorLength));
-    // Calculate cell size based on container width/height if possible, otherwise fixed size
-    const containerWidth = heatmapContainer.clientWidth;
-    const containerHeight = heatmapContainer.clientHeight;
-    // Use slightly less than 100% to account for gaps
-    const cellSizePercent = Math.max(0.1, (100 / gridDim) - (100 * (gridDim-1) / (gridDim * Math.max(containerWidth, containerHeight))) );
+    const cellSize = Math.max(2, Math.floor(Math.min(heatmapContainer.clientWidth, heatmapContainer.clientHeight) / gridDim) -1 ); // Calculate cell size based on container
 
-    heatmapContainer.style.gridTemplateColumns = `repeat(${gridDim}, ${cellSizePercent}%)`;
-    heatmapContainer.style.gridTemplateRows = `repeat(${gridDim}, ${cellSizePercent}%)`;
+    heatmapContainer.style.gridTemplateColumns = `repeat(${gridDim}, ${cellSize}px)`;
+    heatmapContainer.style.gridTemplateRows = `repeat(${gridDim}, ${cellSize}px)`;
 
     // Generate Heatmap Cells
     let htmlContent = '';
     for (let i = 0; i < vectorLength; i++) {
         const value = stateVector[i] ?? 0; // Default to 0 if undefined/null
+        const absValue = Math.abs(value);
 
-        // Simple Color Mapping (-1 Blue -> 0 Grey -> 1 Red)
-        let r = 128, g = 128, b = 128; // Start Grey
-        const intensity = Math.min(1.0, Math.abs(value)); // Intensity 0 to 1, capped at 1
+        // Color Mapping (-1 Blue -> 0 Dark Grey -> 1 Red)
+        let r=30, g=30, b=30; // Start Dark Grey
+        const intensity = Math.min(1.0, absValue * 1.5); // Amplify intensity slightly
 
-        if (value > 0) { // Positive -> Red
-            r = 128 + Math.round(127 * intensity);
-            g = 128 - Math.round(128 * intensity);
-            b = 128 - Math.round(128 * intensity);
-        } else if (value < 0) { // Negative -> Blue
-            r = 128 - Math.round(128 * intensity);
-            g = 128 - Math.round(128 * intensity);
-            b = 128 + Math.round(127 * intensity);
+        if (value > 0.01) { // Positive -> Red
+            r = 30 + Math.round(200 * intensity);
+            g = 30;
+            b = 30;
+        } else if (value < -0.01) { // Negative -> Blue
+            r = 30;
+            g = 30 + Math.round(50 * intensity); // Less intense green/cyan component
+            b = 30 + Math.round(200 * intensity);
         }
         r = clamp(r, 0, 255); g = clamp(g, 0, 255); b = clamp(b, 0, 255);
 
         const color = `rgb(${r}, ${g}, ${b})`;
-        const tooltip = `Value: ${value.toFixed(4)}`;
+        const tooltip = `Idx ${i}: ${value.toFixed(4)}`;
         htmlContent += `<div class="heatmap-cell" style="background-color: ${color};" title="${tooltip}"></div>`;
     }
 
     // Add filler cells if vector length isn't a perfect square
     const totalCells = gridDim * gridDim;
     for (let i = vectorLength; i < totalCells; i++) {
-        htmlContent += `<div class="heatmap-cell" style="background-color: #181820;"></div>`; // Darker filler color
+        htmlContent += `<div class="heatmap-cell filler"></div>`; // Darker filler color
     }
 
     // Update DOM
     heatmapContainer.innerHTML = htmlContent;
 }
 
+/**
+ * Updates the real-time metrics chart.
+ */
+function updateMetricsChart() {
+    if (!metricsChart || criticalError || agent === null) return;
+
+    const now = Date.now(); // Use Luxon via adapter? No, streaming plugin handles it.
+
+    try {
+        // Add new data points
+        metricsChart.data.datasets[0].data.push({ x: now, y: currentRIHScore });
+        metricsChart.data.datasets[1].data.push({ x: now, y: currentAvgAffinity });
+        metricsChart.data.datasets[2].data.push({ x: now, y: currentTrustScore });
+        metricsChart.data.datasets[3].data.push({ x: now, y: currentBeliefNorm });
+        metricsChart.data.datasets[4].data.push({ x: now, y: currentSelfStateNorm });
+
+        // // Limit data points (handled by streaming plugin's ttl/duration)
+        // if (metricsChart.data.datasets[0].data.length > MAX_CHART_POINTS) {
+        //     metricsChart.data.datasets.forEach(dataset => dataset.data.shift());
+        // }
+
+        // Update the chart
+        metricsChart.update('quiet'); // Use 'quiet' to prevent animation jumps
+    } catch (e) {
+        console.error("Error updating metrics chart:", e);
+    }
+}
+
+/**
+ * Updates the dashboard display elements (progress bars, text values).
+ */
+function updateDashboardDisplay() {
+    const updateElement = (id, value, text = null, progress = false, range = [0, 1], invert = false) => {
+        const element = document.getElementById(id);
+        if (element) {
+            const displayValue = text !== null ? text : value.toFixed(3);
+             if (element.tagName === 'PROGRESS') {
+                 const [min, max] = range;
+                 const scaledValue = ((value - min) / (max - min)) * 100;
+                 element.value = invert ? 100 - scaledValue : scaledValue;
+             } else {
+                 element.textContent = displayValue;
+             }
+        }
+    };
+
+    updateElement('metric-rih-value', currentRIHScore * 100, `${(currentRIHScore * 100).toFixed(1)}%`);
+    updateElement('metric-rih-progress', currentRIHScore, null, true);
+
+    updateElement('metric-affinity-value', currentAvgAffinity, currentAvgAffinity.toFixed(2));
+    updateElement('metric-affinity-progress', currentAvgAffinity, null, true, [-1, 1]); // Range -1 to 1
+
+    updateElement('metric-trust-value', currentTrustScore * 100, `${(currentTrustScore * 100).toFixed(1)}%`);
+    updateElement('metric-trust-progress', currentTrustScore, null, true);
+
+    updateElement('metric-belief-norm', currentBeliefNorm);
+    updateElement('metric-self-norm', currentSelfStateNorm);
+    updateElement('metric-context', 0, currentContext); // Use text argument for context
+}
+
+
+/**
+ * Updates the emotion intensity bars UI.
+ * @param {tf.Tensor|null} emotionsTensor - Tensor of current emotion intensities.
+ */
+function updateEmotionBars(emotionsTensor) {
+    const container = document.getElementById('emotion-intensities');
+    if (!container || !emotionsTensor || emotionsTensor.isDisposed) {
+        // Optionally hide or clear bars if no data
+        if(container) container.style.opacity = '0.5';
+        return;
+    }
+     if(container) container.style.opacity = '1';
+
+
+    try {
+        const emotions = emotionsTensor.arraySync()[0];
+        emotionNames.forEach((name, index) => {
+             const barFill = container.querySelector(`.${name.toLowerCase()} .bar-fill`);
+             if (barFill && emotions.length > index) {
+                 const intensity = clamp(emotions[index] * 100, 0, 100);
+                 barFill.style.width = `${intensity}%`;
+             }
+        });
+    } catch (e) {
+        console.error("Error updating emotion bars:", e);
+    }
+}
+
+/**
+ * Updates the basic cascade viewer with text representation.
+ */
+function updateCascadeViewer() {
+    const contentDiv = document.getElementById('cascade-viewer-content');
+    if (!contentDiv) return;
+
+    if (!currentCascadeHistory || currentCascadeHistory.length === 0) {
+        contentDiv.textContent = 'No cascade data available.';
+        return;
+    }
+
+    let html = '';
+    currentCascadeHistory.forEach((levelArray, index) => {
+        html += `<div class="level-title">Level ${index}: (${levelArray.length} syndromes)</div>`;
+        if (levelArray.length > 0) {
+             const valuesString = levelArray.map(v => v.toFixed(3)).join(', ');
+             html += `<div class="level-data">[${valuesString}]</div>`;
+        } else {
+             html += `<div class="level-data">[Empty]</div>`;
+        }
+    });
+    contentDiv.innerHTML = html;
+     // Scroll to bottom if needed
+    // contentDiv.scrollTop = contentDiv.scrollHeight;
+}
 
 // --- Initialization ---
 /**
@@ -150,6 +265,9 @@ async function initialize() {
      if (!threeSuccess) displayError("Syntrometry visualization failed to initialize.", false, 'syntrometry-error-message');
      if (!conceptSuccess) displayError("Concept Graph visualization failed to initialize.", false, 'concept-error-message');
      if (!live2dSuccess) displayError("Live2D avatar failed to initialize.", false, 'error-message');
+
+     // --- Initialize Chart.js ---
+     initMetricsChart();
 
 
      // --- Initial State Setup ---
@@ -184,10 +302,7 @@ async function initialize() {
          currentReflexivityParam = initialAgentResponse.reflexivity;
          currentTrustScore = initialAgentResponse.trustScore;
          currentBeliefNorm = initialAgentResponse.beliefNorm ?? 0.0;
-          // Calculate initial self-state norm
-         if (agent.selfState && !agent.selfState.isDisposed) {
-            try { currentSelfStateNorm = calculateArrayNorm(Array.from(agent.selfState.dataSync())); } catch (e) { currentSelfStateNorm = 0.0; }
-         } else { currentSelfStateNorm = 0.0; }
+         currentSelfStateNorm = initialAgentResponse.selfStateNorm ?? 0.0;
 
 
          console.log("Initialized V2.3 with new state.");
@@ -219,7 +334,7 @@ async function initialize() {
             if (initialEmotionsForViz) {
                 // Pass trust score during init as well
                 updateAgentSimulationVisuals(initialEmotionsForViz, currentRIHScore, currentAvgAffinity, currentHmLabel, currentTrustScore);
-                if (initialEmotionsForViz !== currentAgentEmotions) tf.dispose(initialEmotionsForViz);
+                if (initialEmotionsForViz !== currentAgentEmotions && typeof tf !== 'undefined' && !initialEmotionsForViz.isDisposed) tf.dispose(initialEmotionsForViz); // Dispose if created
             }
         } catch (e) { console.error("Error initial concept viz update:", e); }
         animateConceptNodes(0, currentIntegrationParam, currentReflexivityParam, -1, -1, -1);
@@ -231,20 +346,25 @@ async function initialize() {
              else if (typeof tf !== 'undefined') { initialEmotionsForLive2D = tf.zeros([1, Config.Agent.EMOTION_DIM]); }
             if (initialEmotionsForLive2D) {
                  updateLive2DEmotions(initialEmotionsForLive2D);
-                 if (initialEmotionsForLive2D !== currentAgentEmotions) tf.dispose(initialEmotionsForLive2D);
+                  if (initialEmotionsForLive2D !== currentAgentEmotions && typeof tf !== 'undefined' && !initialEmotionsForLive2D.isDisposed) tf.dispose(initialEmotionsForLive2D); // Dispose if created
             }
         } catch (e) { console.error("Error initial Live2D update:", e); }
         updateLive2DHeadMovement(currentHmLabel, 0);
      }
 
     // Initial Metrics and Heatmap update
-    updateMetricsDisplay(currentRIHScore, agent?.latestAffinities || [], currentAgentEmotions, currentContext, currentTrustScore, currentBeliefNorm, currentSelfStateNorm);
+    updateDashboardDisplay(); // Update progress bars etc.
+    updateEmotionBars(currentAgentEmotions); // Update emotion bars
+    updateCascadeViewer(); // Update cascade view
+    logToTimeline("System Initialized", 'expressions-list'); // Log initial event
+
     if (agent?.selfState && !agent.selfState.isDisposed) {
          try { updateHeatmap(Array.from(agent.selfState.dataSync()), 'heatmap-content'); } catch(e) { console.error("Initial heatmap update failed:", e); }
     } else { updateHeatmap([], 'heatmap-content');} // Show empty heatmap
 
     setupControls();
     setupChat();
+    setupInspectorToggle(); // Setup toggle for inspector
 
     console.log("Initialization complete (V2.3). Starting animation loop.");
     animate(); // Start the main loop
@@ -252,28 +372,267 @@ async function initialize() {
 
 /**
  * Initializes Agent and Environment instances. Sets criticalError if TF.js is missing.
+// In app.js
+
+/**
+ * Initializes Agent and Environment instances. Sets criticalError if TF.js is missing.
  * @returns {boolean} True if successful, false otherwise.
  */
 function initAgentAndEnvironment() {
-     if (typeof tf === 'undefined') {
-         console.error("TensorFlow.js is required for Agent/Environment.");
-         criticalError = true; agent = null; environment = null; return false;
-    }
-    try {
-        agent = new SyntrometricAgent(); // Uses the V2.3 logic now
-        environment = new EmotionalSpace();
-        // Check if agent init failed internally
-        if (!agent || !agent.optimizer) { // Check essential components
-            throw new Error("Agent core components failed to initialize properly.");
-        }
-        console.log("Agent (V2.3) and Environment initialized.");
-        return true;
-    } catch (e) {
-        // Use console.error here as logger might not be set up
-        console.error('[Init] Agent/Env error:', e);
-        displayError(`Error initializing Agent/Environment: ${e.message}. Simulation logic disabled.`, true, 'error-message');
+    if (typeof tf === 'undefined') {
+        console.error("TensorFlow.js is required for Agent/Environment.");
         criticalError = true; agent = null; environment = null; return false;
+   }
+   try {
+       // Log before creation
+       console.log("Attempting to create SyntrometricAgent...");
+       agent = new SyntrometricAgent(); // Uses the V2.3 logic now
+       // Log immediately after creation attempt
+       console.log("SyntrometricAgent instance created (or constructor finished). Agent object:", agent);
+
+       environment = new EmotionalSpace();
+
+       // --- Move Check Inside Try Block ---
+       // Check if agent and its essential components are valid *after* creation
+       if (!agent || !agent.optimizer || !agent.beliefNetwork) {
+           console.error("Validation Failed *after* agent constructor finished.", {
+               agentExists: !!agent,
+               optimizerExists: !!agent?.optimizer,
+               beliefNetExists: !!agent?.beliefNetwork
+           });
+           // Throw error to be caught by the outer catch block
+           throw new Error("Agent core components failed validation immediately after initialization.");
+       }
+       // --- End Moved Check ---
+
+       console.log("Agent (V2.3) and Environment validation passed.");
+       return true;
+
+   } catch (e) {
+       // Catch errors from agent creation OR the explicit check
+       console.error('[Init] Agent/Env error:', e); // Log the specific error
+       displayError(`Error initializing Agent/Environment: ${e.message}. Simulation logic disabled.`, true, 'error-message');
+       criticalError = true;
+       // Ensure agent/env are nulled if initialization failed at any point
+       if (agent && typeof agent.cleanup === 'function') { agent.cleanup(); }
+       agent = null;
+       environment = null;
+       return false;
+   }
+}
+
+/**
+ * Initializes the Chart.js instance for metrics.
+ */
+// In app.js
+
+/**
+ * Initializes the Chart.js instance for metrics.
+ */
+function initMetricsChart() {
+    const ctx = document.getElementById('metrics-chart');
+    if (!ctx) {
+        console.error("Metrics chart canvas not found!");
+        return;
     }
+    if (metricsChart) { // Destroy previous chart if re-initializing
+        metricsChart.destroy();
+    }
+
+    // --- Get CSS Variable Values ---
+    const computedStyle = getComputedStyle(document.documentElement);
+    const chartGridColor = computedStyle.getPropertyValue('--chart-grid-color').trim();
+    const chartTickColor = 'rgba(238, 238, 238, 0.7)'; // Can keep as literal or get variable if needed
+    const chartLegendLabelColor = 'rgba(238, 238, 238, 0.8)'; // Can keep as literal
+    const chartTooltipBg = computedStyle.getPropertyValue('--chart-tooltip-bg').trim();
+    const chartAccentColor = computedStyle.getPropertyValue('--accent-color').trim();
+    const chartTextColor = computedStyle.getPropertyValue('--text-color').trim();
+    // --- Get Emotion Colors for potential use later if needed ---
+    // const colorJoy = computedStyle.getPropertyValue('--emotion-joy').trim();
+    // const colorFear = computedStyle.getPropertyValue('--emotion-fear').trim();
+    // const colorCuriosity = computedStyle.getPropertyValue('--emotion-curiosity').trim();
+    // const colorFrustration = computedStyle.getPropertyValue('--emotion-frustration').trim();
+    // const colorCalm = computedStyle.getPropertyValue('--emotion-calm').trim();
+    // const colorSurprise = computedStyle.getPropertyValue('--emotion-surprise').trim();
+    // --- Get Specific RGB Values for borders/backgrounds if alpha needed ---
+    const colorRIHBorder = 'rgb(102, 255, 102)';
+    const colorAffinityBorder = 'rgb(255, 170, 102)';
+    const colorTrustBorder = 'rgb(102, 170, 255)';
+    const colorBeliefNormBorder = 'rgb(255, 255, 102)';
+    const colorSelfNormBorder = 'rgb(200, 150, 255)';
+
+
+    metricsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            // labels: [], // Managed by streaming plugin
+            datasets: [
+                {
+                    label: 'RIH',
+                    data: [],
+                    borderColor: colorRIHBorder,
+                    backgroundColor: colorRIHBorder.replace('rgb(', 'rgba(').replace(')', ', 0.1)'), // Derive rgba
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    yAxisID: 'yPercentage',
+                    tension: 0.1
+                },
+                {
+                    label: 'Affinity',
+                    data: [],
+                    borderColor: colorAffinityBorder,
+                    backgroundColor: colorAffinityBorder.replace('rgb(', 'rgba(').replace(')', ', 0.1)'),
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                     yAxisID: 'yBipolar',
+                     tension: 0.1
+                },
+                {
+                    label: 'Trust',
+                    data: [],
+                    borderColor: colorTrustBorder,
+                    backgroundColor: colorTrustBorder.replace('rgb(', 'rgba(').replace(')', ', 0.1)'),
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    yAxisID: 'yPercentage',
+                    tension: 0.1
+                },
+                 {
+                    label: 'Belief Norm',
+                    data: [],
+                    borderColor: colorBeliefNormBorder,
+                    backgroundColor: colorBeliefNormBorder.replace('rgb(', 'rgba(').replace(')', ', 0.1)'),
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    yAxisID: 'yNorm',
+                    tension: 0.1,
+                    hidden: true // Initially hidden
+                },
+                 {
+                    label: 'Self Norm',
+                    data: [],
+                    borderColor: colorSelfNormBorder,
+                    backgroundColor: colorSelfNormBorder.replace('rgb(', 'rgba(').replace(')', ', 0.1)'),
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    yAxisID: 'yNorm',
+                    tension: 0.1,
+                    hidden: true // Initially hidden
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false, // Disable default animation for smoother streaming
+            scales: {
+                x: {
+                    type: 'realtime',
+                    realtime: {
+                        duration: 30000, // Show last 30 seconds
+                        ttl: 60000, // Keep data for 60 seconds
+                        delay: 500, // Delay before data is removed
+                        pause: false, // Do not pause on hover
+                        // frameRate: 15 // Optional: Limit chart updates
+                    },
+                    ticks: { display: false }, // Hide x-axis labels
+                    grid: {
+                        color: chartGridColor // Use retrieved JS variable
+                    }
+                },
+                yPercentage: { // For RIH, Trust (0-1 range)
+                    beginAtZero: true,
+                    max: 1.0,
+                    position: 'left',
+                    ticks: {
+                         color: chartTickColor, // Use variable or literal
+                         font: { size: 10 },
+                         stepSize: 0.25,
+                         // Format ticks as percentages
+                         callback: value => (value * 100).toFixed(0) + '%'
+                    },
+                    grid: {
+                        color: chartGridColor // Use retrieved JS variable
+                    }
+                },
+                 yBipolar: { // For Affinity (-1 to 1 range)
+                    min: -1.0,
+                    max: 1.0,
+                    position: 'right', // Place on opposite side
+                    ticks: {
+                        color: chartTickColor, // Use variable or literal
+                        font: { size: 10 },
+                        stepSize: 0.5
+                    },
+                    grid: {
+                        display: false // Hide grid for this axis
+                    }
+                 },
+                 yNorm: { // For Norms (0 to ~5 range, might need adjustment)
+                    beginAtZero: true,
+                    // max: 5.0, // Let it auto-scale for now
+                    position: 'right',
+                    display: false, // Hidden by default, shown if dataset visible
+                    ticks: {
+                        color: chartTickColor, // Use variable or literal
+                        font: { size: 10 }
+                    },
+                    grid: {
+                        display: false
+                    }
+                 }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: chartLegendLabelColor, // Use variable or literal
+                        font: { size: 10 },
+                        boxWidth: 12,
+                        padding: 10
+                    }
+                },
+                 tooltip: {
+                     enabled: true,
+                     mode: 'index',
+                     intersect: false,
+                     backgroundColor: chartTooltipBg, // Use retrieved JS variable
+                     titleColor: chartAccentColor, // Use retrieved JS variable
+                     bodyColor: chartTextColor, // Use retrieved JS variable
+                     boxPadding: 5,
+                     // Format tooltip titles and values
+                     callbacks: {
+                         title: function(tooltipItems) {
+                             // Format timestamp if needed, Luxon adapter might handle this
+                             const timestamp = tooltipItems[0]?.parsed?.x;
+                             return timestamp ? new Date(timestamp).toLocaleTimeString() : '';
+                         },
+                         label: function(context) {
+                              let label = context.dataset.label || '';
+                              if (label) {
+                                  label += ': ';
+                              }
+                              if (context.parsed.y !== null) {
+                                  // Format percentage axes correctly
+                                  if (context.dataset.yAxisID === 'yPercentage') {
+                                       label += (context.parsed.y * 100).toFixed(1) + '%';
+                                  } else {
+                                       label += context.parsed.y.toFixed(3);
+                                  }
+                              }
+                              return label;
+                          }
+                     }
+                 }
+            },
+            interaction: { // Optimize interaction
+                 mode: 'nearest',
+                 axis: 'x',
+                 intersect: false
+            }
+        }
+    });
+    console.log("Metrics chart initialized.");
 }
 
 /**
@@ -287,8 +646,9 @@ function updateSliderDisplays(integration, reflexivity) {
 
     if (integrationValue) integrationValue.textContent = integration?.toFixed(2) ?? 'N/A';
     if (reflexivityValue) reflexivityValue.textContent = reflexivity?.toFixed(2) ?? 'N/A';
-    if (integrationSlider && typeof integration === 'number') integrationSlider.value = integration;
-    if (reflexivitySlider && typeof reflexivity === 'number') reflexivitySlider.value = reflexivity;
+    // Update sliders only if they are NOT currently being dragged by the user
+    if (integrationSlider && typeof integration === 'number' && !integrationSlider.matches(':active')) integrationSlider.value = integration;
+    if (reflexivitySlider && typeof reflexivity === 'number' && !reflexivitySlider.matches(':active')) reflexivitySlider.value = reflexivity;
 }
 
 /**
@@ -304,16 +664,18 @@ function setupControls() {
 
     if (integrationSlider && integrationValue) {
         integrationSlider.addEventListener('input', () => {
+            // Display value immediately, but don't modify agent param here
             integrationValue.textContent = parseFloat(integrationSlider.value).toFixed(2);
-            lastIntegrationInputTime = appClock.getElapsedTime();
+            lastIntegrationInputTime = appClock.getElapsedTime(); // Mark time for feedback pulse
         });
         integrationSlider.removeAttribute('disabled');
         integrationSlider.classList.remove('read-only-slider');
     }
     if (reflexivitySlider && reflexivityValue) {
         reflexivitySlider.addEventListener('input', () => {
+            // Display value immediately
             reflexivityValue.textContent = parseFloat(reflexivitySlider.value).toFixed(2);
-            lastReflexivityInputTime = appClock.getElapsedTime();
+            lastReflexivityInputTime = appClock.getElapsedTime(); // Mark time for feedback pulse
         });
          reflexivitySlider.removeAttribute('disabled');
          reflexivitySlider.classList.remove('read-only-slider');
@@ -352,48 +714,36 @@ function setupChat() {
              appendChatMessage('You', userInput);
              chatInput.value = '';
              if (environment && agent) { // Check agent exists too
-                 const impactDetected = true; // Placeholder
-                 environment.getEmotionalImpactFromText(userInput);
-                 if (impactDetected) {
-                     lastChatImpactTime = appClock.getElapsedTime();
-                     appendChatMessage('System', 'Input processed, influencing environment.');
-                 } else { appendChatMessage('System', 'Input acknowledged.'); }
+                 // Let environment process text for potential base emotion changes
+                 const impactTensor = environment.getEmotionalImpactFromText(userInput);
+                 // Optional: Use impact tensor to directly influence agent's next step? (more complex)
+                 // For now, just let it modify env state.
+                  tf.dispose(impactTensor); // Dispose tensor returned by impact function
+
+                 lastChatImpactTime = appClock.getElapsedTime(); // Trigger feedback pulse
+                 appendChatMessage('System', 'Input processed, influencing environment.');
+                 logToTimeline(`Chat: "${userInput.substring(0, 20)}..."`, 'expressions-list'); // Log chat event
+
              } else { appendChatMessage('System', 'Environment/Agent not initialized.'); }
         }
     });
 }
 
 /**
- * Updates the metrics display panel (now includes trust, belief norm, self-state norm).
+ * Sets up the toggle button for the tensor inspector.
  */
-function updateMetricsDisplay(rihScore, affinities, emotionsTensor, context, trustScore, beliefNorm, selfStateNorm) {
-    const metricsDiv = document.getElementById('metrics');
-    if (!metricsDiv) return;
-    if (metricsDiv.innerHTML.includes('<h3>Dimension') || metricsDiv.innerHTML.includes('<h3>Reflexive Integration')) return;
-
-    let emotions = zeros([Config.Agent.EMOTION_DIM]);
-    if (emotionsTensor && typeof emotionsTensor.arraySync === 'function' && !emotionsTensor.isDisposed) {
-       try { emotions = emotionsTensor.arraySync()[0]; } catch (e) { console.warn("Error reading emotions tensor:", e)}
+function setupInspectorToggle() {
+    const toggleButton = document.getElementById('toggle-inspector');
+    const inspectorPanel = document.getElementById('tensor-inspector-panel');
+    if(toggleButton && inspectorPanel) {
+        toggleButton.addEventListener('click', () => {
+            inspectorPanel.classList.toggle('visible');
+        });
     }
-    const avgAffinity = affinities?.length > 0 ? affinities.reduce((a, b) => a + b, 0) / affinities.length : 0;
-    const dominantEmotionIdx = emotions.length === Config.Agent.EMOTION_DIM ? emotions.indexOf(Math.max(...emotions)) : -1;
-    const dominantEmotionName = dominantEmotionIdx !== -1 ? emotionNames[dominantEmotionIdx] : 'Unknown';
-    const dominantEmotionValue = dominantEmotionIdx !== -1 ? (emotions[dominantEmotionIdx] || 0) : 0;
-
-    // Added Belief Norm and Self-State Norm
-    metricsDiv.innerHTML = `
-        <h3>Simulation Overview</h3>
-        <p><i>Hover/click viz elements for details.</i></p>
-        <p><span class="simulated-data">RIH: ${(rihScore * 100).toFixed(1)}%</span> | <span class="simulated-data">Avg Aff: ${(avgAffinity * 100).toFixed(1)}%</span></p>
-        <p><span class="simulated-data">Trust: ${(trustScore * 100).toFixed(1)}%</span> | <span class="simulated-data">Belief Norm: ${beliefNorm.toFixed(3)}</span></p>
-        <p><span class="simulated-data">Self-State Norm: ${selfStateNorm.toFixed(3)}</span></p>
-        <p><span class="simulated-data">Dominant Emotion: ${dominantEmotionName} (${(dominantEmotionValue * 100).toFixed(1)}%)</span></p>
-        <p>Context: ${context || 'Stable'}</p>
-    `;
 }
 
 
-// --- Save/Load State Functions (Using V2.3 key) ---
+// --- Save/Load State Functions (Using V2.3.1 key) ---
 function saveState() {
     if (!agent || !environment || criticalError) {
         console.warn("Agent/Env not ready or critical error, cannot save.");
@@ -404,11 +754,18 @@ function saveState() {
         const envState = environment.getState();
         const agentState = agent.getState(); // Gets V2.3 state
 
-        const stateToSave = { environment: envState, agent: agentState, timestamp: new Date().toISOString() };
+        // Add chart data? Maybe too large. Only save core state.
+        const stateToSave = {
+            version: "2.3.1", // Mark state version
+            environment: envState,
+            agent: agentState,
+            timestamp: new Date().toISOString()
+        };
         localStorage.setItem(SAVED_STATE_KEY, JSON.stringify(stateToSave)); // Use new key
 
         console.log(`Simulation state saved to localStorage (Key: ${SAVED_STATE_KEY}).`);
         appendChatMessage('System', 'Simulation state saved.');
+        logToTimeline('State Saved', 'expressions-list');
         document.getElementById('load-state-button')?.classList.add('has-saved-state');
 
     } catch (e) {
@@ -433,13 +790,18 @@ function loadState(showMessages = false) {
         }
 
         const stateToLoad = JSON.parse(stateString);
-        if (!stateToLoad || !stateToLoad.environment || !stateToLoad.agent) {
-             console.error("Invalid saved state format.");
-             if (showMessages) appendChatMessage('System', 'Load failed: Invalid saved state format.');
-             localStorage.removeItem(SAVED_STATE_KEY);
-             displayError("Load failed: Invalid saved state format.", false, 'error-message');
+        // Basic validation
+        if (!stateToLoad || !stateToLoad.environment || !stateToLoad.agent || stateToLoad.version !== "2.3.1") {
+             console.error("Invalid or incompatible saved state format.", stateToLoad?.version);
+             if (showMessages) appendChatMessage('System', `Load failed: Invalid state format (Version: ${stateToLoad?.version}, Expected: 2.3.1).`);
+             // localStorage.removeItem(SAVED_STATE_KEY); // Optionally remove invalid state
+             displayError(`Load failed: Invalid state format (Version: ${stateToLoad?.version}).`, false, 'error-message');
             return false;
         }
+
+        // Pause animation/updates during load? Could prevent race conditions.
+        const wasAnimating = !criticalError; // Check if it was running
+        criticalError = true; // Temporarily pause animation loop
 
         // Load state into modules
         environment.loadState(stateToLoad.environment);
@@ -463,20 +825,40 @@ function loadState(showMessages = false) {
         currentRIHScore = agent.lastRIH ?? 0;
         currentTrustScore = agent.latestTrustScore ?? 1.0;
         currentContext = "State loaded.";
-        currentHmLabel = "idle"; currentAvgAffinity = 0; currentCascadeHistory = [];
+        currentHmLabel = "idle"; // Reset head movement on load
+        currentAvgAffinity = 0; // Reset average affinity
+        currentCascadeHistory = []; // Clear cascade history display
         currentIntegrationParam = agent.integrationParam?.dataSync()[0] ?? 0.5;
         currentReflexivityParam = agent.reflexivityParam?.dataSync()[0] ?? 0.5;
-        // Calculate self-state norm after load
+        // Calculate norms after load
+         currentBeliefNorm = 0.0; // Recalculated on next step
         if (agent.selfState && !agent.selfState.isDisposed) {
              try { currentSelfStateNorm = calculateArrayNorm(Array.from(agent.selfState.dataSync())); } catch(e){currentSelfStateNorm = 0.0;}
         } else { currentSelfStateNorm = 0.0;}
-        currentBeliefNorm = 0.0; // Recalculated on next step
+
+
+        // --- Clear Chart Data ---
+        if (metricsChart) {
+             metricsChart.data.datasets.forEach(dataset => dataset.data = []);
+             metricsChart.update();
+        }
+         // Clear Timeline
+         const timelineList = document.getElementById('expressions-list');
+         if(timelineList) timelineList.innerHTML = '';
+
 
         // --- Update UI Displays ---
         updateSliderDisplays(currentIntegrationParam, currentReflexivityParam);
+        updateDashboardDisplay();
+        updateEmotionBars(currentAgentEmotions);
+        updateCascadeViewer(); // Update cascade view (likely empty initially after load)
+        if (agent.selfState && !agent.selfState.isDisposed) { updateHeatmap(Array.from(agent.selfState.dataSync()), 'heatmap-content'); }
+        else { updateHeatmap([], 'heatmap-content'); }
+
 
         console.log(`Simulation state loaded (Key: ${SAVED_STATE_KEY}).`);
         if (showMessages) appendChatMessage('System', 'Simulation state loaded.');
+        logToTimeline('State Loaded', 'expressions-list');
 
          // Trigger initial viz updates with loaded state
          if (threeInitialized) {
@@ -491,14 +873,18 @@ function loadState(showMessages = false) {
               updateLive2DEmotions(currentAgentEmotions);
               updateLive2DHeadMovement(currentHmLabel, 0);
           }
-         updateMetricsDisplay(currentRIHScore, [], currentAgentEmotions, currentContext, currentTrustScore, currentBeliefNorm, currentSelfStateNorm);
+         // updateMetricsDisplay(currentRIHScore, [], currentAgentEmotions, currentContext, currentTrustScore, currentBeliefNorm, currentSelfStateNorm); // Replaced by updateDashboardDisplay
+
+         criticalError = !wasAnimating; // Resume animation if it was running before load
+         if (!criticalError) animate(); // Restart loop if needed
 
         return true;
     } catch (e) {
         console.error("Error loading state:", e);
          if (showMessages) appendChatMessage('System', `Load failed: ${e.message}`);
-         localStorage.removeItem(SAVED_STATE_KEY);
+         // localStorage.removeItem(SAVED_STATE_KEY); // Optionally remove corrupt state
          displayError(`Load failed: ${e.message}`, false, 'error-message');
+         criticalError = false; // Allow animation loop to restart if it was paused
          return false;
     }
 }
@@ -508,7 +894,10 @@ function loadState(showMessages = false) {
  * The main animation loop.
  */
 async function animate() {
-    if (criticalError) { console.log("Critical error detected, stopping animation."); return; }
+    if (criticalError) {
+        // console.log("Animation loop paused due to critical error or loading.");
+        return;
+    }
     requestAnimationFrame(animate);
 
     const deltaTime = appClock.getDelta();
@@ -518,6 +907,7 @@ async function animate() {
     const graphFeatures = calculateGraphFeatures(); // Calculate every frame
 
     // --- Simulation Step ---
+    let agentResponse = null; // Define agentResponse outside the try block
     if (agent && environment && currentAgentEmotions && !currentAgentEmotions.isDisposed) {
         try {
             const envStep = await environment.step(currentAgentEmotions, currentRIHScore, currentAvgAffinity);
@@ -526,7 +916,7 @@ async function animate() {
             while (currentStateVector.length < Config.Agent.BASE_STATE_DIM) currentStateVector.push(0);
 
             // Agent processes state + graph features
-            const agentResponse = await agent.process(
+            agentResponse = await agent.process( // Assign to outer scope variable
                 currentStateVector,
                 graphFeatures, // Pass calculated features
                 { eventType: envStep.eventType, reward: envStep.reward }
@@ -544,24 +934,23 @@ async function animate() {
             currentReflexivityParam = agentResponse.reflexivity;
             currentTrustScore = agentResponse.trustScore;
             currentBeliefNorm = agentResponse.beliefNorm ?? 0.0; // Capture Belief Norm
+            currentSelfStateNorm = agentResponse.selfStateNorm ?? 0.0; // Capture Self-State Norm
 
-            // Calculate Self-State Norm AFTER agent processing
-            if (agent.selfState && !agent.selfState.isDisposed) {
-                try {
-                    const selfStateArray = Array.from(agent.selfState.dataSync());
-                    currentSelfStateNorm = calculateArrayNorm(selfStateArray);
-                } catch (e) { console.warn("Error calculating self-state norm:", e); currentSelfStateNorm = 0.0; }
-            } else { currentSelfStateNorm = 0.0; }
-
-
-            updateSliderDisplays(currentIntegrationParam, currentReflexivityParam);
+            updateSliderDisplays(currentIntegrationParam, currentReflexivityParam); // Update sliders based on agent's internal params
 
         } catch (e) {
              console.error("Error during simulation step:", e);
              displayError(`Simulation Error: ${e.message}. Attempting to continue.`, false, 'error-message');
+             // Attempt to reuse previous values if an error occurs during processing
+             // Ensure currentAgentEmotions is valid
+              if (!currentAgentEmotions || currentAgentEmotions?.isDisposed) {
+                 if (typeof tf !== 'undefined') {
+                     currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
+                 } else { currentAgentEmotions = null; }
+             }
         }
     } else {
-         // Fallback logic
+         // Fallback logic if agent/env not ready
          if (!currentAgentEmotions || currentAgentEmotions?.isDisposed) {
              if (typeof tf !== 'undefined') {
                  if (currentAgentEmotions && !currentAgentEmotions.isDisposed) tf.dispose(currentAgentEmotions);
@@ -574,11 +963,23 @@ async function animate() {
     }
 
 
-     // --- Update Visualizations ---
+     // --- Update UI & Visualizations ---
+     updateDashboardDisplay(); // Update progress bars, text values
+     updateMetricsChart(); // Update the historical chart
+     updateEmotionBars(currentAgentEmotions); // Update emotion intensity bars
+     updateCascadeViewer(); // Update cascade text view
+
+     // Log head movement to timeline if it changed
+     if (agentResponse && agentResponse.hmLabel !== currentHmLabel && agentResponse.hmLabel !== 'idle') {
+          // logToTimeline(`Action: ${agentResponse.hmLabel}`, 'expressions-list'); // Log significant actions
+          // currentHmLabel = agentResponse.hmLabel; // Update global currentHmLabel (already done above)
+     }
+
+
     try {
         if (threeInitialized) {
             updateThreeJS(deltaTime, currentStateVector, currentRIHScore, agent?.latestAffinities || [], currentIntegrationParam, currentReflexivityParam, currentCascadeHistory, currentContext);
-            updateSyntrometryInfoPanel();
+            updateSyntrometryInfoPanel(); // Update the hover/select info panel
         }
     } catch(e) { console.error("Error updating Syntrometry Viz:", e); }
 
@@ -590,7 +991,7 @@ async function animate() {
 
             if (emotionsForViz) {
                 updateAgentSimulationVisuals(emotionsForViz, currentRIHScore, currentAvgAffinity, currentHmLabel, currentTrustScore); // Pass trust
-                if (emotionsForViz !== currentAgentEmotions && typeof tf !== 'undefined') tf.dispose(emotionsForViz);
+                 if (emotionsForViz !== currentAgentEmotions && typeof tf !== 'undefined' && !emotionsForViz.isDisposed) tf.dispose(emotionsForViz); // Dispose if created
             }
         }
     } catch (e) { console.error("Error updating Concept Viz placeholders:", e); }
@@ -603,14 +1004,12 @@ async function animate() {
 
             if (emotionsForLive2D) {
                  updateLive2DEmotions(emotionsForLive2D);
-                 if (emotionsForLive2D !== currentAgentEmotions && typeof tf !== 'undefined') tf.dispose(emotionsForLive2D);
+                 if (emotionsForLive2D !== currentAgentEmotions && typeof tf !== 'undefined' && !emotionsForLive2D.isDisposed) tf.dispose(emotionsForLive2D); // Dispose if created
             }
             updateLive2DHeadMovement(currentHmLabel, deltaTime);
         }
     } catch (e) { console.error("Error updating Live2D:", e); }
 
-    // Update metrics display including norms
-    updateMetricsDisplay(currentRIHScore, agent?.latestAffinities || [], currentAgentEmotions, currentContext, currentTrustScore, currentBeliefNorm, currentSelfStateNorm);
 
     // --- Update Heatmap ---
     if (agent && agent.selfState && !agent.selfState.isDisposed) {
@@ -637,6 +1036,11 @@ async function animate() {
 function cleanup() {
     console.log("Cleaning up application resources (V2.3)...");
     criticalError = true; // Stop animation loop requests
+
+    // Destroy Chart.js instance
+    if (metricsChart) {
+        try { metricsChart.destroy(); metricsChart = null; } catch(e) { console.error("Chart destroy error:", e); }
+    }
 
     try { if (environment?.cleanup) environment.cleanup(); } catch (e) { console.error("Env cleanup error:", e); }
     try { if (agent?.cleanup) agent.cleanup(); } catch (e) { console.error("Agent cleanup error:", e); }
