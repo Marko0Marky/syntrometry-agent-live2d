@@ -31,7 +31,7 @@ This project presents an interactive web application designed to bring Burkhard 
 
 **[➡️ View the Live Demo Here](https://marko0marky.github.io/syntrometry-agent-live2d/)**
 
-*(Screenshots & GIFs coming soon!)*
+*[Syntrometry.gif](Syntrometry.gif)*
 
 ---
 
