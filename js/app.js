@@ -1,3 +1,5 @@
+// js/app.js
+
 // --- Imports ---
 import { Config, emotionKeywords, emotionNames } from './config.js';
 import { displayError, appendChatMessage, zeros, tensor, clamp, inspectTensor, logToTimeline } from './utils.js';
@@ -14,6 +16,7 @@ import {
     conceptRenderer, conceptLabelRenderer, conceptScene, conceptCamera, conceptControls
 } from './viz-concepts.js';
 import { initLive2D, updateLive2DEmotions, updateLive2DHeadMovement, live2dInitialized, cleanupLive2D } from './viz-live2d.js';
+import { initializeDraggablePanels } from './draggablePanels.js'; // Ensure this is imported
 
 // --- Global State ---
 let criticalError = false;
@@ -49,7 +52,7 @@ const inputFeedbackDuration = 0.5;
 let metricsChart = null;
 const MAX_CHART_POINTS = 150; // Limit points displayed for performance
 
-// Resize Handler for Concept Graph Visualization
+// Resize Handler for Concept Graph Visualization (Keep separate from main init)
 function resizeConceptGraphRenderer() {
     if (!conceptInitialized || !conceptRenderer || !conceptLabelRenderer || !conceptCamera) {
         return;
@@ -97,10 +100,24 @@ function updateHeatmap(stateVector, targetElementId) {
     // Optimized grid calculation
     const gridDim = Math.ceil(Math.sqrt(vectorLength));
     const containerWidth = heatmapContainer.clientWidth;
-    const cellSize = Math.max(2, Math.floor(containerWidth / gridDim) - 1);
+    // Calculate cell size based on container width, ensuring a minimum size
+    let cellSize = Math.max(2, Math.floor(containerWidth / gridDim) - 1); // Subtract 1 for gap
+     // Check if container height limits cell size more
+    const containerHeight = heatmapContainer.clientHeight;
+    if (containerHeight > 0) {
+        const cellSizeH = Math.max(2, Math.floor(containerHeight / gridDim) -1);
+        cellSize = Math.min(cellSize, cellSizeH); // Use the smaller dimension constraint
+    }
+    // Ensure cell size is at least 1 if calculated as 0 or less
+    cellSize = Math.max(1, cellSize);
+
 
     heatmapContainer.style.gridTemplateColumns = `repeat(${gridDim}, ${cellSize}px)`;
     heatmapContainer.style.gridTemplateRows = `repeat(${gridDim}, ${cellSize}px)`;
+    // Add justify-content and align-content to center grid if smaller than container
+    heatmapContainer.style.justifyContent = 'center';
+    heatmapContainer.style.alignContent = 'center';
+
 
     let htmlContent = '';
     for (let i = 0; i < vectorLength; i++) {
@@ -122,13 +139,13 @@ function updateHeatmap(stateVector, targetElementId) {
         r = clamp(r, 0, 255); g = clamp(g, 0, 255); b = clamp(b, 0, 255);
         const color = `rgb(${r}, ${g}, ${b})`;
         const tooltip = `Idx ${i}: ${value.toFixed(4)}`;
-        htmlContent += `<div class="heatmap-cell" style="background-color: ${color};" title="${tooltip}"></div>`;
+        htmlContent += `<div class="heatmap-cell" style="background-color: ${color}; width:${cellSize}px; height:${cellSize}px;" title="${tooltip}"></div>`; // Set explicit size
     }
 
     // Fill remaining grid cells if not a perfect square
     const totalCells = gridDim * gridDim;
     for (let i = vectorLength; i < totalCells; i++) {
-        htmlContent += `<div class="heatmap-cell filler" style="width:${cellSize}px; height:${cellSize}px;"></div>`;
+        htmlContent += `<div class="heatmap-cell filler" style="width:${cellSize}px; height:${cellSize}px; background-color: #111;"></div>`; // Ensure filler matches bg
     }
 
     heatmapContainer.innerHTML = htmlContent;
@@ -148,6 +165,7 @@ function updateMetricsChart() {
         metricsChart.data.datasets[4].data.push({ x: now, y: simulationMetrics.currentSelfStateNorm });
 
         // Limit data points for performance (Chart.js streaming plugin handles this mostly via `ttl`)
+        // But add manual check just in case ttl doesn't catch up immediately
         metricsChart.data.datasets.forEach(dataset => {
             while (dataset.data.length > MAX_CHART_POINTS * 1.2) { // Keep slightly more than max for smoother look
                 dataset.data.shift();
@@ -291,102 +309,145 @@ function updateCascadeViewer() {
      contentDiv.scrollTop = contentDiv.scrollHeight;
 }
 
+
 // --- Initialization ---
+// ========================================================
+// == FULL initialize FUNCTION WITH DOM CHECK ADDED ==
+// ========================================================
 async function initialize() {
+    // --- CRITICAL: Add a check for the elements needed by viz-concepts ---
+    // We do this check *before* calling initConceptVisualization
+    // Ensure these elements exist in index.html with the correct IDs
+    const conceptPanel = document.getElementById('concept-panel');
+    const infoPanel = document.getElementById('info-panel');
+    const toggleButton = document.getElementById('toggle-info-panel');
+
+    // Use a local flag for this specific check
+    let conceptDOMElementsMissing = false;
+    if (!conceptPanel || !infoPanel || !toggleButton) {
+        console.error("!!! DOM Check Failed in app.js initialize !!! Missing crucial elements for Concept Viz.", {
+             conceptPanel: conceptPanel, // Will show null if missing
+             infoPanel: infoPanel,       // Will show null if missing
+             toggleButton: toggleButton   // Will show null if missing
+        });
+        // Display error message directly
+        const errorDiv = document.getElementById('error-message') || document.body;
+        const msg = document.createElement('p');
+        msg.style.cssText = 'color: red; font-weight: bold; padding: 10px; background: rgba(50,0,0,0.8); border: 1px solid red; margin-bottom: 10px;'; // Added margin
+        msg.textContent = "[Critical Init Error] Required visualization panels (concept-panel, info-panel, toggle-info-panel) not found in DOM. Cannot initialize Concept Graph. Check index.html.";
+        errorDiv.prepend(msg);
+        errorDiv.style.display = 'block'; // Ensure error area is visible
+        // Don't set global criticalError yet, allow other things to initialize
+        conceptDOMElementsMissing = true;
+    }
+    // --- END CRITICAL CHECK ---
+
     console.log("Initializing application (Agent V2.3)...");
     const coreInitSuccess = initAgentAndEnvironment();
-    const threeSuccess = initThreeJS(); // Syntrometry Viz
-    const conceptSuccess = initConceptVisualization(appClock); // Concept Viz
-    const live2dSuccess = await initLive2D(); // Live2D Avatar
 
-    // Handle core failures early
-    if (!coreInitSuccess) {
-        criticalError = true;
-        displayError("Core simulation components (Agent/Environment/TF) failed to initialize. Simulation disabled. Check console.", true, 'error-message');
+    // Initialize Syntrometry Viz (doesn't depend on the failing elements)
+    const threeSuccess = initThreeJS();
+
+    // Attempt to initialize Concept Viz only if the critical check passed
+    let conceptSuccess = false;
+    if (!conceptDOMElementsMissing) { // Check local flag
+         conceptSuccess = initConceptVisualization(appClock);
+    } else {
+         console.warn("Skipping Concept Visualization initialization due to missing DOM elements.");
+         displayError("Concept Graph visualization skipped: Required HTML elements not found.", false, 'concept-error-message');
     }
 
-    // Report non-critical visualization failures
+    // Initialize Live2D
+    const live2dSuccess = await initLive2D();
+
+    // Handle core failures early (if Agent/Env failed)
+    if (!coreInitSuccess) {
+        criticalError = true; // Set global critical error
+        displayError("Core simulation components (Agent/Environment/TF) failed to initialize. Simulation disabled. Check console.", true, 'error-message');
+    } else if (conceptDOMElementsMissing) {
+         // If core is OK but concept viz elements are missing, treat it as critical for full functionality
+         criticalError = true; // Set global critical error
+         console.error("Initialization halted: Concept Graph DOM elements missing.");
+         // The specific error message was already displayed above
+    }
+
+    // Report non-critical visualization failures (Syntrometry/Live2D)
     if (!threeSuccess) displayError("Syntrometry visualization failed to initialize.", false, 'syntrometry-error-message');
-    if (!conceptSuccess) displayError("Concept Graph visualization failed to initialize.", false, 'concept-error-message');
+    // Concept failure message handled above or within initConceptVisualization itself
     if (!live2dSuccess) displayError("Live2D avatar failed to initialize.", false, 'error-message'); // Display in main error area
 
     // Initialize UI elements that don't depend on core/viz
     initMetricsChart();
-    setupControls(); // Enable/disable based on criticalError later
-    setupChat(); // Enable/disable based on criticalError later
+    setupControls(); // Will be disabled later if criticalError is true
+    setupChat(); // Will be disabled later if criticalError is true
     setupInspectorToggle();
+    initializeDraggablePanels('.overlay-panel', '.visualization-container'); // Initialize draggable panels
 
-    // Attempt to load saved state or initialize new state
+    // Attempt to load saved state or initialize new state ONLY if core is okay
     let initialStateLoaded = false;
-    if (coreInitSuccess) {
+    if (coreInitSuccess && !criticalError) { // Check criticalError again in case DOM check failed
         initialStateLoaded = loadState(false); // Load state silently first
+
+        // If not loaded and core is ready, initialize a new state
+        if (!initialStateLoaded && agent && environment) {
+            console.log("No valid saved state found or load skipped, initializing new simulation state...");
+            const initialState = environment.reset(); // Reset environment
+            const initialStateArray = initialState.state && !initialState.state.isDisposed
+                ? initialState.state.arraySync()[0]
+                : zeros([Config.Agent.BASE_STATE_DIM]);
+
+            simulationMetrics.currentStateVector = initialStateArray.slice(0, Config.Agent.BASE_STATE_DIM);
+            while (simulationMetrics.currentStateVector.length < Config.Agent.BASE_STATE_DIM) simulationMetrics.currentStateVector.push(0);
+
+            if (simulationMetrics.currentAgentEmotions && !simulationMetrics.currentAgentEmotions.isDisposed) tf.dispose(simulationMetrics.currentAgentEmotions);
+            simulationMetrics.currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM])); // Start with zero emotions
+
+            try {
+                const initialGraphFeatures = calculateGraphFeatures();
+                const initialAgentResponse = await agent.process(
+                    simulationMetrics.currentStateVector,
+                    initialGraphFeatures,
+                    { eventType: null, reward: 0 } // Initial neutral context
+                );
+
+                if (simulationMetrics.currentAgentEmotions && !simulationMetrics.currentAgentEmotions.isDisposed) tf.dispose(simulationMetrics.currentAgentEmotions);
+                simulationMetrics.currentAgentEmotions = initialAgentResponse.emotions;
+                simulationMetrics.currentRIHScore = initialAgentResponse.rihScore;
+                simulationMetrics.currentAvgAffinity = (initialAgentResponse.affinities?.length > 0) ? initialAgentResponse.affinities.reduce((a, b) => a + b, 0) / initialAgentResponse.affinities.length : 0;
+                simulationMetrics.currentHmLabel = initialAgentResponse.hmLabel;
+                simulationMetrics.currentContext = "Simulation initialized (New State).";
+                simulationMetrics.currentCascadeHistory = initialAgentResponse.cascadeHistory;
+                simulationMetrics.currentIntegrationParam = initialAgentResponse.integration;
+                simulationMetrics.currentReflexivityParam = initialAgentResponse.reflexivity;
+                simulationMetrics.currentTrustScore = initialAgentResponse.trustScore;
+                simulationMetrics.currentBeliefNorm = initialAgentResponse.beliefNorm ?? 0.0;
+                simulationMetrics.currentSelfStateNorm = initialAgentResponse.selfStateNorm ?? 0.0;
+
+                console.log("Initialized V2.3 with fresh agent state.");
+
+            } catch (initialProcessError) {
+                 console.error("Error during initial agent processing:", initialProcessError);
+                 displayError(`Error initializing agent state: ${initialProcessError.message}. Simulation may be unstable.`, true, 'error-message');
+                 criticalError = true; // Treat this as critical
+                 // Reset metrics to default (handled below)
+            }
+        }
     }
 
-    // If not loaded and core is ready, initialize a new state
-    if (!initialStateLoaded && coreInitSuccess && agent && environment) {
-        console.log("No valid saved state found or load skipped, initializing new simulation state...");
-        const initialState = environment.reset(); // Reset environment
-        const initialStateArray = initialState.state && !initialState.state.isDisposed
-            ? initialState.state.arraySync()[0]
-            : zeros([Config.Agent.BASE_STATE_DIM]);
-
-        // Initialize currentStateVector correctly
-        simulationMetrics.currentStateVector = initialStateArray.slice(0, Config.Agent.BASE_STATE_DIM);
-        while (simulationMetrics.currentStateVector.length < Config.Agent.BASE_STATE_DIM) simulationMetrics.currentStateVector.push(0);
-
-        // Ensure clean initial emotions tensor
-        if (simulationMetrics.currentAgentEmotions && !simulationMetrics.currentAgentEmotions.isDisposed) tf.dispose(simulationMetrics.currentAgentEmotions);
-        simulationMetrics.currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM])); // Start with zero emotions
-
-        // Perform an initial agent process step to get baseline metrics
-        try {
-            const initialGraphFeatures = calculateGraphFeatures();
-            const initialAgentResponse = await agent.process(
-                simulationMetrics.currentStateVector,
-                initialGraphFeatures,
-                { eventType: null, reward: 0 } // Initial neutral context
-            );
-
-            // Update simulation metrics from the initial response
-            if (simulationMetrics.currentAgentEmotions && !simulationMetrics.currentAgentEmotions.isDisposed) tf.dispose(simulationMetrics.currentAgentEmotions);
-            simulationMetrics.currentAgentEmotions = initialAgentResponse.emotions; // Keep the tensor returned by agent
-            simulationMetrics.currentRIHScore = initialAgentResponse.rihScore;
-            simulationMetrics.currentAvgAffinity = (initialAgentResponse.affinities?.length > 0) ? initialAgentResponse.affinities.reduce((a, b) => a + b, 0) / initialAgentResponse.affinities.length : 0;
-            simulationMetrics.currentHmLabel = initialAgentResponse.hmLabel;
-            simulationMetrics.currentContext = "Simulation initialized (New State).";
-            simulationMetrics.currentCascadeHistory = initialAgentResponse.cascadeHistory;
-            simulationMetrics.currentIntegrationParam = initialAgentResponse.integration;
-            simulationMetrics.currentReflexivityParam = initialAgentResponse.reflexivity;
-            simulationMetrics.currentTrustScore = initialAgentResponse.trustScore;
-            simulationMetrics.currentBeliefNorm = initialAgentResponse.beliefNorm ?? 0.0;
-            simulationMetrics.currentSelfStateNorm = initialAgentResponse.selfStateNorm ?? 0.0;
-
-            console.log("Initialized V2.3 with fresh agent state.");
-
-        } catch (initialProcessError) {
-             console.error("Error during initial agent processing:", initialProcessError);
-             displayError(`Error initializing agent state: ${initialProcessError.message}. Simulation may be unstable.`, true, 'error-message');
-             criticalError = true; // Treat this as critical
-             // Reset metrics to default on error
-             if (simulationMetrics.currentAgentEmotions && !simulationMetrics.currentAgentEmotions.isDisposed) tf.dispose(simulationMetrics.currentAgentEmotions);
-             simulationMetrics.currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
-             // Reset other metrics... (handled below in the !coreInitSuccess block)
-        }
-
-    } else if (!coreInitSuccess || !agent || !environment) {
-        // Handle case where core failed or state wasn't loaded and couldn't be initialized
-        console.warn("Core components not available or initial state failed. Setting default metrics.");
+    // If critical error occurred at any point, set default metrics
+    if (criticalError) {
+        console.warn("Critical error occurred during initialization. Setting default metrics.");
         simulationMetrics.currentStateVector = zeros([Config.Agent.BASE_STATE_DIM]);
         if (typeof tf !== 'undefined') {
             if (simulationMetrics.currentAgentEmotions && !simulationMetrics.currentAgentEmotions.isDisposed) tf.dispose(simulationMetrics.currentAgentEmotions);
             simulationMetrics.currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
         } else {
-            simulationMetrics.currentAgentEmotions = null; // No TF available
+            simulationMetrics.currentAgentEmotions = null;
         }
         simulationMetrics.currentRIHScore = 0;
         simulationMetrics.currentAvgAffinity = 0;
         simulationMetrics.currentHmLabel = "idle";
-        simulationMetrics.currentContext = criticalError ? "Simulation core failed." : "Simulation state error.";
+        simulationMetrics.currentContext = "Initialization Failed."; // Clearer context
         simulationMetrics.currentCascadeHistory = [];
         simulationMetrics.currentIntegrationParam = 0.5;
         simulationMetrics.currentReflexivityParam = 0.5;
@@ -395,44 +456,47 @@ async function initialize() {
         simulationMetrics.currentSelfStateNorm = 0.0;
     }
 
-    // Update UI based on the final initial state (loaded or new or default)
+    // Update UI based on the final initial state (loaded or new or default/error)
     updateSliderDisplays(simulationMetrics.currentIntegrationParam, simulationMetrics.currentReflexivityParam);
 
     // --- Initialize Visualizations with Initial State ---
-    if (threeInitialized) {
-        updateThreeJS(
-            0, // deltaTime
-            simulationMetrics.currentStateVector,
-            simulationMetrics.currentRIHScore,
-            agent?.latestAffinities || [], // Use agent's internal cache if available
-            simulationMetrics.currentIntegrationParam,
-            simulationMetrics.currentReflexivityParam,
-            simulationMetrics.currentCascadeHistory,
-            simulationMetrics.currentContext
-        );
-        updateSyntrometryInfoPanel(); // Update info panel based on initial state
+    if (threeInitialized) { // Syntrometry Viz
+        try { // Add try-catch for safety
+            updateThreeJS(
+                0, // deltaTime
+                simulationMetrics.currentStateVector,
+                simulationMetrics.currentRIHScore,
+                agent?.latestAffinities || [],
+                simulationMetrics.currentIntegrationParam,
+                simulationMetrics.currentReflexivityParam,
+                simulationMetrics.currentCascadeHistory,
+                simulationMetrics.currentContext
+            );
+            updateSyntrometryInfoPanel();
+        } catch (vizError) { console.error("Error during initial Syntrometry update:", vizError); }
     }
 
-    if (conceptInitialized) {
+    // Note: conceptInitialized flag is managed within viz-concepts.js
+    if (conceptInitialized) { // Concept Viz (Only if successfully initialized)
         try {
             updateAgentSimulationVisuals(
-                simulationMetrics.currentAgentEmotions, // Pass the current tensor
+                simulationMetrics.currentAgentEmotions,
                 simulationMetrics.currentRIHScore,
                 simulationMetrics.currentAvgAffinity,
                 simulationMetrics.currentHmLabel,
                 simulationMetrics.currentTrustScore
             );
-            animateConceptNodes(0, simulationMetrics.currentIntegrationParam, simulationMetrics.currentReflexivityParam, -1, -1, -1); // Initial animation state
+            animateConceptNodes(0, simulationMetrics.currentIntegrationParam, simulationMetrics.currentReflexivityParam, -1, -1, -1);
+            resizeConceptGraphRenderer(); // Ensure correct size after setup
         } catch (e) {
             console.error("Error during initial concept visualization update:", e);
         }
-        resizeConceptGraphRenderer(); // Ensure correct size after setup
     }
 
-    if (live2dInitialized) {
+    if (live2dInitialized) { // Live2D Avatar
         try {
-            updateLive2DEmotions(simulationMetrics.currentAgentEmotions); // Pass the current tensor
-            updateLive2DHeadMovement(simulationMetrics.currentHmLabel, 0); // Initial head position
+            updateLive2DEmotions(simulationMetrics.currentAgentEmotions);
+            updateLive2DHeadMovement(simulationMetrics.currentHmLabel, 0);
         } catch (e) {
             console.error("Error during initial Live2D update:", e);
         }
@@ -442,10 +506,10 @@ async function initialize() {
     updateDashboardDisplay();
     updateEmotionBars(simulationMetrics.currentAgentEmotions);
     updateCascadeViewer();
-    logToTimeline("System Initialized", 'expressions-list');
+    if (!criticalError) logToTimeline("System Initialized", 'expressions-list');
 
-    // Update heatmap with initial self-state if available
-    if (agent?.selfState && !agent.selfState.isDisposed) {
+    // Update heatmap with initial self-state if available and no error
+    if (!criticalError && agent?.selfState && !agent.selfState.isDisposed) {
         try {
             updateHeatmap(Array.from(agent.selfState.dataSync()), 'heatmap-content');
         } catch (e) {
@@ -453,49 +517,50 @@ async function initialize() {
             updateHeatmap([], 'heatmap-content'); // Clear heatmap on error
         }
     } else {
-        updateHeatmap([], 'heatmap-content'); // No self-state available
+        updateHeatmap([], 'heatmap-content'); // No self-state available or critical error
     }
 
-    // Enable/disable controls based on critical error status
+    // Enable/disable controls based on final critical error status
     if (criticalError) {
         disableControls();
     }
 
-    // Add resize listener for Concept Graph
-    window.addEventListener('resize', resizeConceptGraphRenderer);
+    // Add resize listener for Concept Graph (if initialized)
+    if (conceptInitialized) {
+        window.addEventListener('resize', resizeConceptGraphRenderer);
+    }
 
     // Start the main animation loop if no critical errors
     if (!criticalError) {
         console.log("Initialization complete (V2.3). Starting animation loop.");
         animate();
     } else {
-        console.error("Initialization encountered critical errors. Animation loop will not start.");
+        console.error("Initialization encountered critical errors OR missing required DOM elements. Animation loop will not start.");
     }
 }
+// ========================================================
+// == END OF FULL initialize FUNCTION ==
+// ========================================================
 
 
+// --- initAgentAndEnvironment, initMetricsChart (Keep as they are) ---
 function initAgentAndEnvironment() {
     if (typeof tf === 'undefined') {
         console.error("CRITICAL: TensorFlow.js is required for Agent/Environment but not loaded.");
-        // criticalError is set in initialize() based on this function's return
         agent = null;
         environment = null;
         return false;
     }
     try {
-        // console.log("Attempting to create SyntrometricAgent..."); // Reduce noise
         agent = new SyntrometricAgent();
-        // console.log("SyntrometricAgent instance created. Agent object:", agent); // Reduce noise
-
         environment = new EmotionalSpace();
 
-        // Validate core components AFTER construction attempts
-        if (!agent || !agent.optimizer || !agent.beliefNetwork || !agent.enyphansyntrix) { // Added enyphansyntrix check
+        if (!agent || !agent.optimizer || !agent.beliefNetwork || !agent.enyphansyntrix) {
             console.error("Agent validation failed post-constructor.", {
                 agentExists: !!agent,
                 optimizerExists: !!agent?.optimizer,
                 beliefNetExists: !!agent?.beliefNetwork,
-                enyphansyntrixExists: !!agent?.enyphansyntrix // Check core module too
+                enyphansyntrixExists: !!agent?.enyphansyntrix
             });
             throw new Error("Agent core components failed validation immediately after initialization.");
         }
@@ -509,7 +574,6 @@ function initAgentAndEnvironment() {
     } catch (e) {
         console.error('[Init] Agent/Environment creation/validation error:', e);
         displayError(`Initialization Error: ${e.message}. Simulation logic disabled.`, true, 'error-message');
-        // criticalError is set in initialize() based on this function's return
         if (agent && typeof agent.cleanup === 'function') {
             try { agent.cleanup(); } catch (cleanupErr) { console.error("Error during agent cleanup after init failure:", cleanupErr); }
         }
@@ -533,7 +597,6 @@ function initMetricsChart() {
         metricsChart = null;
     }
 
-    // Get CSS variables for styling
     const computedStyle = getComputedStyle(document.documentElement);
     const chartGridColor = computedStyle.getPropertyValue('--chart-grid-color').trim() || 'rgba(200, 200, 220, 0.15)';
     const chartTickColor = 'rgba(238, 238, 238, 0.7)';
@@ -596,7 +659,6 @@ function initMetricsChart() {
                     legend: {
                         position: 'bottom', align: 'start',
                         labels: { color: chartLegendLabelColor, font: { size: 10 }, boxWidth: 12, padding: 10,
-                            // Allow hiding/showing datasets by clicking legend items
                             filter: function(legendItem, chartData) { return chartData.datasets[legendItem.datasetIndex]; }
                         },
                         onClick: (e, legendItem, legend) => {
@@ -604,7 +666,6 @@ function initMetricsChart() {
                             const ci = legend.chart;
                             const meta = ci.getDatasetMeta(index);
                             meta.hidden = meta.hidden === null ? !ci.data.datasets[index].hidden : null;
-                            // Toggle visibility of the corresponding axis if needed (e.g., yNorm)
                             if (ci.options.scales.yNorm && (index === 3 || index === 4)) {
                                 const normVisible = !ci.getDatasetMeta(3).hidden || !ci.getDatasetMeta(4).hidden;
                                 ci.options.scales.yNorm.display = normVisible;
@@ -640,6 +701,7 @@ function initMetricsChart() {
     }
 }
 
+// --- UI Setup Functions (Keep as they are) ---
 function updateSliderDisplays(integration, reflexivity) {
     const integrationValue = document.getElementById('integration-value');
     const reflexivityValue = document.getElementById('reflexivity-value');
@@ -665,19 +727,14 @@ function setupControls() {
     const reflexivityValue = document.getElementById('reflexivity-value');
     const saveButton = document.getElementById('save-state-button');
     const loadButton = document.getElementById('load-state-button');
+    const labelsToggle = document.getElementById('labels-toggle'); // Added toggle checkbox
 
-    // Slider listeners: Update text and trigger visual feedback timestamp.
-    // NOTE: These sliders DO NOT directly control the agent's internal parameters.
-    // They reflect the agent's learned values, and interaction only triggers visual feedback.
     if (integrationSlider && integrationValue) {
         integrationSlider.addEventListener('input', () => {
-            // Update display value while dragging
             integrationValue.textContent = parseFloat(integrationSlider.value).toFixed(2);
-            // Record time for visual feedback pulse in concept graph
             lastIntegrationInputTime = appClock.getElapsedTime();
         });
-         // Disable direct control - these are read-only reflecting agent state
-         integrationSlider.disabled = true;
+         integrationSlider.disabled = true; // Read-only
          integrationSlider.classList.add('read-only-slider');
     } else { console.warn("Integration slider/value elements not found."); }
 
@@ -686,21 +743,38 @@ function setupControls() {
             reflexivityValue.textContent = parseFloat(reflexivitySlider.value).toFixed(2);
             lastReflexivityInputTime = appClock.getElapsedTime();
         });
-         // Disable direct control
-         reflexivitySlider.disabled = true;
+         reflexivitySlider.disabled = true; // Read-only
          reflexivitySlider.classList.add('read-only-slider');
     } else { console.warn("Reflexivity slider/value elements not found."); }
 
-    // State buttons
+    // Label Toggle Listener (assuming conceptNodes exists)
+    if (labelsToggle && typeof conceptNodes !== 'undefined') {
+        labelsToggle.addEventListener('change', () => {
+            const showLabels = labelsToggle.checked;
+            // Iterate through conceptNodes and placeholders that have labels
+            [...Object.values(conceptNodes), {object: agentStateMesh}, {object: emergenceCoreMesh}]
+              .filter(entry => entry?.object?.userData?.label)
+              .forEach(entry => {
+                  entry.object.userData.label.element.style.visibility = showLabels ? 'visible' : 'hidden';
+              });
+        });
+        // Set initial state based on checkbox (might be checked by default in HTML)
+        const showLabels = labelsToggle.checked;
+         [...Object.values(conceptNodes), {object: agentStateMesh}, {object: emergenceCoreMesh}]
+              .filter(entry => entry?.object?.userData?.label)
+              .forEach(entry => {
+                  entry.object.userData.label.element.style.visibility = showLabels ? 'visible' : 'hidden';
+              });
+    } else { console.warn("Labels toggle or conceptNodes map not found/ready."); }
+
     if (saveButton) {
         saveButton.addEventListener('click', saveState);
-        saveButton.disabled = criticalError; // Initial state
+        saveButton.disabled = criticalError;
     } else { console.warn("Save button not found."); }
 
     if (loadButton) {
-        loadButton.addEventListener('click', () => loadState(true)); // Pass true to show messages
-        loadButton.disabled = criticalError; // Initial state
-        // Check if saved state exists and style button accordingly
+        loadButton.addEventListener('click', () => loadState(true));
+        loadButton.disabled = criticalError;
         if (localStorage.getItem(SAVED_STATE_KEY)) {
             loadButton.classList.add('has-saved-state');
         }
@@ -713,11 +787,13 @@ function disableControls() {
     const saveButton = document.getElementById('save-state-button');
     const loadButton = document.getElementById('load-state-button');
     const chatInput = document.getElementById('chat-input');
+    const labelsToggle = document.getElementById('labels-toggle'); // Added toggle
 
     if (integrationSlider) integrationSlider.disabled = true;
     if (reflexivitySlider) reflexivitySlider.disabled = true;
     if (saveButton) saveButton.disabled = true;
     if (loadButton) loadButton.disabled = true;
+    if (labelsToggle) labelsToggle.disabled = true; // Disable toggle
     if (chatInput) {
         chatInput.disabled = true;
         chatInput.placeholder = "Simulation disabled.";
@@ -745,26 +821,18 @@ function setupChat() {
         if (e.key === 'Enter' && chatInput.value.trim() && !criticalError) {
             const userInput = chatInput.value.trim();
             appendChatMessage('You', userInput);
-            chatInput.value = ''; // Clear input field
+            chatInput.value = '';
 
             if (environment && agent) {
                 try {
-                    // Get emotional impact from environment (may modify base emotions)
                     const impactTensor = environment.getEmotionalImpactFromText(userInput);
-
-                    // Log the interaction
                     logToTimeline(`Chat Input: "${userInput.substring(0, 25)}..."`, 'expressions-list');
                     appendChatMessage('System', 'Input processed, influencing environment state.');
-                    lastChatImpactTime = appClock.getElapsedTime(); // Trigger visual feedback
+                    lastChatImpactTime = appClock.getElapsedTime();
 
-                    // Optional: Directly provide feedback to agent? (Currently environment handles it)
-                    // Example: agent.process(...) with specific chat event type
-
-                    // Dispose the temporary impact tensor if it was created and not null
                     if (impactTensor && typeof impactTensor.dispose === 'function' && !impactTensor.isDisposed) {
                         tf.dispose(impactTensor);
                     }
-
                 } catch (chatError) {
                     console.error("Error processing chat input:", chatError);
                     appendChatMessage('System', 'Error processing input.');
@@ -783,32 +851,31 @@ function setupInspectorToggle() {
         toggleButton.addEventListener('click', () => {
             const isVisible = inspectorPanel.classList.toggle('visible');
             toggleButton.setAttribute('aria-expanded', isVisible);
-            // Update content only when becoming visible
-            if (isVisible && agent?.beliefNetwork?.outputs[0]) {
+            if (isVisible && agent) { // Check agent exists
                  try {
-                     // Assuming the belief embedding is the output of the belief network
-                     // This might need adjustment depending on the exact agent structure
-                     // Note: This requires the tensor to be available. In practice, update might need to happen in animate loop.
-                     const beliefEmbeddingTensor = agent.getLatestBeliefEmbedding(); // Need a method in agent to expose this safely
+                     const beliefEmbeddingTensor = agent.getLatestBeliefEmbedding();
                      if(beliefEmbeddingTensor && !beliefEmbeddingTensor.isDisposed) {
                          inspectTensor(beliefEmbeddingTensor, 'tensor-inspector-content');
+                         tf.dispose(beliefEmbeddingTensor); // Dispose the clone returned by getLatestBeliefEmbedding
                      } else {
-                         inspectTensor(null, 'tensor-inspector-content'); // Show null if unavailable
+                         inspectTensor(null, 'tensor-inspector-content');
                      }
                  } catch (e) {
                      console.error("Error getting tensor for inspector:", e);
                      inspectTensor("[Error retrieving tensor]", 'tensor-inspector-content');
                  }
+            } else if (!isVisible) {
+                 // Optional: Clear content when hiding
+                 // inspectTensor(null, 'tensor-inspector-content');
             }
         });
-        // Initial state
         toggleButton.setAttribute('aria-expanded', inspectorPanel.classList.contains('visible'));
     } else {
         console.warn("Tensor inspector toggle/panel elements not found.");
     }
 }
 
-// --- State Management ---
+// --- State Management (Keep saveState, loadState as they are) ---
 function saveState() {
     if (criticalError || !agent || !environment) {
         console.warn("Cannot save state: Simulation not ready or critical error detected.");
@@ -819,8 +886,8 @@ function saveState() {
         const envState = environment.getState();
         const agentState = agent.getState();
 
-        if (!envState || !agentState) {
-             throw new Error("Failed to retrieve state from environment or agent.");
+        if (!envState || !agentState || agentState.error) { // Check for agent error state
+             throw new Error(`Failed to retrieve valid state from environment or agent. Agent state error: ${agentState?.error}`);
         }
 
         const stateToSave = {
@@ -828,13 +895,11 @@ function saveState() {
             timestamp: new Date().toISOString(),
             environment: envState,
             agent: agentState,
-            // Save key simulation metrics for potential quick restore preview (optional)
             metrics: {
                 rih: simulationMetrics.currentRIHScore,
                 affinity: simulationMetrics.currentAvgAffinity,
                 trust: simulationMetrics.currentTrustScore,
                 context: simulationMetrics.currentContext,
-                // Note: Don't save tensors (emotions, stateVector) directly here
             }
         };
 
@@ -843,7 +908,6 @@ function saveState() {
         appendChatMessage('System', 'Simulation state saved.');
         logToTimeline('State Saved', 'expressions-list');
 
-        // Update button style
         const loadButton = document.getElementById('load-state-button');
         if (loadButton) loadButton.classList.add('has-saved-state');
 
@@ -855,138 +919,146 @@ function saveState() {
 }
 
 function loadState(showMessages = false) {
-    // Stop animation loop during load
-    criticalError = true; // Temporarily halt simulation loop
+    // Temporarily pause simulation loop by setting a flag
+    // Note: A more robust pause mechanism might be needed for complex async ops
+    const wasRunning = !criticalError; // Check if it was running before load
+    criticalError = true; // Use the existing flag to halt the animate loop
 
-    if (!agent || !environment) {
-        console.warn("Agent/Environment not initialized, cannot load state.");
-        if (showMessages) appendChatMessage('System', 'Load failed: Simulation components not ready.');
-        criticalError = false; // Re-enable loop potential if it was running
-        return false;
-    }
-
-    const stateString = localStorage.getItem(SAVED_STATE_KEY);
-    if (!stateString) {
-        console.log("No saved state found in localStorage.");
-        if (showMessages) appendChatMessage('System', 'No saved state found.');
-        criticalError = false; // Re-enable loop
-        return false;
-    }
-
-    try {
-        const stateToLoad = JSON.parse(stateString);
-
-        // Version check
-        if (!stateToLoad || stateToLoad.version !== "2.3.1") {
-            console.error(`Incompatible saved state version found (Version: ${stateToLoad?.version}, Expected: 2.3.1). Aborting load.`);
-            if (showMessages) appendChatMessage('System', `Load failed: Incompatible state version (${stateToLoad?.version}). Expected 2.3.1.`);
-            displayError(`Load failed: Incompatible state format (Version: ${stateToLoad?.version}). Requires 2.3.1.`, false, 'error-message');
-            criticalError = false; // Re-enable loop
-            return false;
-        }
-        if (!stateToLoad.environment || !stateToLoad.agent) {
-             throw new Error("Saved state is missing critical environment or agent data.");
+    // Give loop a chance to stop if it was mid-frame
+    requestAnimationFrame(async () => { // Use async/await for clarity
+        console.log("Attempting to load state...");
+        let loadSuccess = false;
+        if (!agent || !environment) {
+            console.warn("Agent/Environment not initialized, cannot load state.");
+            if (showMessages) appendChatMessage('System', 'Load failed: Simulation components not ready.');
+            // Don't reset criticalError here, let it remain true if init failed
+            return; // Return early
         }
 
-        console.log(`Loading state V${stateToLoad.version} saved at ${stateToLoad.timestamp}...`);
-
-        // Load state into components
-        environment.loadState(stateToLoad.environment);
-        agent.loadState(stateToLoad.agent); // Agent loadState handles internal cleanup/reinit
-
-        // --- Restore Simulation Metrics from Loaded Agent/Env State ---
-        // Restore state vector from environment state
-        simulationMetrics.currentStateVector = Array.isArray(stateToLoad.environment.currentStateVector)
-            ? stateToLoad.environment.currentStateVector.slice(0, Config.Agent.BASE_STATE_DIM)
-            : zeros([Config.Agent.BASE_STATE_DIM]);
-        while (simulationMetrics.currentStateVector.length < Config.Agent.BASE_STATE_DIM) simulationMetrics.currentStateVector.push(0);
-
-        // Restore emotions from agent's loaded previous state
-        if (simulationMetrics.currentAgentEmotions && !simulationMetrics.currentAgentEmotions.isDisposed) tf.dispose(simulationMetrics.currentAgentEmotions);
-        if (agent.prevEmotions && !agent.prevEmotions.isDisposed) {
-            simulationMetrics.currentAgentEmotions = tf.keep(agent.prevEmotions.clone()); // Keep the loaded tensor
-        } else {
-            console.warn("Agent prevEmotions tensor invalid after load. Resetting to zeros.");
-            simulationMetrics.currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
+        const stateString = localStorage.getItem(SAVED_STATE_KEY);
+        if (!stateString) {
+            console.log("No saved state found in localStorage.");
+            if (showMessages) appendChatMessage('System', 'No saved state found.');
+            criticalError = !wasRunning; // Only resume if it was running before
+            if (!criticalError) requestAnimationFrame(animate); // Resume if needed
+            return; // Return early
         }
 
-        // Restore metrics directly from loaded agent state where available
-        simulationMetrics.currentRIHScore = agent.lastRIH ?? stateToLoad.metrics?.rih ?? 0;
-        simulationMetrics.currentTrustScore = agent.latestTrustScore ?? stateToLoad.metrics?.trust ?? 1.0;
-        simulationMetrics.currentIntegrationParam = agent.integrationParam?.dataSync()[0] ?? 0.5;
-        simulationMetrics.currentReflexivityParam = agent.reflexivityParam?.dataSync()[0] ?? 0.5;
-        simulationMetrics.currentAvgAffinity = stateToLoad.metrics?.affinity ?? 0; // Get from saved metrics or default
-        simulationMetrics.currentContext = "State loaded."; // Set context
-        simulationMetrics.currentHmLabel = "idle"; // Reset head movement label
-        simulationMetrics.currentCascadeHistory = []; // Reset cascade history (will regenerate on next step)
-        simulationMetrics.currentBeliefNorm = 0.0; // Will be calculated on next step
+        try {
+            const stateToLoad = JSON.parse(stateString);
 
-        // Calculate self-state norm from loaded agent state
-        if (agent.selfState && !agent.selfState.isDisposed) {
-            try { simulationMetrics.currentSelfStateNorm = calculateArrayNorm(agent.selfState.dataSync()); }
-            catch (e) { console.error("Error calculating self-norm after load:", e); simulationMetrics.currentSelfStateNorm = 0.0; }
-        } else { simulationMetrics.currentSelfStateNorm = 0.0; }
+            if (!stateToLoad || stateToLoad.version !== "2.3.1") {
+                console.error(`Incompatible saved state version found (Version: ${stateToLoad?.version}, Expected: 2.3.1). Aborting load.`);
+                if (showMessages) appendChatMessage('System', `Load failed: Incompatible state version (${stateToLoad?.version}). Expected 2.3.1.`);
+                displayError(`Load failed: Incompatible state format (Version: ${stateToLoad?.version}). Requires 2.3.1.`, false, 'error-message');
+                criticalError = !wasRunning;
+                if (!criticalError) requestAnimationFrame(animate);
+                return; // Return early
+            }
+            if (!stateToLoad.environment || !stateToLoad.agent) {
+                 throw new Error("Saved state is missing critical environment or agent data.");
+            }
+
+            console.log(`Loading state V${stateToLoad.version} saved at ${stateToLoad.timestamp}...`);
+
+            // Load state into components
+            environment.loadState(stateToLoad.environment);
+            agent.loadState(stateToLoad.agent); // Agent loadState handles internal cleanup/reinit
+
+            // --- Restore Simulation Metrics from Loaded Agent/Env State ---
+            simulationMetrics.currentStateVector = Array.isArray(stateToLoad.environment.currentStateVector)
+                ? stateToLoad.environment.currentStateVector.slice(0, Config.Agent.BASE_STATE_DIM)
+                : zeros([Config.Agent.BASE_STATE_DIM]);
+            while (simulationMetrics.currentStateVector.length < Config.Agent.BASE_STATE_DIM) simulationMetrics.currentStateVector.push(0);
+
+            if (simulationMetrics.currentAgentEmotions && !simulationMetrics.currentAgentEmotions.isDisposed) tf.dispose(simulationMetrics.currentAgentEmotions);
+            if (agent.prevEmotions && !agent.prevEmotions.isDisposed) {
+                simulationMetrics.currentAgentEmotions = tf.keep(agent.prevEmotions.clone());
+            } else {
+                console.warn("Agent prevEmotions tensor invalid after load. Resetting to zeros.");
+                simulationMetrics.currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
+            }
+
+            simulationMetrics.currentRIHScore = agent.lastRIH ?? stateToLoad.metrics?.rih ?? 0;
+            simulationMetrics.currentTrustScore = agent.latestTrustScore ?? stateToLoad.metrics?.trust ?? 1.0;
+            simulationMetrics.currentIntegrationParam = agent.integrationParam?.dataSync()[0] ?? 0.5;
+            simulationMetrics.currentReflexivityParam = agent.reflexivityParam?.dataSync()[0] ?? 0.5;
+            simulationMetrics.currentAvgAffinity = stateToLoad.metrics?.affinity ?? 0;
+            simulationMetrics.currentContext = "State loaded.";
+            simulationMetrics.currentHmLabel = "idle";
+            simulationMetrics.currentCascadeHistory = [];
+            simulationMetrics.currentBeliefNorm = 0.0;
+
+            if (agent.selfState && !agent.selfState.isDisposed) {
+                try { simulationMetrics.currentSelfStateNorm = calculateArrayNorm(agent.selfState.dataSync()); }
+                catch (e) { console.error("Error calculating self-norm after load:", e); simulationMetrics.currentSelfStateNorm = 0.0; }
+            } else { simulationMetrics.currentSelfStateNorm = 0.0; }
 
 
-        // --- Reset / Update UI ---
-        // Reset chart data
-        if (metricsChart) {
-            metricsChart.data.datasets.forEach(dataset => dataset.data = []);
-            metricsChart.update('quiet'); // Update without animation
+            // --- Reset / Update UI ---
+            if (metricsChart) {
+                metricsChart.data.datasets.forEach(dataset => dataset.data = []);
+                metricsChart.update('quiet');
+            }
+
+            const timelineList = document.getElementById('expressions-list');
+            if (timelineList) timelineList.innerHTML = '';
+            logToTimeline('State Loaded', 'expressions-list');
+
+            updateSliderDisplays(simulationMetrics.currentIntegrationParam, simulationMetrics.currentReflexivityParam);
+            updateDashboardDisplay();
+            updateEmotionBars(simulationMetrics.currentAgentEmotions);
+            updateCascadeViewer();
+            updateHeatmap(agent.selfState?.dataSync() ?? [], 'heatmap-content');
+
+            // Update visualizations (if initialized)
+            if (threeInitialized) {
+                updateThreeJS(0, simulationMetrics.currentStateVector, simulationMetrics.currentRIHScore, agent.latestAffinities || [], simulationMetrics.currentIntegrationParam, simulationMetrics.currentReflexivityParam, [], simulationMetrics.currentContext);
+                updateSyntrometryInfoPanel();
+            }
+            if (conceptInitialized) {
+                updateAgentSimulationVisuals(simulationMetrics.currentAgentEmotions, simulationMetrics.currentRIHScore, simulationMetrics.currentAvgAffinity, simulationMetrics.currentHmLabel, simulationMetrics.currentTrustScore);
+                animateConceptNodes(0, simulationMetrics.currentIntegrationParam, simulationMetrics.currentReflexivityParam, -1, -1, -1);
+                 // Call resize AFTER potentially making panel visible again
+                 resizeConceptGraphRenderer();
+            }
+            if (live2dInitialized) {
+                updateLive2DEmotions(simulationMetrics.currentAgentEmotions);
+                updateLive2DHeadMovement(simulationMetrics.currentHmLabel, 0);
+            }
+
+            if (showMessages) appendChatMessage('System', 'Simulation state loaded successfully.');
+            console.log(`Simulation state loaded successfully (Key: ${SAVED_STATE_KEY}).`);
+            loadSuccess = true;
+
+        } catch (e) {
+            console.error("Error loading state:", e);
+            if (showMessages) appendChatMessage('System', `Load failed: ${e.message}`);
+            displayError(`Load failed: ${e.message}. Check console for details.`, false, 'error-message');
+            // Keep criticalError = true if loading failed
+            loadSuccess = false;
+        } finally {
+            // Resume animation loop ONLY if load was successful AND it was running before
+            criticalError = !loadSuccess || !wasRunning;
+            if (!criticalError) {
+                 console.log("Resuming animation loop after successful load.");
+                 requestAnimationFrame(animate);
+            } else {
+                 console.error("Load failed or simulation was already stopped. Animation loop not resumed.");
+            }
         }
-
-        // Clear timeline
-        const timelineList = document.getElementById('expressions-list');
-        if (timelineList) timelineList.innerHTML = '';
-        logToTimeline('State Loaded', 'expressions-list');
-
-        // Update UI elements with loaded state
-        updateSliderDisplays(simulationMetrics.currentIntegrationParam, simulationMetrics.currentReflexivityParam);
-        updateDashboardDisplay();
-        updateEmotionBars(simulationMetrics.currentAgentEmotions);
-        updateCascadeViewer(); // Show empty initially
-        updateHeatmap(agent.selfState?.dataSync() ?? [], 'heatmap-content'); // Update heatmap
-
-        // Update visualizations (if initialized)
-        if (threeInitialized) {
-            updateThreeJS(0, simulationMetrics.currentStateVector, simulationMetrics.currentRIHScore, agent.latestAffinities || [], simulationMetrics.currentIntegrationParam, simulationMetrics.currentReflexivityParam, [], simulationMetrics.currentContext);
-            updateSyntrometryInfoPanel();
-        }
-        if (conceptInitialized) {
-            updateAgentSimulationVisuals(simulationMetrics.currentAgentEmotions, simulationMetrics.currentRIHScore, simulationMetrics.currentAvgAffinity, simulationMetrics.currentHmLabel, simulationMetrics.currentTrustScore);
-            animateConceptNodes(0, simulationMetrics.currentIntegrationParam, simulationMetrics.currentReflexivityParam, -1, -1, -1);
-        }
-        if (live2dInitialized) {
-            updateLive2DEmotions(simulationMetrics.currentAgentEmotions);
-            updateLive2DHeadMovement(simulationMetrics.currentHmLabel, 0);
-        }
-
-        if (showMessages) appendChatMessage('System', 'Simulation state loaded successfully.');
-        console.log(`Simulation state loaded successfully (Key: ${SAVED_STATE_KEY}).`);
-
-        criticalError = false; // Load successful, re-enable simulation
-        requestAnimationFrame(animate); // Resume animation loop if it was stopped
-
-        return true;
-
-    } catch (e) {
-        console.error("Error loading state:", e);
-        if (showMessages) appendChatMessage('System', `Load failed: ${e.message}`);
-        displayError(`Load failed: ${e.message}. Check console for details.`, false, 'error-message');
-        criticalError = false; // Allow simulation to potentially continue with old state or reset
-        // Consider resetting the simulation here if loading fails critically
-        return false;
-    }
+    }); // End requestAnimationFrame wrapper for loadState
 }
+
 
 // --- Main Animation Loop ---
 async function animate() {
     if (criticalError) {
-        console.log("Animation loop stopped due to critical error.");
+        // console.log("Animation loop stopped due to critical error."); // Can be noisy
         return; // Stop loop if critical error occurred
     }
 
-    // Schedule next frame
+    // Schedule next frame *before* doing work
     requestAnimationFrame(animate);
 
     const deltaTime = appClock.getDelta();
@@ -998,40 +1070,51 @@ async function animate() {
     // --- Simulation Step ---
     if (agent && environment && simulationMetrics.currentAgentEmotions && !simulationMetrics.currentAgentEmotions.isDisposed) {
         try {
-            // 1. Environment Step (based on previous agent state)
+            // 1. Environment Step
             envStepResult = await environment.step(
                 simulationMetrics.currentAgentEmotions,
                 simulationMetrics.currentRIHScore,
                 simulationMetrics.currentAvgAffinity
             );
 
-            // Get the new environment state tensor
-            const envStateTensor = envStepResult.state;
-            if (!envStateTensor || envStateTensor.isDisposed) throw new Error("Environment returned invalid state tensor.");
+             // Check for null state from environment (could happen if TF fails there)
+             if (!envStepResult?.state) {
+                 throw new Error("Environment step returned null state. Halting step.");
+             }
 
-            const envStateArray = envStateTensor.arraySync()[0]; // Now safe to sync
-            simulationMetrics.currentStateVector = envStateArray.slice(0, Config.Agent.BASE_STATE_DIM);
+            const envStateTensor = envStepResult.state; // Already checked for null
+            if (envStateTensor.isDisposed) throw new Error("Environment returned disposed state tensor.");
+
+            const envStateArray = envStateTensor.arraySync(); // Now safe to sync
+            simulationMetrics.currentStateVector = envStateArray[0].slice(0, Config.Agent.BASE_STATE_DIM); // Get the first (only) batch item
             while (simulationMetrics.currentStateVector.length < Config.Agent.BASE_STATE_DIM) simulationMetrics.currentStateVector.push(0);
 
-            // 2. Agent Processing Step (based on new environment state)
-            const graphFeatures = calculateGraphFeatures(); // Get features from Syntrometry viz
+            // 2. Agent Processing Step
+            const graphFeatures = calculateGraphFeatures();
             agentResponse = await agent.process(
                 simulationMetrics.currentStateVector,
                 graphFeatures,
                 { eventType: envStepResult.eventType, reward: envStepResult.reward }
             );
 
-            // 3. Update Simulation Metrics from Agent Response
+            // 3. Update Simulation Metrics
             if (simulationMetrics.currentAgentEmotions && !simulationMetrics.currentAgentEmotions.isDisposed) {
-                tf.dispose(simulationMetrics.currentAgentEmotions); // Dispose old tensor
+                tf.dispose(simulationMetrics.currentAgentEmotions);
             }
-            simulationMetrics.currentAgentEmotions = agentResponse.emotions; // Keep the new tensor
+             // Ensure agent returned a valid tensor
+             if (!agentResponse.emotions || agentResponse.emotions.isDisposed) {
+                 console.error("Agent process step returned invalid emotions tensor. Resetting.");
+                 simulationMetrics.currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
+             } else {
+                 simulationMetrics.currentAgentEmotions = agentResponse.emotions; // Keep the new tensor
+             }
+
             simulationMetrics.currentRIHScore = agentResponse.rihScore;
             simulationMetrics.currentAvgAffinity = (agentResponse.affinities?.length > 0)
                 ? agentResponse.affinities.reduce((a, b) => a + b, 0) / agentResponse.affinities.length
                 : 0;
             simulationMetrics.currentHmLabel = agentResponse.hmLabel;
-            simulationMetrics.currentContext = envStepResult.context; // Update context from environment
+            simulationMetrics.currentContext = envStepResult.context;
             simulationMetrics.currentCascadeHistory = agentResponse.cascadeHistory;
             simulationMetrics.currentIntegrationParam = agentResponse.integration;
             simulationMetrics.currentReflexivityParam = agentResponse.reflexivity;
@@ -1039,52 +1122,49 @@ async function animate() {
             simulationMetrics.currentBeliefNorm = agentResponse.beliefNorm ?? 0.0;
             simulationMetrics.currentSelfStateNorm = agentResponse.selfStateNorm ?? 0.0;
 
-            // Update sliders based on agent's learned parameters
             updateSliderDisplays(simulationMetrics.currentIntegrationParam, simulationMetrics.currentReflexivityParam);
 
         } catch (e) {
             console.error("Error during simulation step:", e);
             displayError(`Simulation Step Error: ${e.message}. Attempting to continue.`, false, 'error-message');
-            // Attempt recovery: Reset emotions if tensor became invalid
             if (!simulationMetrics.currentAgentEmotions || simulationMetrics.currentAgentEmotions.isDisposed) {
                 if (typeof tf !== 'undefined') {
                     console.warn("Agent emotions tensor became invalid, resetting to zeros.");
+                    if(simulationMetrics.currentAgentEmotions && !simulationMetrics.currentAgentEmotions.isDisposed) tf.dispose(simulationMetrics.currentAgentEmotions); // Dispose if exists but invalid
                     simulationMetrics.currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
                 } else {
-                    simulationMetrics.currentAgentEmotions = null; // No TF fallback
-                    criticalError = true; // If TF is gone, it's critical
+                    simulationMetrics.currentAgentEmotions = null;
+                    criticalError = true;
                     displayError("TensorFlow unavailable during error recovery. Stopping simulation.", true, 'error-message');
                     return; // Stop loop
                 }
             }
-            // Reset potentially problematic metrics to avoid compounding errors
             simulationMetrics.currentContext = "Simulation error occurred.";
-            // Keep other metrics as they were, but be aware they might be stale
         } finally {
-            // Dispose environment state tensor if it exists and wasn't kept
+            // Dispose environment state tensor *after* agent used it
             if (envStepResult?.state && !envStepResult.state.isDisposed) {
-                // Check if it's the same tensor as currentAgentEmotions (unlikely but possible)
-                // or any other tensor that needs to be kept before disposing
                  tf.dispose(envStepResult.state);
             }
         }
     } else {
-        // Handle missing agent/environment or invalid emotion tensor
+        // Handle missing agent/environment or invalid initial emotion tensor
         if (!simulationMetrics.currentAgentEmotions || simulationMetrics.currentAgentEmotions?.isDisposed) {
             if (typeof tf !== 'undefined') {
                 if(simulationMetrics.currentAgentEmotions && !simulationMetrics.currentAgentEmotions.isDisposed) tf.dispose(simulationMetrics.currentAgentEmotions);
                 simulationMetrics.currentAgentEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
             } else {
                  simulationMetrics.currentAgentEmotions = null;
-                 criticalError = true; // TF missing is critical
+                 criticalError = true;
                  displayError("TensorFlow unavailable. Stopping simulation.", true, 'error-message');
-                 return; // Stop loop
+                 return;
             }
         }
-        // Update context if simulation isn't running properly
         if (!agent || !environment) {
              simulationMetrics.currentContext = "Simulation components missing.";
-             // Consider setting criticalError = true here if components are essential
+             criticalError = true; // Cannot run without core components
+             displayError("Agent or Environment missing. Stopping simulation.", true, 'error-message');
+             disableControls();
+             return;
         }
     }
 
@@ -1094,12 +1174,6 @@ async function animate() {
     updateEmotionBars(simulationMetrics.currentAgentEmotions);
     updateCascadeViewer();
 
-    // Log significant head movement changes
-    // if (agentResponse && agentResponse.hmLabel !== simulationMetrics.currentHmLabel && agentResponse.hmLabel !== 'idle') {
-    //     // logToTimeline(`Action: ${agentResponse.hmLabel}`, 'expressions-list'); // Reduces log noise
-    // }
-
-    // Update Syntrometry Visualization
     try {
         if (threeInitialized) {
             updateThreeJS(
@@ -1112,11 +1186,10 @@ async function animate() {
                 simulationMetrics.currentCascadeHistory,
                 simulationMetrics.currentContext
             );
-            updateSyntrometryInfoPanel(); // Keep this for hover/select updates
+            updateSyntrometryInfoPanel();
         }
     } catch (e) { console.error("Error updating Syntrometry Viz:", e); }
 
-    // Update Concept Visualization
     try {
         if (conceptInitialized) {
             updateAgentSimulationVisuals(
@@ -1126,69 +1199,70 @@ async function animate() {
                 simulationMetrics.currentHmLabel,
                 simulationMetrics.currentTrustScore
             );
-            // Animate nodes with feedback times
             animateConceptNodes(deltaTime, simulationMetrics.currentIntegrationParam, simulationMetrics.currentReflexivityParam,
                  elapsedTime - lastIntegrationInputTime < inputFeedbackDuration ? lastIntegrationInputTime : -1,
                  elapsedTime - lastReflexivityInputTime < inputFeedbackDuration ? lastReflexivityInputTime : -1,
                  elapsedTime - lastChatImpactTime < inputFeedbackDuration ? lastChatImpactTime : -1
             );
-             // Render Concept Graph
              if (conceptRenderer && conceptLabelRenderer && conceptScene && conceptCamera) {
                 conceptRenderer.render(conceptScene, conceptCamera);
                 conceptLabelRenderer.render(conceptScene, conceptCamera);
              }
+             if (conceptControls) conceptControls.update(); // Update controls here
         }
     } catch (e) { console.error("Error updating/rendering Concept Viz:", e); }
 
 
-    // Update Live2D Avatar
     try {
         if (live2dInitialized) {
             updateLive2DEmotions(simulationMetrics.currentAgentEmotions);
             updateLive2DHeadMovement(simulationMetrics.currentHmLabel, deltaTime);
-            // Note: Pixi.js handles its own rendering loop via PIXI.Application autoStart: true
         }
     } catch (e) { console.error("Error updating Live2D:", e); }
 
-    // Update Heatmap
     if (agent?.selfState && !agent.selfState.isDisposed) {
         try {
             updateHeatmap(Array.from(agent.selfState.dataSync()), 'heatmap-content');
         } catch (e) {
             console.error("Heatmap update failed:", e);
-            // Optionally clear heatmap on error: updateHeatmap([], 'heatmap-content');
         }
     } else {
         updateHeatmap([], 'heatmap-content'); // Clear if no state
     }
 
-    // Update Tensor Inspector if visible
     const inspectorPanel = document.getElementById('tensor-inspector-panel');
     if (inspectorPanel?.classList.contains('visible') && agent) {
          try {
-             const beliefEmbeddingTensor = agent.getLatestBeliefEmbedding(); // Requires this method on Agent
+             const beliefEmbeddingTensor = agent.getLatestBeliefEmbedding();
              inspectTensor(beliefEmbeddingTensor, 'tensor-inspector-content');
-             // Dispose the tensor if it was a clone? Agent method needs to clarify ownership.
+             if (beliefEmbeddingTensor) tf.dispose(beliefEmbeddingTensor); // Dispose the clone
          } catch(e) {
              inspectTensor(`[Error: ${e.message}]`, 'tensor-inspector-content');
          }
     }
 
-    // Update OrbitControls for Concept Graph
-    try {
-        if (conceptInitialized && conceptControls) conceptControls.update();
-    } catch (e) { console.error("Error updating Concept Controls:", e); }
-
 } // End animate()
+
 
 // --- Cleanup ---
 function cleanup() {
     console.log("Cleaning up application resources (V2.3)...");
-    criticalError = true; // Stop animation loop
+    criticalError = true; // Stop animation loop immediately
 
     // Remove event listeners
     window.removeEventListener('resize', resizeConceptGraphRenderer);
-    window.removeEventListener('beforeunload', cleanup); // Avoid infinite loop if called directly
+    window.removeEventListener('beforeunload', cleanup);
+     // Remove specific listeners if they exist (defensive)
+     const saveButton = document.getElementById('save-state-button');
+     if(saveButton) saveButton.onclick = null;
+     const loadButton = document.getElementById('load-state-button');
+     if(loadButton) loadButton.onclick = null;
+     const chatInput = document.getElementById('chat-input');
+     if(chatInput) chatInput.onkeypress = null;
+     const labelsToggle = document.getElementById('labels-toggle');
+     if (labelsToggle) labelsToggle.onchange = null;
+     const inspectorToggle = document.getElementById('toggle-inspector');
+     if (inspectorToggle) inspectorToggle.onclick = null;
 
     // Destroy Chart.js
     if (metricsChart) {
@@ -1196,7 +1270,7 @@ function cleanup() {
         catch (e) { console.error("Chart destroy error:", e); }
     }
 
-    // Cleanup modules in reverse order of dependency (roughly: Viz -> Agent/Env -> Core TF)
+    // Cleanup modules
     try { if (cleanupLive2D) cleanupLive2D(); }
     catch (e) { console.error("Live2D cleanup error:", e); }
 
@@ -1228,8 +1302,14 @@ function cleanup() {
 }
 
 // --- Global Event Listeners ---
-window.addEventListener('load', initialize);
+// --- MODIFIED: Use DOMContentLoaded ---
+if (document.readyState === 'loading') { // Loading hasn't finished yet
+    document.addEventListener('DOMContentLoaded', initialize);
+} else { // `DOMContentLoaded` has already fired
+    initialize(); // Call initialize directly
+}
 window.addEventListener('beforeunload', cleanup);
+// --- END MODIFICATION ---
 
 // Export necessary items if needed by other potential modules (unlikely here)
 // export { agent, environment, simulationMetrics };
