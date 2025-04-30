@@ -24,7 +24,7 @@ This project transforms abstract theoretical structures into a responsive agent 
 - [📂 Project Structure](#-project-structure)
 - [📉 Roadmap](#-roadmap)
 - [🤝 Contributing](#-contributing)
-- [❓ FAQ](#-faq)
+- [🐛 Troubleshooting](#-troubleshooting)
 - [📄 License](#-license)
 - [🙏 Acknowledgments](#-acknowledgments)
 
@@ -207,27 +207,19 @@ Discuss large changes in an issue first.
 
 ---
 
-## ❓ FAQ
+## 🐛 Troubleshooting
 
-<details>
-<summary>Why is the Live2D model not loading?</summary>
-Ensure you're using a local HTTP server (e.g., `npx live-server`, `python -m http.server`) to avoid CORS issues.
-</details>
+| Issue | Solution |
+|-------|----------|
+| **Live2D model not loading** | Run the project with a local HTTP server (e.g., `npx live-server`, `python -m http.server 8000`) to avoid CORS restrictions. |
+| **Emotions not blending** | Ensure `emotionNames.length` matches `EMOTION_DIM` in `config.js`. Check console for errors. |
+| **Visualization glitches** | Verify WebGL support at [get.webgl.org](https://get.webgl.org/). Check console for tensor disposal warnings or shader errors. |
+| **Performance drops** | Close heavy browser tabs, reduce canvas resolution in `config.js`, or use a dedicated GPU. |
+| **CDN library errors** | Confirm an active internet connection. Inspect the network tab for failed requests and verify CDN URLs in `index.html`. |
+| **Chat input unresponsive** | Ensure event listeners are active in `app.js`. Check console for JavaScript errors. |
+| **Blank visualizations** | Confirm WebGL is enabled and browser is compatible (Chrome, Firefox, Edge). Check for missing dependencies in `js/`. |
 
-<details>
-<summary>Why are emotions not blending?</summary>
-Check that `emotionNames.length` matches `EMOTION_DIM` in `config.js`.
-</details>
-
-<details>
-<summary>Why are there visualization glitches?</summary>
-Verify WebGL is enabled at [get.webgl.org](https://get.webgl.org/) and check the console for tensor disposal errors.
-</details>
-
-<details>
-<summary>Why is performance slow?</summary>
-Close heavy browser tabs, reduce canvas resolution, or use a dedicated GPU.
-</details>
+For additional issues, check [GitHub Issues](https://github.com/marko0marky/syntrometry-agent-live2d/issues) or open a new report.
 
 ---
 
