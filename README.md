@@ -7,34 +7,63 @@
 
 > An interactive demo of **Burkhard Heim’s Syntrometric Theory**, blending synthetic cognition with **TensorFlow.js**, **Three.js**, and **Live2D Cubism** to model emotions, beliefs, and 3D concept graphs.
 
-This project transforms abstract theoretical structures into a responsive agent that:
-- Models emotional dynamics from text
-- Applies cascade abstraction (Strukturkondensation)
-- Computes Reflexive Integration Heuristic (RIH)
-- Visualizes syntrometric syndromes and concept graphs
-- Animates a Live2D avatar based on emotional coherence
+This project transforms abstract theoretical structures into a responsive agent that models emotional dynamics, applies cascade abstraction, computes Reflexive Integration Heuristic (RIH), visualizes syntrometric syndromes, and animates a Live2D avatar.
+
+---
+
+## ✨ Table of Contents
+
+- [🧠 Features](#-features)
+- [📚 Concepts Explored](#-concepts-explored)
+- [🎥 Live Demo](#-live-demo)
+- [🚀 Quick Start](#-quick-start)
+- [🧩 Cognitive Flow](#-cognitive-flow)
+- [💡 Technologies](#-technologies)
+- [⚙️ Controls](#-controls)
+- [📈 Metrics](#-metrics)
+- [📂 Project Structure](#-project-structure)
+- [📉 Roadmap](#-roadmap)
+- [🤝 Contributing](#-contributing)
+- [❓ FAQ](#-faq)
+- [📄 License](#-license)
+- [🙏 Acknowledgments](#-acknowledgments)
 
 ---
 
 ## 🧠 Features
 
-- **Reflexive Integration Heuristic (RIH):** Quantifies belief system harmony
-- **Belief Embedding Network:** Encodes emotions, states, and graphs
-- **Cascade Abstraction:** Condenses beliefs into syndromes (L1-L4)
-- **Emotion Prediction:** Blends Joy, Fear, Curiosity, Frustration, Calm, Surprise
-- **Live2D Avatar:** Reflects emotions and head movements
-- **Memory Buffer:** Tracks past beliefs for trust scoring
-- **Trust Evaluation:** Measures consistency with prior states
-- **Self-Learning:** Dynamically adjusts integration/reflexivity
-- **Interactive UI:** Sliders, chat input, state save/load
-- **3D Visualization:** Renders concept graphs with Three.js
+| Feature | Description |
+|---------|-------------|
+| **Reflexive Integration (RIH)** | Quantifies belief system harmony |
+| **Belief Embedding Network** | Encodes emotions, states, and graphs |
+| **Cascade Abstraction** | Condenses beliefs into syndromes (L1-L4) |
+| **Emotion Prediction** | Blends Joy, Fear, Curiosity, Frustration, Calm, Surprise |
+| **Live2D Avatar** | Reflects emotions and head movements |
+| **Memory Buffer** | Tracks past beliefs for trust scoring |
+| **Trust Evaluation** | Measures consistency with prior states |
+| **Self-Learning** | Dynamically adjusts integration/reflexivity |
+| **Interactive UI** | Sliders, chat input, state save/load |
+| **3D Visualization** | Renders concept graphs with Three.js |
+
+---
+
+## 📚 Concepts Explored
+
+This project simplifies key ideas from **Syntrometric Theory** for interactive exploration:
+- **Syntrometry**: A framework for unifying abstract and physical interactions via multidimensional systems.
+- **Structural Condensation**: Building complex structures from simpler components across levels (L1-L4).
+- **Reflexive Integration Hierarchy (RIH)**: A metric of systemic coherence and stability.
+- **Affinities**: Strength of connections between states in the belief network.
+- **Emotional Layer**: Environmental cues influencing the agent’s emotional responses.
+
+*Note: This is a conceptual implementation for educational purposes, not a mathematically complete model.*
 
 ---
 
 ## 🎥 Live Demo
 
 🔗 [Try it now](https://marko0marky.github.io/syntrometry-agent-live2d/)  
-🖼️ ![Agent Interaction GIF](Syntrometry.gif)
+<img src="Syntrometry.gif" width="600" alt="Live2D avatar reacting to emotional inputs in the Syntrometric Agent demo" />
 
 ---
 
@@ -54,11 +83,11 @@ This project transforms abstract theoretical structures into a responsive agent 
    ```bash
    cd syntrometry-agent-live2d
    ```
-3. Serve the project:
-   ```bash
-   npx live-server .
-   ```
-4. Open [http://localhost:8080](http://localhost:8080) in your browser.
+3. Serve the project using one of these options:
+   - **Node.js**: `npx live-server .`
+   - **Python**: `python -m http.server 8000`
+   - **VSCode**: Use the Live Server extension and click "Go Live"
+4. Open [http://localhost:8080](http://localhost:8080) (or the specified port) in your browser.
 
 ---
 
@@ -81,7 +110,7 @@ graph TD
     H --> N[Metrics Panel]
 ```
 
-⚠️ View the diagram in GitHub or a Mermaid-compatible Markdown viewer (e.g., VSCode with Mermaid extension).
+⚠️ View in GitHub or a Mermaid-compatible Markdown viewer (e.g., VSCode with Mermaid extension).
 
 ---
 
@@ -182,7 +211,7 @@ Discuss large changes in an issue first.
 
 <details>
 <summary>Why is the Live2D model not loading?</summary>
-Ensure you're using a local HTTP server (`npx live-server`) to avoid CORS issues.
+Ensure you're using a local HTTP server (e.g., `npx live-server`, `python -m http.server`) to avoid CORS issues.
 </details>
 
 <details>
@@ -192,7 +221,12 @@ Check that `emotionNames.length` matches `EMOTION_DIM` in `config.js`.
 
 <details>
 <summary>Why are there visualization glitches?</summary>
-Inspect the console for tensor disposal errors and ensure WebGL is enabled.
+Verify WebGL is enabled at [get.webgl.org](https://get.webgl.org/) and check the console for tensor disposal errors.
+</details>
+
+<details>
+<summary>Why is performance slow?</summary>
+Close heavy browser tabs, reduce canvas resolution, or use a dedicated GPU.
 </details>
 
 ---
@@ -208,9 +242,8 @@ See [LICENSE](./LICENSE) for details.
 
 - **Burkhard Heim** for Syntrometric Theory
 - **TensorFlow.js**, **Three.js**, **Pixi.js**, and **Live2D** teams
-- The heim-theory.com community for preserving Heim’s legacy
+- The [heim-theory.com](https://heim-theory.com/) community for preserving Heim’s legacy
 
 ---
 
 🌟 **Star this repository** if you’re excited about cognitive AI and interactive visualizations!
-```
