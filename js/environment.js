@@ -11,6 +11,11 @@ import { zeros, tensor, clamp, displayError } from './utils.js';
  */
 export class EmotionalSpace {
     constructor() {
+        // Check TensorFlow.js availability
+        if (typeof tf === 'undefined') {
+            throw new Error("[Environment] TensorFlow.js is required but not available.");
+        }
+
         // Validate Config properties
         this._validateConfig();
 
@@ -35,7 +40,8 @@ export class EmotionalSpace {
         this.currentEvent = null; // Holds data for the currently active event
         this.currentStateVector = zeros([Config.Agent.BASE_STATE_DIM]); // Full state vector (core + emotions)
 
-        this._initializeState(); // Set up initial baseEmotions and stateVector
+        // Initialize state synchronously to avoid async constructor
+        this._initializeState();
     }
 
     /** Validates required Config properties, setting defaults if missing. */
@@ -52,11 +58,26 @@ export class EmotionalSpace {
             { path: 'DYSVARIANT_PROB', default: 0.05 }
         ];
         for (const { path, default: def } of requiredProps) {
-            const [section, key] = path.split('.');
-            if (!Config?.[section]?.[key]) {
-                console.warn(`Missing Config.${path}, using default: ${def}`);
-                Config[section] = Config[section] || {};
-                Config[section][key] = def;
+            const parts = path.split('.');
+            if (parts.length === 1) {
+                // Top-level property (e.g., 'DIMENSIONS')
+                const section = parts[0];
+                if (Config[section] === undefined) {
+                    console.warn(`Missing Config.${path}, using default: ${def}`);
+                    Config[section] = def;
+                }
+            } else {
+                // Nested property (e.g., 'Agent.EMOTION_DIM')
+                const [section, key] = parts;
+                if (!Config?.[section]?.[key]) {
+                    console.warn(`Missing Config.${path}, using default: ${def}`);
+                    Config[section] = Config[section] || {};
+                    if (typeof Config[section] !== 'object' || Config[section] === null) {
+                        console.error(`Config.${section} is not an object, resetting to {}`, Config[section]);
+                        Config[section] = {};
+                    }
+                    Config[section][key] = def;
+                }
             }
         }
     }
@@ -73,27 +94,24 @@ export class EmotionalSpace {
             tf.dispose(this.baseEmotions);
         }
 
-        // Initialize baseEmotions carefully checking for tf availability
-        if (typeof tf !== 'undefined') {
-            // Start with a slightly positive/calm initial environment tone
-            const initialBase = [0.6, 0.1, 0.3, 0.1, 0.5, 0.2]; // Joy, Fear, Curiosity, Frustration, Calm, Surprise
-            this.baseEmotions = tf.keep(tf.tensor([initialBase], [1, Config.Agent.EMOTION_DIM]));
-        } else {
-            console.error("[Environment] TensorFlow not available during initialization.");
-            this.baseEmotions = null; // Set to null if TF is missing
-        }
+        // Initialize baseEmotions
+        const initialBase = [0.6, 0.1, 0.3, 0.1, 0.5, 0.2]; // Joy, Fear, Curiosity, Frustration, Calm, Surprise
+        this.baseEmotions = tf.keep(tf.tensor([initialBase], [1, Config.Agent.EMOTION_DIM]));
 
         // Initialize the full state vector based on initial base emotions
         this.currentStateVector = zeros([Config.Agent.BASE_STATE_DIM]);
         this._updateStateVector(this.baseEmotions, null); // Populate stateVector based on initial baseEmotions
     }
 
-    /** Resets the environment to its initial state. */
-    reset() {
+    /**
+     * Resets the environment to its initial state.
+     * @returns {Promise<{state: tf.Tensor | null}>} The initial state tensor. Caller is responsible for disposing the tensor.
+     */
+    async reset() {
         this._initializeState(); // Use the common initialization logic
         console.log("Environment Reset.");
-        // Return the initial state tensor
-        return { state: this._getStateTensor() };
+        const stateTensor = await this._getStateTensor();
+        return { state: stateTensor ? tf.keep(stateTensor) : null };
     }
 
     /**
@@ -102,7 +120,7 @@ export class EmotionalSpace {
      * @param {number} [currentRIHScore=0] - Agent's RIH score [0, 1], influences dysvariant probability.
      * @param {number} [currentAvgAffinity=0] - Agent's average affinity [-1, 1], affects fluctuation amplitude.
      * @returns {Promise<{state: tf.Tensor|null, reward: number, done: boolean, context: string, eventType: string|null}>}
-     * @throws {Error} If TensorFlow.js is unavailable or Config is invalid.
+     * Caller is responsible for disposing the state tensor.
      */
     async step(agentEmotionsTensor, currentRIHScore = 0, currentAvgAffinity = 0) {
         this.stepCount++;
@@ -118,7 +136,7 @@ export class EmotionalSpace {
         const reversionRate = Config?.Env?.BASE_EMOTION_REVERSION_RATE ?? 0;
 
         // Update Base Environment Emotions
-        if (this.baseEmotions && !this.baseEmotions.isDisposed && typeof tf !== 'undefined') {
+        if (this.baseEmotions && !this.baseEmotions.isDisposed) {
             try {
                 const updatedBaseEmotions = tf.tidy(() => {
                     const currentBase = this.baseEmotions;
@@ -134,7 +152,7 @@ export class EmotionalSpace {
                 if (this.baseEmotions && !this.baseEmotions.isDisposed) tf.dispose(this.baseEmotions);
                 this.baseEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
             }
-        } else if (typeof tf !== 'undefined' && !this.baseEmotions) {
+        } else {
             this.baseEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
         }
 
@@ -195,7 +213,7 @@ export class EmotionalSpace {
             context += " (Dysvariant fluctuation)";
         }
 
-        this._updateStateVector(this.baseEmotions, triggeredEventType);
+        await this._updateStateVector(this.baseEmotions, triggeredEventType);
         const stateTensor = await this._getStateTensor();
         const done = false;
 
@@ -204,7 +222,7 @@ export class EmotionalSpace {
             return { state: null, reward, done, context, eventType: triggeredEventType };
         }
 
-        return { state: stateTensor, reward, done, context, eventType: triggeredEventType };
+        return { state: tf.keep(stateTensor), reward, done, context, eventType: triggeredEventType };
     }
 
     /**
@@ -264,15 +282,14 @@ export class EmotionalSpace {
 
     /**
      * Returns the current BASE state vector as a TensorFlow tensor.
-     * Returns null if TensorFlow is unavailable.
-     * @returns {Promise<tf.Tensor | null>} A [1, BASE_STATE_DIM] tensor or null.
+     * @returns {Promise<tf.Tensor | null>} A [1, BASE_STATE_DIM] tensor or null. Caller is responsible for disposing the tensor.
      */
     async _getStateTensor() {
-        if (typeof tf === 'undefined') return null;
         while (this.currentStateVector.length < Config.Agent.BASE_STATE_DIM) this.currentStateVector.push(0.0);
         const finalStateArray = this.currentStateVector.slice(0, Config.Agent.BASE_STATE_DIM);
         try {
-            return await tf.tensor([finalStateArray], [1, Config.Agent.BASE_STATE_DIM]);
+            const stateTensor = await tf.tensor([finalStateArray], [1, Config.Agent.BASE_STATE_DIM]);
+            return tf.keep(stateTensor);
         } catch (e) {
             console.error("Error creating state tensor:", e, finalStateArray);
             displayError(`TF Error creating state tensor: ${e.message}`, false);
@@ -285,10 +302,9 @@ export class EmotionalSpace {
      * Also directly modifies the environment's baseEmotions based on the keywords found.
      * @param {string} text - The input text from the user.
      * @returns {Promise<tf.Tensor | null>} A [1, EMOTION_DIM] tensor representing the detected emotional impact, or null if TF unavailable.
+     * Caller is responsible for disposing the tensor.
      */
     async getEmotionalImpactFromText(text) {
-        if (typeof tf === 'undefined') return null;
-
         const impact = zeros([Config.Agent.EMOTION_DIM]);
         let foundKeyword = false;
         const lowerText = text.toLowerCase();
@@ -328,7 +344,7 @@ export class EmotionalSpace {
         }
 
         // Update the environment's baseEmotions tensor if changes occurred
-        if (baseEmotionsChanged && typeof tf !== 'undefined') {
+        if (baseEmotionsChanged) {
             if (this.baseEmotions && !this.baseEmotions.isDisposed) tf.dispose(this.baseEmotions);
             this.baseEmotions = tf.keep(tf.tensor([currentBase], [1, Config.Agent.EMOTION_DIM]));
         }
@@ -340,7 +356,8 @@ export class EmotionalSpace {
         }
 
         try {
-            return await tf.tensor([impact], [1, Config.Agent.EMOTION_DIM]);
+            const impactTensor = await tf.tensor([impact], [1, Config.Agent.EMOTION_DIM]);
+            return tf.keep(impactTensor);
         } catch (e) {
             console.error("Error creating impact tensor:", e, impact);
             displayError(`TF Error creating impact tensor: ${e.message}`, false);
@@ -348,7 +365,10 @@ export class EmotionalSpace {
         }
     }
 
-    /** Returns the current state of the environment for saving. */
+    /**
+     * Returns the current state of the environment for saving.
+     * @returns {Object} The current environment state.
+     */
     getState() {
         const baseEmotionsArray = this.baseEmotions && !this.baseEmotions.isDisposed
             ? this.baseEmotions.arraySync()[0]
@@ -363,14 +383,13 @@ export class EmotionalSpace {
         };
     }
 
-    /** Loads the environment state from a saved object. */
+    /**
+     * Loads the environment state from a saved object.
+     * @param {Object} state - The saved state object.
+     */
     loadState(state) {
         if (!state || typeof state !== 'object') {
             console.error("Invalid state object provided for environment loading.");
-            return;
-        }
-        if (typeof tf === 'undefined') {
-            console.error("Cannot load environment state: TensorFlow not available.");
             return;
         }
 
@@ -397,9 +416,11 @@ export class EmotionalSpace {
         console.log("Environment state loaded.");
     }
 
-    /** Cleans up TensorFlow resources used by the environment. */
+    /**
+     * Cleans up TensorFlow resources used by the environment.
+     */
     cleanup() {
-        if (typeof tf !== 'undefined' && this.baseEmotions && !this.baseEmotions.isDisposed) {
+        if (this.baseEmotions && !this.baseEmotions.isDisposed) {
             try {
                 tf.dispose(this.baseEmotions);
             } catch (e) {
