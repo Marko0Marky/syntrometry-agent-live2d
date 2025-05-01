@@ -1,0 +1,18 @@
+{
+  "name": "syntrometry-agent-live2d",
+  "version": "1.0.0",
+  "description": "[![Live Demo](https://img.shields.io/badge/Live_Demo-Open_Interactive-brightgreen)](https://marko0marky.github.io/syntrometry-agent-live2d/)   [![GitHub Issues](https://img.shields.io/github/issues/marko0marky/syntrometry-agent-live2d)](https://github.com/marko0marky/syntrometry-agent-live2d/issues)   [![GitHub Stars](https://img.shields.io/github/stars/marko0marky/syntrometry-agent-live2d?style=social)](https://github.com/marko0marky/syntrometry-agent-live2d/stargazers)   [![MIT License](https://img.shields.io/github/license/marko0marky/syntrometry-agent-live2d?color=blue)](https://github.com/marko0marky/syntrometry-agent-live2d/blob/main/LICENSE)",
+  "main": "index.js",
+  "dependencies": {
+    "@pixi/interaction": "^6.5.10",
+    "pixi-live2d-display": "^0.4.0",
+    "pixi.js": "^8.9.2",
+    "typescript": "^5.8.3"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
