@@ -81,18 +81,19 @@
             <nav aria-label="Quick Links">
                 <h3>Quick Links</h3>
                 <ul class="quick-links-list">
-                    <li><a href="syntrometrie_framework.html" title="View 2D Diagram">Syntrometrie Framework Diagram</a></li>
-                    <li><a href="conscious_agent_arch.html" title="View Agent Architecture">Conscious Agent Architecture Diagram</a></li>
-                    <li><a href="README.md" title="Go to Main Project Readme">Main Project README</a></li>
+                    <li><a href="research/syntrometrie_framework.html" title="View 2D Diagram">Syntrometrie Framework Diagram</a></li>
+                    <li><a href="research/conscious_agent_arch.html" title="View Agent Architecture">Conscious Agent Architecture Diagram</a></li>
+                    <li><a href="../README.md" title="Go to Main Project Readme">Main Project README</a></li>
                     <li><a href="https://heim-theory.com/" target="_blank" title="External Resource (Opens New Tab)">Heim Theory Resources</a></li>
                 </ul>
             </nav>
         </section>
 
-        <!-- Interactive Visualization Section -->
+        <!-- Interactive Visualization Section (Syntrometry + Agent Panels) -->
         <section aria-labelledby="syntrometry-viz-heading">
             <h2 id="syntrometry-viz-heading">Interactive Visualization</h2>
             <p>Explore the Syntrometric simulation with real-time agent responses.</p>
+            <!-- This container holds the main Syntrometry viz and all its overlay panels -->
             <div class="visualization-container threejs-container" id="syntrometry-panel" aria-label="Syntrometric Simulation Panel">
                 <div id="syntrometry-error-message" class="error-message"></div> <!-- Error message specific to this panel -->
                 <div id="live2d-container" aria-label="Live2D Avatar Display"></div> <!-- Live2D display -->
@@ -106,6 +107,10 @@
                     <div class="control-group">
                         <label for="reflexivity-slider">Reflexivity (Ψ) [Agent Learned]: <span id="reflexivity-value">0.50</span></label>
                         <input type="range" id="reflexivity-slider" name="reflexivity" min="0" max="1" step="0.01" value="0.5" aria-labelledby="reflexivity-slider-label" title="Reflects agent's internal value. Drag to trigger visual feedback pulse.">
+                    </div>
+                    <!-- This toggle relates to the *Concept Graph*, might be better placed there or removed if not implemented -->
+                    <div class="control-group">
+                        <label for="labels-toggle">Show All Labels: <input type="checkbox" id="labels-toggle" aria-label="Toggle all concept node labels"></label>
                     </div>
                     <div class="button-group">
                         <button id="save-state-button" type="button">Save State</button>
@@ -151,7 +156,7 @@
                             <span id="metric-context" class="metric-value context-value">Initializing...</span>
                         </div>
                     </div>
-                    <!-- New: Emotion Intensity Bars -->
+                    <!-- Emotion Intensity Bars -->
                     <div id="emotion-intensities" class="emotion-bar-container">
                         <div class="intensity-bar joy" data-emotion="Joy"><span class="bar-label">Joy</span><div class="bar-fill"></div></div>
                         <div class="intensity-bar fear" data-emotion="Fear"><span class="bar-label">Fear</span><div class="bar-fill"></div></div>
@@ -160,11 +165,11 @@
                         <div class="intensity-bar calm" data-emotion="Calm"><span class="bar-label">Calm</span><div class="bar-fill"></div></div>
                         <div class="intensity-bar surprise" data-emotion="Surprise"><span class="bar-label">Surprise</span><div class="bar-fill"></div></div>
                     </div>
-                    <!-- New: Chart Container -->
+                    <!-- Chart Container -->
                     <div class="chart-container">
                         <canvas id="metrics-chart"></canvas>
                     </div>
-                    <!-- New: Expression Timeline -->
+                    <!-- Expression Timeline -->
                     <div id="expression-timeline" class="timeline-container">
                         <h5>Recent Actions/Expressions</h5>
                         <ul id="expressions-list"></ul>
@@ -179,38 +184,44 @@
                     </div>
                 </div>
 
-                <!-- New: Tensor Inspector Panel -->
+                <!-- Tensor Inspector Panel -->
                  <div id="tensor-inspector-panel" class="overlay-panel tensor-inspector-container" aria-label="Tensor Inspector">
                      <div class="tensor-inspector-title">Belief Embedding Inspector <button id="toggle-inspector" title="Toggle Inspector View">👁️</button></div>
                      <pre id="tensor-inspector-content">Initializing...</pre>
                  </div>
 
-                 <!-- New: Basic Cascade Viewer Panel -->
+                 <!-- Cascade Viewer Panel -->
                  <div id="cascade-viewer-panel" class="overlay-panel cascade-viewer-container" aria-label="Cascade Viewer">
                     <div class="cascade-viewer-title">Strukturkaskade Viewer</div>
                     <div id="cascade-viewer-content">Initializing...</div>
                  </div>
 
 
-            </div>
+            </div> <!-- End #syntrometry-panel -->
         </section>
 
         <!-- Concept Graph Visualization Section -->
         <section aria-labelledby="concept-viz-heading">
             <h2 id="concept-viz-heading">Concept Graph Visualization</h2>
-            <p>Explore the relationships between Syntrometric concepts with interactive tooltips.</p>
-             <div class="visualization-container threejs-container-concept" id="concept-panel" aria-label="Concept Graph Panel">
+            <p>Explore the relationships between Syntrometric concepts with interactive tooltips. Use Arrow keys to navigate nodes and Enter to select.</p>
+             <!-- This container holds the Concept Graph viz and its specific panels -->
+             <div class="visualization-container threejs-container-concept" id="concept-panel" aria-label="Concept Graph Panel" tabindex="0"> <!-- Added tabindex -->
                 <div id="concept-error-message" class="error-message"></div> <!-- Error message specific to this panel -->
+
+                <!-- ****** ADDED THIS BUTTON BACK ****** -->
+                <button id="toggle-info-panel" class="info-toggle-button" aria-label="Toggle Concept Info Panel" aria-expanded="false">ℹ️</button>
+                <!-- ****** END ADDITION ****** -->
+
                 <!-- Info Panel -->
                 <div id="info-panel" class="overlay-panel info-panel-container" aria-label="Concept Details">
                      <h3>Concept Information</h3>
-                     <p>Hover over or click on a concept node to see details.</p>
+                     <p>Hover over, click, or use keyboard to explore concept nodes.</p> <!-- Updated text -->
                 </div>
-            </div>
+            </div> <!-- End #concept-panel -->
         </section>
     </main>
 
     <!-- Main application script -->
-    <script type="module" src="./js/app.js"></script>
+    <script type="module" src="./js/app.js"></script> <!-- Removed defer, DOMContentLoaded handles timing -->
 </body>
 </html>
