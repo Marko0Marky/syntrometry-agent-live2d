@@ -620,92 +620,82 @@ export class SyntrometricAgent {
     }
 
     /** Internal helper to update emotions */
+        // Inside SyntrometricAgent class in agent.js
+
+    /** Internal helper to update emotions */
     async _updateEmotions(rawState, environmentContext) {
-         if (!this.emotionalModule || !this.prevEmotions || this.prevEmotions.isDisposed) {
-             console.warn("Emotional module or prevEmotions invalid. Applying decay only.");
-             if (!this.prevEmotions || this.prevEmotions.isDisposed) {
-                 this.prevEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM])); // Reset if invalid
-             }
-             const decayedEmotions = tf.tidy(() => this.prevEmotions.mul(EMOTIONAL_DECAY_RATE).clipByValue(0,1));
-             tf.dispose(this.prevEmotions);
-             this.prevEmotions = tf.keep(decayedEmotions);
-             return this.prevEmotions;
+         if (!this.emotionalModule) {
+              console.warn("Emotional module invalid. Cannot predict emotions.");
+              // Return a kept zero tensor if module is missing
+              return tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
+         }
+         if (!this.prevEmotions || this.prevEmotions.isDisposed) {
+             console.warn("prevEmotions invalid. Resetting and returning zeros.");
+             if(this.prevEmotions && !this.prevEmotions.isDisposed) tf.dispose(this.prevEmotions);
+             this.prevEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM])); // Reset if invalid
+             return tf.keep(this.prevEmotions.clone()); // Return clone of zeros
          }
 
          const coreStateForEmotion = (Array.isArray(rawState) ? rawState : zeros([Config.Agent.BASE_STATE_DIM])).slice(0, Config.DIMENSIONS);
          while(coreStateForEmotion.length < Config.DIMENSIONS) coreStateForEmotion.push(0); // Ensure correct length
 
-         // Use tf.tidy for this calculation
-         const emotionPrediction = tf.tidy(() => {
-             const stateTensor = tf.tensor(coreStateForEmotion, [1, Config.DIMENSIONS]);
-             const rewardTensor = tf.tensor([[environmentContext.reward || 0]], [1, 1]);
-             const contextSignal = tf.tensor([[environmentContext.eventType ? 1 : 0]], [1, 1]); // Simple binary context signal
+         try {
+             // Calculate new emotions within a tidy block
+             const newEmotionsResult = tf.tidy(() => {
+                 const stateTensor = tf.tensor([coreStateForEmotion], [1, Config.DIMENSIONS]); // Ensure shape [1, DIMENSIONS]
+                 const rewardTensor = tf.tensor([[environmentContext.reward || 0]], [1, 1]);
+                 const contextSignal = tf.tensor([[environmentContext.eventType ? 1 : 0]], [1, 1]); // Simple binary context signal
 
-             const input = tf.concat([stateTensor, this.prevEmotions, rewardTensor, contextSignal], 1); // Ensure axis is correct (1 for columns)
+                 // Ensure prevEmotions has the correct shape [1, EMOTION_DIM] before concat
+                 const prevEmotionsInput = this.prevEmotions.reshape([1, Config.Agent.EMOTION_DIM]);
 
-             // Check input shape
-             const expectedInputDim = Config.DIMENSIONS + Config.Agent.EMOTION_DIM + 1 + 1;
-             if (input.shape[1] !== expectedInputDim) {
-                 throw new Error(`Emotional module input dim mismatch: expected ${expectedInputDim}, got ${input.shape[1]}`);
-             }
-
-             const predictedEmotions = this.emotionalModule.predict(input);
-
-             // Blend previous and predicted emotions with decay
-             const decayScalar = tf.scalar(EMOTIONAL_DECAY_RATE);
-             const blendedEmotions = this.prevEmotions.mul(decayScalar)
-                 .add(predictedEmotions.mul(tf.scalar(1.0).sub(decayScalar)))
-                 .clipByValue(0, 1); // Ensure emotions stay within [0, 1]
-
-             return blendedEmotions;
-         });
-
-         // Update prevEmotions state *after* tidy block finishes
-         tf.dispose(this.prevEmotions);
-         this.prevEmotions = tf.keep(emotionPrediction); // Keep the result
-         return this.prevEmotions; // Return the kept tensor
-    }
-
-     /** Internal helper to predict head movement */
-     async _predictHeadMovement(currentEmotionsTensor, rihScore, avgAffinity) {
-         let hmLabel = "idle";
-         let dominantEmotionName = "Unknown";
-
-         if (!this.headMovementHead || !currentEmotionsTensor || currentEmotionsTensor.isDisposed) {
-             return { label: hmLabel, dominantName: dominantEmotionName }; // Return defaults if model/tensor invalid
-         }
-
-         const emotionArray = currentEmotionsTensor.arraySync()[0];
-         const dominantEmotionIndex = emotionArray.length > 0 ? emotionArray.indexOf(Math.max(...emotionArray)) : -1;
-         dominantEmotionName = emotionNames[dominantEmotionIndex] || 'Unknown';
-
-         if (dominantEmotionIndex !== -1) {
-             const hmLogits = tf.tidy(() => {
-                 const rihTensor = tf.tensor([[rihScore]], [1, 1]);
-                 const avgAffinityTensor = tf.tensor([[avgAffinity ?? 0]], [1, 1]);
-                 const dominantEmotionTensor = tf.tensor([[dominantEmotionIndex]], [1, 1]);
-                 const emotionTensorInput = currentEmotionsTensor.reshape([1, Config.Agent.EMOTION_DIM]);
-
-                 const input = tf.concat([rihTensor, avgAffinityTensor, dominantEmotionTensor, emotionTensorInput], 1);
+                 const input = tf.concat([stateTensor, prevEmotionsInput, rewardTensor, contextSignal], 1); // Ensure axis is correct (1 for columns)
 
                  // Check input shape
-                 const expectedInputDim = 1 + 1 + 1 + Config.Agent.EMOTION_DIM;
+                 const expectedInputDim = Config.DIMENSIONS + Config.Agent.EMOTION_DIM + 1 + 1;
                  if (input.shape[1] !== expectedInputDim) {
-                     throw new Error(`Head movement model input dim mismatch: expected ${expectedInputDim}, got ${input.shape[1]}`);
+                     throw new Error(`Emotional module input dim mismatch: expected ${expectedInputDim}, got ${input.shape[1]}`);
                  }
 
-                 return this.headMovementHead.predict(input);
-             }); // hmLogits tensor is managed by tidy
+                 // Predict and blend
+                 const predictedEmotions = this.emotionalModule.predict(input);
+                 const decayScalar = tf.scalar(EMOTIONAL_DECAY_RATE);
+                 const blendedEmotions = prevEmotionsInput.mul(decayScalar) // Use reshaped prevEmotions
+                     .add(predictedEmotions.mul(tf.scalar(1.0).sub(decayScalar)))
+                     .clipByValue(0, 1); // Ensure emotions stay within [0, 1]
 
-             if (hmLogits) {
-                 const hmIdx = hmLogits.argMax(1).arraySync()[0]; // Get index of max logit
-                 hmLabel = HEAD_MOVEMENT_LABELS[hmIdx] || "idle";
-                 tf.dispose(hmLogits); // Dispose tensor returned by predict
+                 return blendedEmotions; // Return the result of tidy
+             });
+
+             // --- CRITICAL: Keep the result immediately after tidy ---
+             const keptNewEmotions = tf.keep(newEmotionsResult);
+
+             // --- Safely update the internal state for the *next* step ---
+             // Dispose the old internal state tensor
+             if (this.prevEmotions && !this.prevEmotions.isDisposed) {
+                 tf.dispose(this.prevEmotions);
              }
-         }
-         return { label: hmLabel, dominantName: dominantEmotionName };
-     }
+             // Keep a *separate clone* for the internal state
+             this.prevEmotions = tf.keep(keptNewEmotions.clone());
 
+             // --- Return the kept tensor for the *current* step's result ---
+             return keptNewEmotions;
+
+         } catch (e) {
+              // Handle errors during the prediction/tidy process
+              console.error("Error during emotion prediction/tidy block:", e);
+              displayError(`TF Error during emotion prediction: ${e.message}`, false, 'error-message');
+
+              // Recover safely: Dispose potentially problematic prevEmotions and reset to zeros
+              if (this.prevEmotions && !this.prevEmotions.isDisposed) {
+                   try { tf.dispose(this.prevEmotions); } catch (disposeErr) { /* Ignore nested dispose error */ }
+              }
+              this.prevEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
+
+              // Return a *kept clone* of the zero tensor for the current step result
+              return tf.keep(this.prevEmotions.clone());
+         }
+    } // End _updateEmotions
 
     // --- State Management & Cleanup ---
     getState() {
