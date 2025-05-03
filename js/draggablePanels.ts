@@ -1,55 +1,146 @@
-class DraggablePanel {    
-    static createDraggablePanels(panelClass: string, headerClass: string): DraggablePanel[] {
-        const panels: DraggablePanel[] = [];
-        const panelElements = document.querySelectorAll(`.${panelClass}`);
-        panelElements.forEach((panelElement: Element) => {
-            const headerElement = panelElement.querySelector(`.${headerClass}`);
-            if (headerElement && panelElement.id && headerElement.id) {
-                const panel = new DraggablePanel(panelElement.id, headerElement.id);
-                panels.push(panel);
-            } else {
-                console.error("Could not find header or elements with id.");
-            }
-        });
-        return panels;
+// @ts-nocheck
+// File: js/draggablePanels.ts
+
+/**
+ * Makes overlay panels draggable within a specified container.
+ */
+export function initializeDraggablePanels(
+    panelSelector: string,
+    containerSelector: string,
+    ignoreSelectors: string[] = ['input', 'button', 'textarea', 'select', 'progress', 'canvas', '.no-drag', '[role="button"]', 'a', 'pre', '.chart-container'],
+    ignoredClasses: string[] = ['heatmap-cell', 'cv-syndrome-bar', 'bar-fill', 'metric-value', 'metric-label']
+): void {
+    const container = document.querySelector<HTMLElement>(containerSelector); // Specify HTMLElement
+    const panels = document.querySelectorAll<HTMLElement>(panelSelector); // Specify HTMLElement NodeList
+    let activePanel: HTMLElement | null = null;
+    let currentX: number, currentY: number, initialX: number, initialY: number;
+    let highestZ: number = 10;
+
+    if (!container) {
+        console.error("Draggable panels container not found:", containerSelector);
+        return;
     }
 
+    // Calculate initial highest z-index
+    panels.forEach(p => {
+        try {
+            const z = parseInt(window.getComputedStyle(p).zIndex, 10);
+            if (!isNaN(z) && z >= highestZ) {
+                highestZ = z + 1;
+            }
+        } catch (e) {
+            console.warn("Could not parse z-index for panel:", p, e);
+        }
+    });
+    highestZ += 5; // Buffer
 
-    private element: HTMLElement;
-    private header: HTMLElement;
-    private isDragging: boolean = false;
-    private offsetX: number = 0;
-    private offsetY: number = 0;
+    panels.forEach(panel => {
+        panel.style.cursor = 'grab';
+        panel.addEventListener('mousedown', dragStart, false);
+        panel.addEventListener('touchstart', dragStart, { passive: false });
+    });
 
-    constructor(elementId: string, headerId: string) {
-        this.element = document.getElementById(elementId) as HTMLElement;
-        this.header = document.getElementById(headerId) as HTMLElement;
+    function dragStart(this: HTMLElement, e: MouseEvent | TouchEvent): void { // Type 'this' context
+        const isTouchEvent = e.type.startsWith('touch');
+        // Use type assertion for TouchEvent properties or check e.touches
+        const currentEvent = isTouchEvent ? (e as TouchEvent).touches[0] : (e as MouseEvent);
+        const targetElement = currentEvent.target as HTMLElement; // Assert target as HTMLElement
 
-        if (!this.element || !this.header) {
-            throw new Error("Element or header not found.");
+        // Check ignored elements/classes
+        if (targetElement.closest(ignoreSelectors.join(','))) {
+             return;
+        }
+        if (ignoredClasses.some(cls => targetElement.classList.contains(cls))) {
+            return;
+        }
+        if (!isTouchEvent && isScrollbarClick(e as MouseEvent, this)) { // Pass MouseEvent to helper
+            return;
         }
 
-        this.header.addEventListener('mousedown', this.onMouseDown.bind(this));
-        document.addEventListener('mousemove', this.onMouseMove.bind(this));
-        document.addEventListener('mouseup', this.onMouseUp.bind(this));
+        activePanel = this;
+        activePanel.style.cursor = 'grabbing';
+        highestZ++;
+        activePanel.style.zIndex = String(highestZ); // Convert number to string for style
+
+        initialX = currentEvent.pageX - activePanel.offsetLeft;
+        initialY = currentEvent.pageY - activePanel.offsetTop;
+
+        document.addEventListener('mousemove', drag, false);
+        document.addEventListener('mouseup', dragEnd, false);
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('touchend', dragEnd, false);
+
+        document.body.classList.add('dragging');
     }
 
-    private onMouseDown(event: MouseEvent) {
-        this.isDragging = true;
-        this.offsetX = event.clientX - this.element.offsetLeft;
-        this.offsetY = event.clientY - this.element.offsetTop;
-        this.element.style.zIndex = '100';
+    function drag(e: MouseEvent | TouchEvent): void {
+        if (!activePanel) return;
+
+        e.preventDefault();
+
+        const isTouchEvent = e.type.startsWith('touch');
+        const currentEvent = isTouchEvent ? (e as TouchEvent).touches[0] : (e as MouseEvent);
+
+        currentX = currentEvent.pageX - initialX;
+        currentY = currentEvent.pageY - initialY;
+
+        // Check if container exists before using it
+        if (!container) return;
+
+        const containerRect = container.getBoundingClientRect();
+        const panelRect = activePanel.getBoundingClientRect();
+
+        const containerInnerWidth = container.clientWidth;
+        const containerInnerHeight = container.clientHeight;
+        const panelWidth = activePanel.offsetWidth;
+        const panelHeight = activePanel.offsetHeight;
+
+        const minX = 0;
+        const minY = 0;
+        const maxX = Math.max(0, containerInnerWidth - panelWidth);
+        const maxY = Math.max(0, containerInnerHeight - panelHeight);
+
+        currentX = Math.max(minX, Math.min(currentX, maxX));
+        currentY = Math.max(minY, Math.min(currentY, maxY));
+
+        setTranslate(currentX, currentY, activePanel);
     }
 
-    private onMouseMove(event: MouseEvent) {
-        if (!this.isDragging) return;
+    function dragEnd(): void {
+        if (!activePanel) return;
 
-        this.element.style.left = (event.clientX - this.offsetX) + 'px';
-        this.element.style.top = (event.clientY - this.offsetY) + 'px';
+        activePanel.style.cursor = 'grab';
+        document.removeEventListener('mousemove', drag, false);
+        document.removeEventListener('mouseup', dragEnd, false);
+        document.removeEventListener('touchmove', drag, false);
+        document.removeEventListener('touchend', dragEnd, false);
+        document.body.classList.remove('dragging');
+        activePanel = null;
     }
 
-    private onMouseUp() {
-        this.isDragging = false;
-        this.element.style.zIndex = '1';
+    function setTranslate(xPos: number, yPos: number, el: HTMLElement): void {
+        el.style.left = `${xPos}px`;
+        el.style.top = `${yPos}px`;
+        el.style.transform = '';
+    }
+
+    function isScrollbarClick(e: MouseEvent, element: HTMLElement): boolean {
+        const hasVerticalScrollbar = element.scrollHeight > element.clientHeight;
+        const hasHorizontalScrollbar = element.scrollWidth > element.clientWidth;
+
+        if (!hasVerticalScrollbar && !hasHorizontalScrollbar) {
+            return false;
+        }
+
+        const rect = element.getBoundingClientRect();
+        const scrollbarWidth = element.offsetWidth - element.clientWidth;
+        const scrollbarHeight = element.offsetHeight - element.clientHeight;
+        const clickXrelative = e.clientX - rect.left;
+        const clickYrelative = e.clientY - rect.top;
+        const tolerance = 2;
+        const isOverVerticalScrollbar = hasVerticalScrollbar && scrollbarWidth > 5 && clickXrelative >= (element.offsetWidth - scrollbarWidth - tolerance);
+        const isOverHorizontalScrollbar = hasHorizontalScrollbar && scrollbarHeight > 5 && clickYrelative >= (element.offsetHeight - scrollbarHeight - tolerance);
+
+        return isOverVerticalScrollbar || isOverHorizontalScrollbar;
     }
 }
