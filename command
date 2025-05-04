@@ -1,0 +1,1 @@
+node js/scripts/fix-and-build.js
