@@ -1,177 +1,236 @@
 // File: js/draggablePanels.js
 
 /**
- * Makes overlay panels draggable within a specified container.
+ * Makes overlay panels draggable within a specified container, using their '.panel-header'.
  * @param {string} panelSelector CSS selector for the draggable panels.
  * @param {string} containerSelector CSS selector for the bounding container.
- * @param {string[]} ignoreSelectors Array of CSS selectors for elements inside the panel that should NOT trigger a drag (e.g., inputs, buttons).
+ * @param {string[]} ignoreSelectors Array of CSS selectors for elements inside the header that should NOT trigger a drag.
  * @param {string[]} ignoredClasses Array of CSS classes on target elements that should prevent dragging.
  */
 export function initializeDraggablePanels(
     panelSelector,
     containerSelector,
-    ignoreSelectors = ['input', 'button', 'textarea', 'select', 'progress', 'canvas', '.no-drag', '[role="button"]', 'a', 'pre', '.chart-container'], // Added pre, chart-container
-    ignoredClasses = ['heatmap-cell', 'cv-syndrome-bar', 'bar-fill', 'metric-value', 'metric-label'] // Added more specific ignores
+    // Ignore common interactive elements, plus specific UI classes
+    ignoreSelectors = ['input', 'button', 'textarea', 'select', 'progress', 'canvas', '.no-drag', '[role="button"]', 'a', 'pre', '.chart-container', '.label', '.heatmap-cell', '.cv-syndrome-bar', '.bar-fill', '.metric-value', '.metric-label', '.chat-message', '.timeline-time', '.info-panel-link', '.chat-sender', '.chat-text'],
+    ignoredClasses = ['heatmap-cell', 'cv-syndrome-bar', 'bar-fill', 'metric-value', 'metric-label', 'label', 'chat-sender', 'chat-text', 'timeline-time', 'info-panel-link'] // Classes on the target element itself
 ) {
     const container = document.querySelector(containerSelector);
     const panels = document.querySelectorAll(panelSelector);
-    let activePanel = null;
-    let currentX, currentY, initialX, initialY;
-    // let xOffset = 0, yOffset = 0; // Removed unused offsets
-    let highestZ = 10; // Start z-index
 
     if (!container) {
         console.error("Draggable panels container not found:", containerSelector);
         return;
     }
 
-    // Calculate initial highest z-index based on existing panels
+    let activePanel = null;
+    let initialMouseX, initialMouseY; // Mouse position relative to document
+    let panelStartX, panelStartY;     // Panel's top-left relative to document at drag start
+
+    // Calculate initial highest z-index dynamically
+    let highestZ = 10; // Starting point
     panels.forEach(p => {
-        try { // Add try-catch for robustness
+        try {
             const z = parseInt(window.getComputedStyle(p).zIndex, 10);
             if (!isNaN(z) && z >= highestZ) {
                 highestZ = z + 1;
             }
-        } catch (e) {
-            console.warn("Could not parse z-index for panel:", p, e);
-        }
+        } catch (e) { console.warn("Could not parse z-index for panel:", p, e); }
     });
-    // Add a buffer for panels brought to front later
-    highestZ += 5;
+    highestZ += 5; // Add buffer
 
     panels.forEach(panel => {
-        panel.style.cursor = 'grab'; // Indicate draggable
-        // Use the panel itself as the drag handle
-        panel.addEventListener('mousedown', dragStart, false);
-        panel.addEventListener('touchstart', dragStart, { passive: false }); // Add touch support
+        const header = panel.querySelector('.panel-header'); // Find the header element
+        if (header) {
+            header.style.cursor = 'grab'; // Indicate draggable area
+            // Use bind to ensure `this` refers to the panel inside dragStart
+            header.addEventListener('mousedown', dragStart.bind(panel), false);
+            header.addEventListener('touchstart', dragStart.bind(panel), { passive: false });
+        } else {
+            console.warn(`Panel with selector "${panelSelector}" (id: ${panel.id || 'N/A'}) is missing a '.panel-header'. Dragging will not be enabled for this panel.`);
+            // Optionally, make the whole panel draggable as a fallback:
+            // panel.style.cursor = 'grab';
+            // panel.addEventListener('mousedown', dragStart.bind(panel), false);
+            // panel.addEventListener('touchstart', dragStart.bind(panel), { passive: false });
+        }
     });
 
     function dragStart(e) {
-        // Determine event type (mouse or touch)
+        // `this` is the panel element because of .bind(panel)
+        const currentPanel = this;
+        const targetElement = e.target; // The actual element clicked (could be inside the header)
+
+        // 1. Check if the clicked element itself should prevent dragging
+        if (ignoreSelectors.some(sel => targetElement.closest(sel)) ||
+            ignoredClasses.some(cls => targetElement.classList.contains(cls))) {
+            return; // Prevent drag
+        }
+
+        // 2. Check specifically for scrollbar clicks (if header could potentially scroll)
+        // Note: Headers usually don't scroll, but this check is included for completeness.
+        // Pass the HEADER element to the check if you only want to check header scrollbars.
+        // If checking the panel itself: isScrollbarClick(e, currentPanel)
+        if (!e.type.startsWith('touch') && isScrollbarClick(e, targetElement.closest('.panel-header') || currentPanel)) { // Check header or panel
+             return;
+        }
+
+        // 3. Check for active text selection *within the panel*
+        const selection = window.getSelection();
+        if (!e.type.startsWith('touch') && selection && selection.toString().length > 0 && currentPanel.contains(selection.anchorNode)) {
+             // Allow drag to start even if text is selected, but clear selection
+             // selection.removeAllRanges(); // Optionally clear selection
+             // OR prevent drag if text is selected:
+             // return;
+        }
+
+        // If all checks pass, initiate the drag
+        activePanel = currentPanel;
+
         const isTouchEvent = e.type.startsWith('touch');
         const currentEvent = isTouchEvent ? e.touches[0] : e;
 
-        const targetElement = currentEvent.target;
+        initialMouseX = currentEvent.pageX; // Document coordinate
+        initialMouseY = currentEvent.pageY; // Document coordinate
 
-        // Check if the clicked/touched element or its parent matches ignoreSelectors or ignoredClasses
-        if (targetElement.closest(ignoreSelectors.join(','))) {
-             return; // Don't drag if clicking on an ignored element type or selector
-        }
-        if (ignoredClasses.some(cls => targetElement.classList.contains(cls))) {
-            return; // Don't drag if clicking on an element with an ignored class
-        }
+        // Get panel's current position reliably
+        const panelRect = activePanel.getBoundingClientRect(); // Position relative to viewport
+        const scrollX = window.scrollX || window.pageXOffset;
+        const scrollY = window.scrollY || window.pageYOffset;
+        // Calculate initial top-left relative to document
+        panelStartX = panelRect.left + scrollX;
+        panelStartY = panelRect.top + scrollY;
+        
+        // Alternative using style (less reliable if position isn't set via left/top initially)
+        // panelStartX = parseFloat(activePanel.style.left) || panelRect.left + scrollX;
+        // panelStartY = parseFloat(activePanel.style.top) || panelRect.top + scrollY;
 
-        // Check if the click is on a scrollbar (heuristic)
-        if (!isTouchEvent && isScrollbarClick(e, this)) {
-            return;
-        }
 
-        activePanel = this; // 'this' refers to the panel the event listener is attached to
-        activePanel.style.cursor = 'grabbing'; // Change cursor during drag
+        const header = activePanel.querySelector('.panel-header');
+        if (header) header.style.cursor = 'grabbing'; // Change cursor on the header
+        activePanel.style.zIndex = ++highestZ; // Bring panel to front
 
-        // Bring panel to front
-        highestZ++;
-        activePanel.style.zIndex = highestZ;
-
-        // Calculate initial offset relative to the panel's top-left corner
-        // initialX/Y is the offset *within* the panel where the drag started
-        initialX = currentEvent.pageX - activePanel.offsetLeft;
-        initialY = currentEvent.pageY - activePanel.offsetTop;
-
-        // Add listeners to the document to capture movement anywhere
+        // Add listeners to the document to capture mouse movement everywhere
         document.addEventListener('mousemove', drag, false);
         document.addEventListener('mouseup', dragEnd, false);
-        document.addEventListener('touchmove', drag, { passive: false }); // Add touch support
-        document.addEventListener('touchend', dragEnd, false); // Add touch support
+        if (isTouchEvent) {
+            document.addEventListener('touchmove', drag, { passive: false }); // Prevent scroll during touch drag
+            document.addEventListener('touchend', dragEnd, false);
+        }
 
-        document.body.classList.add('dragging'); // Add class for cursor/selection styles
+        // Add global style to prevent text selection during drag
+        document.body.classList.add('dragging');
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none'; // For Safari/Chrome
+        document.body.style.msUserSelect = 'none'; // For IE/Edge
+        document.body.style.MozUserSelect = 'none'; // For Firefox
     }
 
     function drag(e) {
         if (!activePanel) return;
 
-        // Prevent default actions like text selection or page scrolling during drag
-        e.preventDefault();
+        // Prevent default actions like touch scrolling while dragging
+        if (e.type.startsWith('touch')) {
+            e.preventDefault();
+        }
 
         const isTouchEvent = e.type.startsWith('touch');
         const currentEvent = isTouchEvent ? e.touches[0] : e;
 
-        // New desired position = current mouse/touch position - initial offset within the panel
-        currentX = currentEvent.pageX - initialX;
-        currentY = currentEvent.pageY - initialY;
+        // Calculate mouse movement delta since drag start
+        const deltaX = currentEvent.pageX - initialMouseX;
+        const deltaY = currentEvent.pageY - initialMouseY;
+
+        // Calculate new desired panel position (top-left corner relative to document)
+        let newX = panelStartX + deltaX;
+        let newY = panelStartY + deltaY;
 
         // --- Containment Logic ---
-        const containerRect = container.getBoundingClientRect();
-        const panelRect = activePanel.getBoundingClientRect(); // Current dimensions/position
-
-        // Available space for the panel's top-left corner
-        const containerInnerWidth = container.clientWidth;
-        const containerInnerHeight = container.clientHeight;
+        const containerRect = container.getBoundingClientRect(); // Container position relative to viewport
         const panelWidth = activePanel.offsetWidth;
         const panelHeight = activePanel.offsetHeight;
 
-        // Constrain the panel's top-left corner (currentX, currentY)
-        const minX = 0;
-        const minY = 0;
-        const maxX = Math.max(0, containerInnerWidth - panelWidth); // Ensure maxX >= 0
-        const maxY = Math.max(0, containerInnerHeight - panelHeight); // Ensure maxY >= 0
+        // Calculate boundaries relative to the document
+        const scrollX = window.scrollX || window.pageXOffset;
+        const scrollY = window.scrollY || window.pageYOffset;
+        const containerDocLeft = containerRect.left + scrollX;
+        const containerDocTop = containerRect.top + scrollY;
+        const containerDocRight = containerDocLeft + container.clientWidth;
+        const containerDocBottom = containerDocTop + container.clientHeight;
+
+        // Determine min/max X/Y for the panel's top-left corner within the container's document coordinates
+        const minX = containerDocLeft;
+        const minY = containerDocTop;
+        const maxX = Math.max(minX, containerDocRight - panelWidth);   // Ensure maxX >= minX
+        const maxY = Math.max(minY, containerDocBottom - panelHeight); // Ensure maxY >= minY
 
         // Clamp calculated position
-        currentX = Math.max(minX, Math.min(currentX, maxX));
-        currentY = Math.max(minY, Math.min(currentY, maxY));
+        newX = Math.max(minX, Math.min(newX, maxX));
+        newY = Math.max(minY, Math.min(newY, maxY));
 
-        // Apply the constrained position using left/top
-        setTranslate(currentX, currentY, activePanel);
+        // Apply the constrained position using left/top style properties
+        activePanel.style.left = `${newX}px`;
+        activePanel.style.top = `${newY}px`;
+        activePanel.style.transform = ''; // Ensure transform doesn't interfere
     }
 
     function dragEnd() {
         if (!activePanel) return;
 
-        activePanel.style.cursor = 'grab'; // Reset cursor
+        // Restore cursor on the header
+        const header = activePanel.querySelector('.panel-header');
+        if (header) header.style.cursor = 'grab';
 
-        // Remove listeners from the document
+        // Remove document listeners
         document.removeEventListener('mousemove', drag, false);
         document.removeEventListener('mouseup', dragEnd, false);
         document.removeEventListener('touchmove', drag, false);
         document.removeEventListener('touchend', dragEnd, false);
 
-        document.body.classList.remove('dragging'); // Remove dragging class
+        // Remove global dragging styles/flags
+        document.body.classList.remove('dragging');
+        document.body.style.userSelect = '';
+        document.body.style.webkitUserSelect = '';
+        document.body.style.msUserSelect = '';
+        document.body.style.MozUserSelect = '';
+
         activePanel = null; // Deactivate panel
     }
 
-    function setTranslate(xPos, yPos, el) {
-        // Use left/top for simplicity and compatibility with initial CSS positioning
-        el.style.left = `${xPos}px`;
-        el.style.top = `${yPos}px`;
-        // Reset transform just in case it was used elsewhere, ensuring left/top take precedence
-        el.style.transform = '';
-    }
-
-    // Helper to check if click is on the scrollbar area
-    // Note: This is a heuristic and might not be 100% accurate across all browsers/OS/themes.
+    /** Checks if a click event occurred on a likely scrollbar area of an element. */
     function isScrollbarClick(e, element) {
-        // Check only if the element actually has scrollbars
-        const hasVerticalScrollbar = element.scrollHeight > element.clientHeight;
-        const hasHorizontalScrollbar = element.scrollWidth > element.clientWidth;
+        if (!element) return false;
+        // Check if element is potentially scrollable
+        const canScrollVertically = element.scrollHeight > element.clientHeight;
+        const canScrollHorizontally = element.scrollWidth > element.clientWidth;
 
-        if (!hasVerticalScrollbar && !hasHorizontalScrollbar) {
-            return false; // No scrollbars, so click cannot be on one
-        }
+        if (!canScrollVertically && !canScrollHorizontally) return false; // Not scrollable
 
-        const rect = element.getBoundingClientRect();
-        // clientWidth/Height excludes scrollbar size
-        const scrollbarWidth = element.offsetWidth - element.clientWidth;
-        const scrollbarHeight = element.offsetHeight - element.clientHeight;
+        const rect = element.getBoundingClientRect(); // Position relative to viewport
 
-        // Click position relative to the element's border box edge
-        const clickXrelative = e.clientX - rect.left;
-        const clickYrelative = e.clientY - rect.top;
+        // Calculate click position relative to the element's border-box top-left corner
+        const clickXRelative = e.clientX - rect.left;
+        const clickYRelative = e.clientY - rect.top;
 
-        // Check if click is within the approximate scrollbar zones
-        // Add a small tolerance (e.g., 2px) for edge cases
-        const tolerance = 2;
-        const isOverVerticalScrollbar = hasVerticalScrollbar && scrollbarWidth > 5 && clickXrelative >= (element.offsetWidth - scrollbarWidth - tolerance);
-        const isOverHorizontalScrollbar = hasHorizontalScrollbar && scrollbarHeight > 5 && clickYrelative >= (element.offsetHeight - scrollbarHeight - tolerance);
+        // Calculate approximate scrollbar widths (might vary by browser/OS)
+        // offsetWidth/Height includes border and padding
+        // clientWidth/Height includes padding but not border or scrollbar
+        const scrollbarVWidth = element.offsetWidth - element.clientWidth - (parseFloat(getComputedStyle(element).borderLeftWidth) || 0) - (parseFloat(getComputedStyle(element).borderRightWidth) || 0);
+        const scrollbarHHeight = element.offsetHeight - element.clientHeight - (parseFloat(getComputedStyle(element).borderTopWidth) || 0) - (parseFloat(getComputedStyle(element).borderBottomWidth) || 0);
+
+        const tolerance = 2; // Allow a small margin of error
+
+        // Check if click is within the vertical scrollbar region (usually on the right)
+        // It's right of the client area and within the element's offset width
+        const isOverVerticalScrollbar = canScrollVertically &&
+            scrollbarVWidth > tolerance && // Only check if scrollbar likely visible
+            clickXRelative >= (element.clientWidth + (parseFloat(getComputedStyle(element).borderLeftWidth) || 0)) - tolerance &&
+            clickXRelative <= element.offsetWidth + tolerance;
+
+        // Check if click is within the horizontal scrollbar region (usually at the bottom)
+        // It's below the client area and within the element's offset height
+        const isOverHorizontalScrollbar = canScrollHorizontally &&
+            scrollbarHHeight > tolerance && // Only check if scrollbar likely visible
+            clickYRelative >= (element.clientHeight + (parseFloat(getComputedStyle(element).borderTopWidth) || 0)) - tolerance &&
+            clickYRelative <= element.offsetHeight + tolerance;
 
         return isOverVerticalScrollbar || isOverHorizontalScrollbar;
     }
