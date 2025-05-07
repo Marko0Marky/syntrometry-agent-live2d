@@ -28,15 +28,14 @@ export class Enyphansyntrix {
     apply(stateTensor, perturbationScale = 0.01) {
         if (typeof tf === 'undefined') {
             console.error("[Enyphansyntrix] TensorFlow not available.");
-            return tf.zeros([Config.DIMENSIONS]); // Return shape matching expected core dimensions
-        }
-        if (!(stateTensor instanceof tf.Tensor) || stateTensor.isDisposed) {
-            console.warn("[Enyphansyntrix] Invalid or disposed input tensor. Returning zero tensor.");
             return tf.zeros([Config.DIMENSIONS]);
         }
-         // Ensure input tensor has the expected dimensionality (Config.DIMENSIONS)
+        if (!(stateTensor instanceof tf.Tensor) || stateTensor.isDisposed) {
+            // console.warn("[Enyphansyntrix] Invalid or disposed input tensor. Returning zero tensor."); // Noisy
+            return tf.zeros([Config.DIMENSIONS]);
+        }
          if (stateTensor.shape.length === 0 || stateTensor.shape[stateTensor.shape.length - 1] !== Config.DIMENSIONS) {
-             console.warn(`[Enyphansyntrix] Input tensor shape mismatch. Expected last dimension ${Config.DIMENSIONS}, got ${stateTensor.shape}. Returning zeros.`);
+             // console.warn(`[Enyphansyntrix] Input tensor shape mismatch. Expected last dimension ${Config.DIMENSIONS}, got ${stateTensor.shape}. Returning zeros.`); // Noisy
              return tf.zeros([Config.DIMENSIONS]);
          }
 
@@ -45,10 +44,9 @@ export class Enyphansyntrix {
                 const tauScalar = tf.scalar(Config.METRON_TAU);
                 const scaled = stateTensor.div(tauScalar);
                 const rounded = tf.round(scaled);
-                return rounded.mul(tauScalar).clipByValue(-1, 1); // Clip after quantization
-            } else { // Continuous mode (default)
+                return rounded.mul(tauScalar).clipByValue(-1, 1);
+            } else { 
                 const noise = tf.randomNormal(stateTensor.shape, 0, perturbationScale);
-                // Add noise and clip to maintain bounds [-1, 1]
                 return stateTensor.add(noise).clipByValue(-1, 1);
             }
         });
@@ -74,26 +72,22 @@ export class Affinitaetssyndrom {
 
         try {
             return tf.tidy(() => {
-                // Ensure inputs are valid tensors
-                let tensorA = (syndromeA instanceof tf.Tensor) ? syndromeA : tensor(syndromeA); // Use utils.tensor for array conversion
+                let tensorA = (syndromeA instanceof tf.Tensor) ? syndromeA : tensor(syndromeA);
                 let tensorB = (syndromeB instanceof tf.Tensor) ? syndromeB : tensor(syndromeB);
 
                  if (!tensorA || tensorA.isDisposed || !tensorB || tensorB.isDisposed) {
-                     console.warn("[Affinitaetssyndrom] Invalid or disposed input tensors after conversion.");
-                     return tf.scalar(0); // Return tensor 0
+                     // console.warn("[Affinitaetssyndrom] Invalid or disposed input tensors after conversion."); // Noisy
+                     return tf.scalar(0);
                  }
 
-                // Flatten tensors to 1D for consistent processing
                 tensorA = tensorA.flatten();
                 tensorB = tensorB.flatten();
 
                 const lenA = tensorA.shape[0];
                 const lenB = tensorB.shape[0];
 
-                // Handle empty tensors
                 if (lenA === 0 || lenB === 0) return tf.scalar(0);
 
-                // Pad the shorter tensor with zeros to match the length of the longer one
                 const maxLength = Math.max(lenA, lenB);
                 if (lenA < maxLength) {
                     tensorA = tf.pad(tensorA, [[0, maxLength - lenA]]);
@@ -101,26 +95,23 @@ export class Affinitaetssyndrom {
                     tensorB = tf.pad(tensorB, [[0, maxLength - lenB]]);
                 }
 
-                // Calculate norms
                 const normA = tf.norm(tensorA);
                 const normB = tf.norm(tensorB);
                 const normProd = normA.mul(normB);
 
-                // Avoid division by zero or near-zero norms
                 if (normProd.arraySync() < 1e-9) {
                      return tf.scalar(0);
                 }
 
-                // Calculate cosine similarity: dot(A, B) / (norm(A) * norm(B))
                 const dotProduct = tf.dot(tensorA, tensorB);
-                const similarity = dotProduct.div(normProd).clipByValue(-1, 1); // Clip to [-1, 1] range
+                const similarity = dotProduct.div(normProd).clipByValue(-1, 1);
 
-                return similarity; // Return the similarity tensor
-            }).arraySync(); // Extract the JS number value
+                return similarity;
+            }).arraySync();
         } catch (e) {
-            displayError(`TF Error in Affinitaetssyndrom compute: ${e.message}`, false);
+            // displayError(`TF Error in Affinitaetssyndrom compute: ${e.message}`, false); // Potentially noisy
             console.error("[Affinitaetssyndrom] Full error:", e);
-            return 0; // Return scalar 0 on error
+            return 0;
         }
     }
 }
@@ -133,7 +124,7 @@ export class Affinitaetssyndrom {
 export class Synkolator {
     constructor(type = 'pyramidal', stage = Config.CASCADE_STAGE || 2) {
         this.type = type;
-        this.stage = Math.max(2, stage); // Ensure stage is at least 2
+        this.stage = Math.max(2, stage);
 
         if (type !== 'pyramidal' && type !== 'average') {
             console.warn(`[Synkolator] Unsupported type "${type}". Defaulting to "pyramidal".`);
@@ -151,44 +142,29 @@ export class Synkolator {
              console.error("[Synkolator] TensorFlow not available.");
              return tf.tensor([]);
          }
-         // Validate input tensor
          if (!(elementsTensor instanceof tf.Tensor) || elementsTensor.isDisposed || elementsTensor.rank !== 1 || elementsTensor.shape[0] === 0) {
-             // console.warn("[Synkolator] Invalid input tensor. Returning empty tensor."); // Reduce noise
              return tf.tensor([]);
          }
 
         const numElements = elementsTensor.shape[0];
 
-        // Handle based on type
         if (this.type === 'pyramidal') {
-            // Need at least 'stage' elements for pyramidal reduction
             if (numElements < this.stage) {
-                // If fewer elements than stage, Heim's original definition is ambiguous.
-                // Returning mean might be reasonable, but empty aligns better with strict stage requirement.
-                // Let's return empty to indicate the stage couldn't be fully applied.
                 return tf.tensor([]);
-                // Alternative: return tf.mean(elementsTensor).reshape([1]);
             }
 
-            // Use tf.tidy for intermediate slices and means
             return tf.tidy(() => {
                 const syndromes = [];
-                // Sliding window of size 'stage'
                 for (let i = 0; i <= numElements - this.stage; i++) {
                     const slice = elementsTensor.slice(i, this.stage);
-                    syndromes.push(tf.mean(slice)); // Calculate mean of the slice
+                    syndromes.push(tf.mean(slice));
                 }
-                // Stack the computed means into a single tensor
                 return (syndromes.length > 0) ? tf.stack(syndromes) : tf.tensor([]);
             });
 
         } else if (this.type === 'average') {
-            // Simple averaging of all elements
             return tf.mean(elementsTensor).reshape([1]);
         }
-
-        // Should not be reached if constructor defaults correctly
-        console.warn(`[Synkolator] Unknown type in apply: ${this.type}. Returning empty tensor.`);
         return tf.tensor([]);
     }
 }
@@ -210,43 +186,34 @@ export class ReflexiveIntegration {
              return 0;
         }
         if (!(syndromesTensor instanceof tf.Tensor) || syndromesTensor.isDisposed) {
-            // console.warn("[ReflexiveIntegration] Invalid or disposed input tensor."); // Reduce noise
             return 0;
         }
 
-        // Ensure tensor is 1D and has enough elements for variance calculation
-        const flatTensor = syndromesTensor.flatten();
-        if (flatTensor.shape[0] < 2) { // Need at least 2 elements for variance
-            if (!flatTensor.isDisposed) tf.dispose(flatTensor);
-            return 0; // Return 0 if not enough elements
+        const flatTensor = syndromesTensor.flatten(); // Keep reference to dispose
+        if (flatTensor.shape[0] < 2) {
+            if (!flatTensor.isDisposed) tf.dispose(flatTensor); // Dispose manually
+            return 0;
         }
 
         try {
-            // Use tf.tidy to manage intermediate tensors (mean, variance)
             return tf.tidy(() => {
-                const { mean, variance } = tf.moments(flatTensor); // Calculates mean and variance
+                const { mean, variance } = tf.moments(flatTensor);
                 const varianceVal = variance.arraySync();
 
-                // Avoid division by zero or instability with very small variance
                 if (varianceVal < 1e-9) {
-                     return tf.scalar(0); // Return tensor 0
+                     return tf.scalar(0);
                 }
-
-                // RIH = abs(mean / stddev) * scale, clamped to [0, 1]
-                // stddev = sqrt(variance)
                 const rihScoreTensor = tf.abs(mean.div(tf.sqrt(variance)))
-                                  .mul(tf.scalar(Config.RIH_SCALE)) // Apply scaling factor
-                                  .clipByValue(0, 1); // Clamp the result
-
-                return rihScoreTensor; // Return the final tensor
-            }).arraySync(); // Extract the JS number
+                                  .mul(tf.scalar(Config.RIH_SCALE))
+                                  .clipByValue(0, 1);
+                return rihScoreTensor;
+            }).arraySync();
         } catch (e) {
-            displayError(`TF Error in ReflexiveIntegration: ${e.message}`, false);
+            // displayError(`TF Error in ReflexiveIntegration: ${e.message}`, false); // Noisy
             console.error("[ReflexiveIntegration] Full error:", e);
-            return 0; // Return scalar 0 on error
+            return 0;
         } finally {
-            // Ensure flatTensor is disposed if it wasn't already (tidy should handle it, but be safe)
-             if (flatTensor && !flatTensor.isDisposed) tf.dispose(flatTensor);
+             if (flatTensor && !flatTensor.isDisposed) tf.dispose(flatTensor); // Ensure disposal
         }
     }
 }
@@ -261,7 +228,6 @@ export class Strukturkondensation {
         this.levels = levels;
         this.synkolators = [];
         for (let i = 0; i < levels; i++) {
-            // Each level uses a Synkolator (currently all pyramidal with the same stage)
             this.synkolators.push(new Synkolator('pyramidal', synkolatorStage));
         }
     }
@@ -278,53 +244,46 @@ export class Strukturkondensation {
              return [tf.tensor([])];
         }
         if (!(initialElementsTensor instanceof tf.Tensor) || initialElementsTensor.isDisposed || initialElementsTensor.rank !== 1) {
-            console.warn("[Strukturkondensation] Invalid or disposed initial tensor. Returning empty history.");
+            // console.warn("[Strukturkondensation] Invalid or disposed initial tensor. Returning empty history."); // Noisy
              return [tf.tensor([])];
         }
          if (initialElementsTensor.shape[0] === 0) {
-             // console.warn("[Strukturkondensation] Initial tensor is empty."); // Reduce noise
              return [tf.tensor([])];
          }
 
-        // Use tf.tidy for the overall process to manage intermediate tensors
-        return tf.tidy(() => {
-            let currentLevelTensor = initialElementsTensor.clone(); // Start with a clone of the input
-            // Keep the initial level tensor (level 0)
-            const history = [tf.keep(currentLevelTensor.clone())];
+        // No tf.tidy here because we are explicitly keeping tensors for history
+        let currentLevelTensor = initialElementsTensor.clone(); // Start with a clone
+        const history = [tf.keep(currentLevelTensor.clone())]; // Keep the initial level
 
-            for (let i = 0; i < this.levels; i++) {
-                // Stop if current level is empty or no more synkolators
-                if (currentLevelTensor.shape[0] === 0 || !this.synkolators[i]) break;
+        for (let i = 0; i < this.levels; i++) {
+            if (currentLevelTensor.shape[0] === 0 || !this.synkolators[i]) break;
 
-                const synkolator = this.synkolators[i];
-                // Apply the synkolator for this level (Synkolator.apply handles its own tidying)
-                const nextLevelTensor = synkolator.apply(currentLevelTensor);
+            const synkolator = this.synkolators[i];
+            const nextLevelTensorUnkept = synkolator.apply(currentLevelTensor); // This is tidied internally by synkolator
 
-                // Dispose the tensor from the previous iteration *unless* it was the initial input
-                if (currentLevelTensor !== initialElementsTensor && !currentLevelTensor.isDisposed) {
-                     tf.dispose(currentLevelTensor);
-                }
+            // Dispose the tensor from the previous iteration
+            // (it was either the initial input's clone or a result from previous loop)
+            tf.dispose(currentLevelTensor);
 
-                // Check if the synkolation resulted in a valid tensor
-                if (!nextLevelTensor || nextLevelTensor.isDisposed || nextLevelTensor.shape[0] === 0) {
-                    // If synkolation stops or results in empty, add an empty kept tensor and break
-                    if (nextLevelTensor && !nextLevelTensor.isDisposed) tf.dispose(nextLevelTensor);
-                    history.push(tf.keep(tf.tensor([])));
-                    currentLevelTensor = tf.tensor([]); // Set current to empty to stop loop
-                    break;
-                }
-
-                // Update current level and add a kept clone to history
-                currentLevelTensor = nextLevelTensor; // The result of apply becomes the input for the next level
-                history.push(tf.keep(currentLevelTensor.clone()));
+            if (!nextLevelTensorUnkept || nextLevelTensorUnkept.isDisposed || nextLevelTensorUnkept.shape[0] === 0) {
+                if (nextLevelTensorUnkept && !nextLevelTensorUnkept.isDisposed) tf.dispose(nextLevelTensorUnkept);
+                history.push(tf.keep(tf.tensor([]))); // Keep an empty tensor placeholder
+                currentLevelTensor = tf.tensor([]); // Ensure loop terminates
+                break;
             }
+            
+            currentLevelTensor = nextLevelTensorUnkept; // Result of apply becomes input for next
+            history.push(tf.keep(currentLevelTensor.clone())); // Keep a clone of it for history
+        }
 
-             // Dispose the final `currentLevelTensor` if it wasn't the input tensor and wasn't disposed in the loop
-            if (currentLevelTensor !== initialElementsTensor && !currentLevelTensor.isDisposed) {
-                 tf.dispose(currentLevelTensor);
-            }
+        // Dispose the final currentLevelTensor if it wasn't added to history as a clone or is just an empty tensor
+        if (!history.includes(currentLevelTensor) && !currentLevelTensor.isDisposed && currentLevelTensor.shape[0] > 0) {
+             tf.dispose(currentLevelTensor);
+        } else if (currentLevelTensor.shape[0] === 0 && !currentLevelTensor.isDisposed){ // if it was an empty tensor set to break the loop
+             tf.dispose(currentLevelTensor);
+        }
 
-            return history; // Return the array of kept tensors
-        });
+
+        return history;
     }
 }
