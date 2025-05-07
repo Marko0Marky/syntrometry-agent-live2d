@@ -103,31 +103,30 @@
                 <div id="live2d-container" aria-label="Live2D Avatar Display"></div> <!-- Live2D display -->
 
                 <!-- Controls Panel -->
-                <div id="controls" class="overlay-panel controls-container" aria-label="Simulation Controls">
+                <div id="controls" class="overlay-panel controls-container panel-draggable" aria-label="Simulation Controls">
                     <div class="control-group">
                         <label for="integration-slider">Integration (I(S)) [Agent Learned]: <span id="integration-value">0.50</span></label>
-                        <input class="read-only-slider" type="range" id="integration-slider" name="integration" min="0" max="1" step="0.01" value="0.5" aria-labelledby="integration-slider-label" title="Reflects agent's internal value. Dragging triggers visual feedback." disabled> <!-- Disabled by default -->
+                        <input class="read-only-slider" type="range" id="integration-slider" name="integration" min="0" max="1" step="0.01" value="0.5" aria-labelledby="integration-slider-label" title="Reflects agent's internal value. Dragging triggers visual feedback." disabled>
                     </div>
                     <div class="control-group">
                         <label for="reflexivity-slider">Reflexivity (Ψ) [Agent Learned]: <span id="reflexivity-value">0.50</span></label>
-                        <input class="read-only-slider" type="range" id="reflexivity-slider" name="reflexivity" min="0" max="1" step="0.01" value="0.5" aria-labelledby="reflexivity-slider-label" title="Reflects agent's internal value. Dragging triggers visual feedback." disabled> <!-- Disabled by default -->
+                        <input class="read-only-slider" type="range" id="reflexivity-slider" name="reflexivity" min="0" max="1" step="0.01" value="0.5" aria-labelledby="reflexivity-slider-label" title="Reflects agent's internal value. Dragging triggers visual feedback." disabled>
                     </div>
-                    <!-- Removed #labels-toggle from here -->
                     <div class="button-group">
-                        <button id="save-state-button" type="button" disabled>Save State</button> <!-- Disabled by default -->
-                        <button id="load-state-button" type="button" disabled>Load State</button> <!-- Disabled by default -->
+                        <button id="save-state-button" type="button" disabled>Save State</button>
+                        <button id="load-state-button" type="button" disabled>Load State</button>
+                        <button id="pause-button" type="button">Pause</button>
                     </div>
                 </div>
 
                 <!-- Chat Panel -->
-                <div id="chat-container" class="overlay-panel chat-container" aria-label="Simulation Chat">
+                <div id="chat-container" class="overlay-panel chat-container panel-draggable" aria-label="Simulation Chat">
                     <div id="chat-output" aria-live="polite"><div><b>System:</b> Welcome to the Syntrometric Simulation (V2.3).</div></div>
-                    <input id="chat-input" type="text" placeholder="Interact with the simulation..." aria-label="Chat Input" disabled> <!-- Disabled by default -->
+                    <input id="chat-input" type="text" placeholder="Interact with the simulation..." aria-label="Chat Input" disabled>
                 </div>
 
                 <!-- Metrics Dashboard Panel -->
-                <div id="dashboard-panel" class="overlay-panel dashboard-container" aria-label="Real-time Metrics Dashboard">
-                    <h3>Agent Dashboard</h3>
+                <div id="dashboard-panel" class="overlay-panel dashboard-container panel-draggable" aria-label="Real-time Metrics Dashboard">
                     <div class="dashboard-metrics">
                         <div class="metric-item">
                             <span class="metric-label">RIH:</span>
@@ -178,22 +177,20 @@
                 </div>
 
                 <!-- Heatmap Panel -->
-                 <div id="heatmap-panel" class="overlay-panel heatmap-container" aria-label="Agent Internal State Heatmap">
-                    <div class="heatmap-title">Self-State Activation</div>
+                 <div id="heatmap-panel" class="overlay-panel heatmap-container panel-draggable" aria-label="Agent Internal State Heatmap">
                     <div id="heatmap-content">
                         <!-- Heatmap cells will be generated here by JS -->
                     </div>
                 </div>
 
                 <!-- Tensor Inspector Panel -->
-                 <div id="tensor-inspector-panel" class="overlay-panel tensor-inspector-container" aria-label="Tensor Inspector">
-                     <div class="tensor-inspector-title">Belief Embedding Inspector <button id="toggle-inspector" title="Toggle Inspector View">👁️</button></div>
+                 <div id="tensor-inspector-panel" class="overlay-panel tensor-inspector-container panel-draggable" aria-label="Tensor Inspector">
+                     <button id="toggle-inspector" title="Toggle Inspector View" class="no-drag">👁️</button>
                      <pre id="tensor-inspector-content">Initializing...</pre>
                  </div>
 
                  <!-- Cascade Viewer Panel -->
-                 <div id="cascade-viewer-panel" class="overlay-panel cascade-viewer-container" aria-label="Cascade Viewer">
-                    <div class="cascade-viewer-title">Strukturkaskade Viewer</div>
+                 <div id="cascade-viewer-panel" class="overlay-panel cascade-viewer-container panel-draggable" aria-label="Cascade Viewer">
                     <div id="cascade-viewer-content">Initializing...</div>
                  </div>
 
@@ -225,5 +222,22 @@
 
     <!-- Main application script -->
     <script type="module" src="./js/app.js"></script>
+
+    <!-- Initialize draggable panels -->
+    <script type="module">
+        import { initializeDraggablePanels } from './js/draggablePanels.js';
+        
+        // Initialize draggable panels when DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            // Make all panels with class 'panel-draggable' draggable within the visualization container
+            initializeDraggablePanels(
+                '.panel-draggable', 
+                '.visualization-container',
+                ['input', 'button', 'textarea', 'select', 'progress', 'canvas', '.no-drag', '[role="button"]', 'a', 'pre']
+            );
+            
+            console.log('Draggable panels initialized');
+        });
+    </script>
 </body>
 </html>
