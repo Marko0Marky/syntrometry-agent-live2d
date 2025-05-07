@@ -11,59 +11,111 @@
     <!-- External CSS -->
     <link rel="stylesheet" href="style.css">
 
-    <!-- Dependencies -->
-    <!-- TensorFlow.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js"
-        onerror="handleScriptError('TensorFlow.js', null, 'Could not load TensorFlow.js. Agent/Simulation may not work.')"></script>
-    <!-- Three.js -->
-    <script src="https://unpkg.com/three@0.132.2/build/three.min.js"
-        onerror="handleScriptError('Three.js', 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js', 'Could not load Three.js.')"></script>
-    <!-- Three.js Examples - OrbitControls and CSS2DRenderer -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"
-        onerror="handleScriptError('OrbitControls', null, 'Could load OrbitControls.')"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/renderers/CSS2DRenderer.js"
-        onerror="handleScriptError('CSS2DRenderer', null, 'Could load CSS2DRenderer.')"></script>
-    <!-- Pixi.js -->
-    <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.3.3/dist/pixi.min.js"
-        onerror="handleScriptError('Pixi.js', 'https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.3/pixi.min.js', 'Could not load Pixi.js.')"></script>
-    <!-- Cubism 4 Core -->
-    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"
-        onerror="handleScriptError('Cubism 4 Core', null, 'Could not load Cubism 4 Core.')"></script>
-    <!-- pixi-live2d-display -->
-    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"
-        onerror="handleScriptError('pixi-live2d-display', 'https://unpkg.com/pixi-live2d-display@0.4.0/dist/cubism4.min.js', 'Could not load pixi-live2d-display.')"></script>
-
-    <!-- Chart.js Dependencies -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@^4"></script>
-    <script src="https://cdn.jsdelivr.net/npm/luxon@^3"></script> <!-- Updated Luxon version -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@^1"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@^2"></script> <!-- Realtime Scale Plugin -->
-
-    <!-- Basic error handling for scripts failing before utils.js loads -->
+    <!-- Basic error handling for scripts -->
     <script>
         function handleScriptError(library, fallback, message) {
-            console.error(`[Early Error] Failed to load ${library}. ${message || ''}`);
-            const errorBar = document.createElement('div');
-            errorBar.style.cssText = 'position:fixed; top:0; left:0; width:100%; background:red; color:white; padding:10px; z-index:9999; text-align:center; font-family: sans-serif;';
-            errorBar.innerHTML = `<strong>[Error] Failed to load ${library}.</strong> Please check console. ${message || ''}`;
-            // Use requestAnimationFrame to ensure body exists, or prepend to documentElement
-            requestAnimationFrame(() => {
-                 (document.body || document.documentElement).prepend(errorBar);
-            });
+            console.error(`[Error] Failed to load ${library}. ${message || ''}`);
+            const errorEl = document.getElementById('error-message') || document.createElement('div');
+            if (!errorEl.id) {
+                errorEl.id = 'error-message';
+                errorEl.className = 'error-message';
+                requestAnimationFrame(() => {
+                    (document.body || document.documentElement).prepend(errorEl);
+                });
+            }
+            errorEl.innerHTML = `<strong>Error:</strong> Failed to load ${library}. ${message || ''}`;
+            errorEl.style.display = 'block';
             if (fallback) {
-                console.log(`[Early Error] Attempting to load fallback: ${fallback}`);
+                console.log(`[Error] Attempting to load fallback: ${fallback}`);
                 const script = document.createElement('script');
                 script.src = fallback;
-                script.onerror = () => console.error(`[Early Error] Fallback script ${fallback} also failed.`);
+                script.onerror = () => {
+                    errorEl.innerHTML += ` Fallback (${fallback}) also failed.`;
+                };
                 document.head.appendChild(script);
             }
         }
-        // Suppress specific WebGL/D3D compiler warning often seen on Windows
+        // Suppress specific WebGL/D3D warning
         const originalConsoleWarn = console.warn;
         console.warn = function (...args) {
             if (typeof args[0] === 'string' && args[0].includes('gl.getProgramInfoLog') && args[0].includes('X3557')) return;
             originalConsoleWarn.apply(console, args);
         };
+    </script>
+
+    <!-- Dependencies -->
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js"
+        onerror="handleScriptError('TensorFlow.js', 'https://unpkg.com/@tensorflow/tfjs@4.21.0/dist/tf.min.js', 'Could not load TensorFlow.js. Agent/Simulation may not work.')"></script>
+    
+    <!-- Three.js - Use the version from package.json (0.132.2) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"
+        onerror="handleScriptError('Three.js', 'https://unpkg.com/three@0.132.2/build/three.min.js', 'Could not load Three.js.')"></script>
+    
+    <!-- Three.js Examples - Use the same version -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"
+        onerror="handleScriptError('OrbitControls', 'https://unpkg.com/three@0.132.2/examples/js/controls/OrbitControls.js', 'Could not load OrbitControls.')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/renderers/CSS2DRenderer.js"
+        onerror="handleScriptError('CSS2DRenderer', 'https://unpkg.com/three@0.132.2/examples/js/renderers/CSS2DRenderer.js', 'Could not load CSS2DRenderer.')"></script>
+    
+    <!-- Pixi.js - Use the version from package.json (6.5.10) -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"
+        onerror="handleScriptError('Pixi.js', 'https://unpkg.com/pixi.js@6.5.10/dist/browser/pixi.min.js', 'Could not load Pixi.js.')"></script>
+    
+    <!-- Cubism 4 Core -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"
+        onerror="handleScriptError('Cubism 4 Core', 'https://unpkg.com/live2dcubismcore@1.0.0/live2dcubismcore.min.js', 'Could not load Cubism 4 Core.')"></script>
+    
+    <!-- pixi-live2d-display -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"
+        onerror="handleScriptError('pixi-live2d-display', 'https://unpkg.com/pixi-live2d-display@0.4.0/dist/cubism4.min.js', 'Could not load pixi-live2d-display.')"></script>
+    
+    <!-- Chart.js v3 and dependencies - Better compatibility with streaming plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@2.5.2/build/global/luxon.min.js"
+        onerror="handleScriptError('Luxon', 'https://unpkg.com/luxon@2.5.2/build/global/luxon.min.js', 'Could not load Luxon.')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"
+        onerror="handleScriptError('Chart.js', 'https://unpkg.com/chart.js@3.9.1/dist/chart.min.js', 'Could not load Chart.js.')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0/dist/chartjs-adapter-luxon.min.js"
+        onerror="handleScriptError('Chart.js Adapter Luxon', 'https://unpkg.com/chartjs-adapter-luxon@1.2.0/dist/chartjs-adapter-luxon.min.js', 'Could not load Chart.js Adapter Luxon.')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@2.0.0/dist/chartjs-plugin-streaming.min.js"
+        onerror="handleScriptError('Chart.js Streaming Plugin', 'https://unpkg.com/chartjs-plugin-streaming@2.0.0/dist/chartjs-plugin-streaming.min.js', 'Could not load Chart.js Streaming Plugin.')"></script>
+    
+    <!-- Register Chart.js plugins -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if Chart.js is loaded
+            if (typeof Chart !== 'undefined') {
+                console.log('Chart.js loaded successfully');
+                
+                // Register the streaming plugin if available
+                if (typeof ChartStreaming !== 'undefined') {
+                    Chart.register(ChartStreaming);
+                    console.log('Chart.js streaming plugin registered successfully');
+                } else if (window.chartjs && window.chartjs.streaming) {
+                    Chart.register(window.chartjs.streaming);
+                    console.log('Chart.js streaming plugin registered from window.chartjs');
+                } else {
+                    console.error('Chart.js streaming plugin not found');
+                }
+            } else {
+                console.error('Chart.js failed to load');
+            }
+            
+            // Check if Three.js is loaded
+            if (typeof THREE !== 'undefined') {
+                console.log('Three.js loaded successfully');
+                
+                // Check if Three.js components are loaded
+                if (typeof THREE.OrbitControls !== 'undefined' && 
+                    typeof THREE.CSS2DRenderer !== 'undefined') {
+                    console.log('Three.js components loaded successfully');
+                } else {
+                    console.error('Three.js components not fully loaded');
+                }
+            } else {
+                console.error('Three.js failed to load');
+            }
+        });
     </script>
 </head>
 <body>
@@ -73,7 +125,7 @@
     </header>
 
     <!-- General Error Message Container -->
-    <div id="error-message" class="error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+    <div id="error-message" class="error-message" role="alert" aria-live="assertive"></div>
 
     <main role="main">
         <!-- Syntrometric Theory Section -->
@@ -97,20 +149,22 @@
         <section aria-labelledby="syntrometry-viz-heading">
             <h2 id="syntrometry-viz-heading">Interactive Visualization</h2>
             <p>Explore the Syntrometric simulation with real-time agent responses.</p>
-            <!-- This container holds the main Syntrometry viz and all its overlay panels -->
             <div class="visualization-container threejs-container" id="syntrometry-panel" aria-label="Syntrometric Simulation Panel">
-                <div id="syntrometry-error-message" class="error-message"></div> <!-- Error message specific to this panel -->
-                <div id="live2d-container" aria-label="Live2D Avatar Display"></div> <!-- Live2D display -->
+                <div id="syntrometry-error-message" class="error-message"></div>
+                <div id="live2d-container" aria-label="Live2D Avatar Display">
+                    <!-- Removed fallback message that appeared during initialization -->
+                </div>
 
                 <!-- Controls Panel -->
                 <div id="controls" class="overlay-panel controls-container panel-draggable" aria-label="Simulation Controls">
+                    <div class="panel-header" tabindex="0">Controls</div>
                     <div class="control-group">
                         <label for="integration-slider">Integration (I(S)) [Agent Learned]: <span id="integration-value">0.50</span></label>
-                        <input class="read-only-slider" type="range" id="integration-slider" name="integration" min="0" max="1" step="0.01" value="0.5" aria-labelledby="integration-slider-label" title="Reflects agent's internal value. Dragging triggers visual feedback." disabled>
+                        <input class="read-only-slider" type="range" id="integration-slider" name="integration" min="0" max="1" step="0.01" value="0.5" aria-labelledby="integration-slider-label" title="Reflects agent's internal value. Awaiting initialization." disabled>
                     </div>
                     <div class="control-group">
                         <label for="reflexivity-slider">Reflexivity (Ψ) [Agent Learned]: <span id="reflexivity-value">0.50</span></label>
-                        <input class="read-only-slider" type="range" id="reflexivity-slider" name="reflexivity" min="0" max="1" step="0.01" value="0.5" aria-labelledby="reflexivity-slider-label" title="Reflects agent's internal value. Dragging triggers visual feedback." disabled>
+                        <input class="read-only-slider" type="range" id="reflexivity-slider" name="reflexivity" min="0" max="1" step="0.01" value="0.5" aria-labelledby="reflexivity-slider-label" title="Reflects agent's internal value. Awaiting initialization." disabled>
                     </div>
                     <div class="button-group">
                         <button id="save-state-button" type="button" disabled>Save State</button>
@@ -121,14 +175,14 @@
 
                 <!-- Chat Panel -->
                 <div id="chat-container" class="overlay-panel chat-container panel-draggable" aria-label="Simulation Chat">
-                    <div class="panel-header">Chat</div>
-                    <div id="chat-output" aria-live="polite"><div><b>System:</b> Welcome to the Syntrometric Simulation (V2.3).</div></div>
-                    <input id="chat-input" type="text" placeholder="Interact with the simulation..." aria-label="Chat Input" disabled>
+                    <div class="panel-header" tabindex="0">Chat</div>
+                    <div id="chat-output" role="log" aria-live="polite"><div><b>System:</b> Welcome to the Syntrometric Simulation (V2.3). Loading agent...</div></div>
+                    <input id="chat-input" type="text" placeholder="Loading agent, please wait..." aria-label="Chat Input" disabled>
                 </div>
 
                 <!-- Metrics Dashboard Panel -->
                 <div id="dashboard-panel" class="overlay-panel dashboard-container panel-draggable" aria-label="Real-time Metrics Dashboard">
-                    <div class="panel-header">Agent Dashboard</div>
+                    <div class="panel-header" tabindex="0">Agent Dashboard</div>
                     <div class="dashboard-metrics">
                         <div class="metric-item">
                             <span class="metric-label">RIH:</span>
@@ -137,7 +191,7 @@
                         </div>
                         <div class="metric-item">
                             <span class="metric-label">Affinity:</span>
-                            <progress id="metric-affinity-progress" value="50" max="100"></progress> <!-- Range -1 to 1 centered at 50 -->
+                            <progress id="metric-affinity-progress" value="50" max="100"></progress>
                             <span id="metric-affinity-value" class="metric-value">0.00</span>
                         </div>
                         <div class="metric-item">
@@ -149,7 +203,7 @@
                             <span class="metric-label">Belief Norm:</span>
                             <span id="metric-belief-norm" class="metric-value">0.000</span>
                         </div>
-                         <div class="metric-item">
+                        <div class="metric-item">
                             <span class="metric-label">Self Norm:</span>
                             <span id="metric-self-norm" class="metric-value">0.000</span>
                         </div>
@@ -158,7 +212,6 @@
                             <span id="metric-context" class="metric-value context-value">Initializing...</span>
                         </div>
                     </div>
-                    <!-- Emotion Intensity Bars -->
                     <div id="emotion-intensities" class="emotion-bar-container">
                         <div class="intensity-bar joy" data-emotion="Joy"><span class="bar-label">Joy</span><div class="bar-fill"></div></div>
                         <div class="intensity-bar fear" data-emotion="Fear"><span class="bar-label">Fear</span><div class="bar-fill"></div></div>
@@ -167,11 +220,9 @@
                         <div class="intensity-bar calm" data-emotion="Calm"><span class="bar-label">Calm</span><div class="bar-fill"></div></div>
                         <div class="intensity-bar surprise" data-emotion="Surprise"><span class="bar-label">Surprise</span><div class="bar-fill"></div></div>
                     </div>
-                    <!-- Chart Container -->
                     <div class="chart-container">
                         <canvas id="metrics-chart"></canvas>
                     </div>
-                    <!-- Expression Timeline -->
                     <div id="expression-timeline" class="timeline-container">
                         <h5>Recent Actions/Expressions</h5>
                         <ul id="expressions-list"></ul>
@@ -179,48 +230,49 @@
                 </div>
 
                 <!-- Heatmap Panel -->
-                 <div id="heatmap-panel" class="overlay-panel heatmap-container panel-draggable" aria-label="Agent Internal State Heatmap">
-                    <div class="panel-header">Self-State Activation</div>
-                    <div id="heatmap-content">
-                        <!-- Heatmap cells will be generated here by JS -->
+                <div id="heatmap-panel" class="overlay-panel heatmap-container panel-draggable" aria-label="Agent Internal State Heatmap">
+                    <div class="panel-header" tabindex="0">Self-State Activation</div>
+                    <div id="heatmap-content" role="grid" aria-label="Agent Internal State Heatmap">
+                        <div class="loading-spinner" aria-hidden="true">Loading...</div>
+                        <span class="sr-only">Initializing heatmap data</span>
                     </div>
                 </div>
 
                 <!-- Tensor Inspector Panel -->
-                 <div id="tensor-inspector-panel" class="overlay-panel tensor-inspector-container panel-draggable" aria-label="Tensor Inspector">
-                     <div class="panel-header">Belief Embedding Inspector <button id="toggle-inspector" title="Toggle Inspector View">👁️</button></div>
-                     <pre id="tensor-inspector-content">Initializing...</pre>
-                 </div>
+                <div id="tensor-inspector-panel" class="overlay-panel tensor-inspector-container panel-draggable" aria-label="Tensor Inspector">
+                    <div class="panel-header" tabindex="0">Belief Embedding Inspector <button id="toggle-inspector" title="Toggle Inspector View" aria-label="Toggle Inspector View">👁️</button></div>
+                    <pre id="tensor-inspector-content" role="log" aria-label="Belief Embedding Data">
+                        <div class="loading-spinner" aria-hidden="true">Loading...</div>
+                        <span class="sr-only">Initializing tensor data</span>
+                    </pre>
+                </div>
 
-                 <!-- Cascade Viewer Panel -->
-                 <div id="cascade-viewer-panel" class="overlay-panel cascade-viewer-container panel-draggable" aria-label="Cascade Viewer">
-                    <div class="panel-header">Strukturkaskade Viewer</div>
-                    <div id="cascade-viewer-content">Initializing...</div>
-                 </div>
-
-            </div> <!-- End #syntrometry-panel -->
+                <!-- Cascade Viewer Panel -->
+                <div id="cascade-viewer-panel" class="overlay-panel cascade-viewer-container panel-draggable" aria-label="Cascade Viewer">
+                    <div class="panel-header" tabindex="0">Strukturkaskade Viewer</div>
+                    <div id="cascade-viewer-content" aria-label="Strukturkaskade Data">
+                        <div class="loading-spinner" aria-hidden="true">Loading...</div>
+                        <span class="sr-only">Initializing Strukturkaskade data</span>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Concept Graph Visualization Section -->
         <section aria-labelledby="concept-viz-heading">
             <h2 id="concept-viz-heading">Concept Graph Visualization</h2>
             <p>Explore the relationships between Syntrometric concepts with interactive tooltips. Use Arrow keys to navigate nodes and Enter to select.</p>
-
-            <!-- Moved #labels-toggle control group here -->
-            <div class="control-group concept-graph-controls" style="margin-bottom: var(--space-md);"> <!-- Added some margin -->
+            <div class="control-group concept-graph-controls">
                 <label for="labels-toggle">Show All Concept Labels: <input type="checkbox" id="labels-toggle" aria-label="Toggle all concept node labels"></label>
             </div>
-
-             <!-- This container holds the Concept Graph viz and its specific panels -->
-             <div class="visualization-container threejs-container-concept" id="concept-panel" aria-label="Concept Graph Panel" tabindex="0"> <!-- Added tabindex -->
-                <div id="concept-error-message" class="error-message"></div> <!-- Error message specific to this panel -->
-                <button id="toggle-info-panel" class="info-toggle-button" aria-label="Toggle Concept Info Panel" aria-expanded="false">ℹ️</button>
-                <!-- Info Panel for Concept Graph -->
+            <div class="visualization-container threejs-container-concept" id="concept-panel" aria-label="Concept Graph Panel" tabindex="0">
+                <div id="concept-error-message" class="error-message"></div>
+                <button id="toggle-info-panel" class="info-toggle-button" aria-label="Toggle Concept Info Panel" aria-expanded="false">Info</button>
                 <div id="info-panel" class="overlay-panel info-panel-container" aria-label="Concept Details">
-                     <h3>Concept Information</h3>
-                     <p>Hover over, click, or use keyboard to explore concept nodes.</p>
+                    <h3>Concept Information</h3>
+                    <p>Hover over, click, or use keyboard to explore concept nodes.</p>
                 </div>
-            </div> <!-- End #concept-panel -->
+            </div>
         </section>
     </main>
 
@@ -230,16 +282,12 @@
     <!-- Initialize draggable panels -->
     <script type="module">
         import { initializeDraggablePanels } from './js/draggablePanels.js';
-        
-        // Initialize draggable panels when DOM is fully loaded
         document.addEventListener('DOMContentLoaded', () => {
-            // Make all panels with class 'panel-draggable' draggable within the visualization container
             initializeDraggablePanels(
-                '.panel-draggable', 
+                '.panel-draggable',
                 '.visualization-container',
                 ['input', 'button', 'textarea', 'select', 'progress', 'canvas', '.no-drag', '[role="button"]', 'a', 'pre']
             );
-            
             console.log('Draggable panels initialized');
         });
     </script>
