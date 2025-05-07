@@ -5,7 +5,7 @@ import { clamp, displayError, zeros, lerp, debounce } from './utils.js';
 const DEFAULT_LIVE2D_CONFIG = {
     // Use a CDN-hosted model as fallback
     ModelPath: 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@master/Samples/Resources/Hiyori/Hiyori.model3.json',
-    Scale: 0.06875, // Increased by 10% from 0.0625
+    Scale: 0.103125, // Increased by 50% from 0.06875
     FallbackModels: [
         'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@master/Samples/Resources/Hiyori/Hiyori.model3.json',
         'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@master/Samples/Resources/Rice/Rice.model3.json',
@@ -439,9 +439,10 @@ export function updateLive2DHeadMovement(hmLabel, deltaTime) {
 }
 
 /**
- * Handles window resize events for the Live2D container
+ * Handles window resize events for the Live2D container.
+ * This function is exported so it can be called directly from app.js
  */
-function onLive2DResize() {
+export function onLive2DResize() {
     if (!live2dInitialized || !pixiApp || !live2dContainer) return;
     
     try {
