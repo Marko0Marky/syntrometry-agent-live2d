@@ -99,7 +99,7 @@ export function tensor(data, shape, dtype) {
         // tf.tensor can often handle undefined data if shape is provided (creates uninitialized tensor),
         // but explicitly creating zeros might be safer if that's the intent.
         if (data === undefined && shape !== undefined) {
-            console.warn("Creating tensor with undefined data and shape:", shape, ". Using tf.zeros instead.");
+            // console.warn("Creating tensor with undefined data and shape:", shape, ". Using tf.zeros instead."); // Potentially noisy
             return tf.zeros(shape, dtype);
         }
 
@@ -140,7 +140,7 @@ export function norm(arr) {
          } else {
               // If any value is non-numeric or non-finite, the norm is arguably undefined or should be handled.
               // Returning 0 might be misleading. Consider NaN or throwing an error depending on use case.
-              console.warn("[norm] Input array contains non-finite values. Result might be inaccurate.", arr);
+              // console.warn("[norm] Input array contains non-finite values. Result might be inaccurate.", arr); // Can be noisy
               return 0.0; // Return 0 for now to avoid breaking calculations
          }
      }
@@ -203,7 +203,7 @@ export function appendChatMessage(sender, message) {
  * @param {string} listId The ID of the UL element for the timeline.
  * @param {number} [maxItems=20] Maximum number of items to keep in the timeline.
  */
-export function logToTimeline(message, listId, maxItems = 20) { // Increased default max items
+export function logToTimeline(message, listId, maxItems = 20) {
     const list = document.getElementById(listId);
     if (!list) {
          console.warn(`Timeline list element "${listId}" not found.`);
@@ -211,29 +211,19 @@ export function logToTimeline(message, listId, maxItems = 20) { // Increased def
     }
 
     const item = document.createElement('li');
-    // More concise timestamp
     const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    // Basic sanitization
     const sanitizedMessage = message.replace(/</g, "<").replace(/>/g, ">");
     item.innerHTML = `<span class="timeline-time">${timestamp}</span> ${sanitizedMessage}`;
-    item.title = `${timestamp}: ${message}`; // Full message on hover
+    item.title = `${timestamp}: ${message}`;
 
-    // Prepend new items to the top for chronological order (newest first)
-    // list.insertBefore(item, list.firstChild);
-    // OR Append to bottom (more conventional log)
-     list.appendChild(item);
+    list.appendChild(item);
 
-
-    // Limit the number of items for performance and UI clarity
     while (list.children.length > maxItems) {
-        // Remove oldest item (first child if prepending, last child if appending)
-        // list.removeChild(list.lastChild); // If prepending
-         list.removeChild(list.firstChild); // If appending
+        list.removeChild(list.firstChild);
     }
 
-     // Scroll to bottom if appending
-     try { list.scrollTo({ top: list.scrollHeight, behavior: 'auto' }); } // Use auto for faster scroll in logs
+     try { list.scrollTo({ top: list.scrollHeight, behavior: 'auto' }); }
      catch(e) { list.scrollTop = list.scrollHeight; }
 }
 
@@ -251,7 +241,7 @@ export function inspectTensor(data, elementId) {
         return;
     }
 
-    let outputContent = ""; // Build the string to display
+    let outputContent = "";
 
     try {
         let dataSummary;
@@ -262,7 +252,7 @@ export function inspectTensor(data, elementId) {
             status = " (Null/Undefined)";
             dataSummary = "null";
             headerInfo = "Type: Null/Undefined";
-        } else if (data instanceof tf.Tensor) {
+        } else if (typeof tf !== 'undefined' && data instanceof tf.Tensor) { // Check tf exists
             headerInfo = `Type: tf.Tensor | Shape: [${data.shape.join(', ')}] | Rank: ${data.rank} | DType: ${data.dtype}`;
             if (data.isDisposed) {
                 status = " (Disposed)";
@@ -270,21 +260,19 @@ export function inspectTensor(data, elementId) {
             } else {
                 const size = data.size;
                 headerInfo += ` | Size: ${size}`;
-                // For large tensors, show summary/slice
-                const displayLimit = 50; // Max elements to display fully
+                const displayLimit = 50;
                 if (size > displayLimit) {
-                    // Example: Show slice of the first dimension
                     const sliceSize = Math.min(10, data.shape[0] || 10);
-                    dataSummary = data.slice(0, sliceSize).arraySync(); // Slice first dimension
+                    dataSummary = data.slice(0, sliceSize).arraySync();
                     status += ` (Showing first ${sliceSize} element(s))`;
                 } else {
-                    dataSummary = data.arraySync(); // Show full data
+                    dataSummary = data.arraySync();
                 }
             }
         } else if (Array.isArray(data)) {
              headerInfo = `Type: Array | Length: ${data.length}`;
              const displayLimit = 50;
-             dataSummary = data.slice(0, displayLimit); // Show first elements
+             dataSummary = data.slice(0, displayLimit);
              if(data.length > displayLimit) status += ` (Showing first ${displayLimit} elements)`;
         } else if (typeof data === 'number') {
              headerInfo = "Type: Number (Scalar)";
@@ -297,47 +285,40 @@ export function inspectTensor(data, elementId) {
         } else {
              status = " (Unknown Type)";
              headerInfo = `Type: ${typeof data}`;
-             try { dataSummary = JSON.stringify(data); } // Try to stringify unknown types
+             try { dataSummary = JSON.stringify(data); }
              catch (e) { dataSummary = "[Cannot display value]"; }
         }
 
-        // Format the data summary for display
         let formattedData;
         try {
              if (typeof dataSummary === 'number') {
                  formattedData = dataSummary.toFixed ? dataSummary.toFixed(4) : String(dataSummary);
              } else if (Array.isArray(dataSummary) || typeof dataSummary === 'object') {
-                 // Pretty print array/object, formatting numbers
                  formattedData = JSON.stringify(dataSummary, (key, value) =>
                      typeof value === 'number' && value.toFixed ? parseFloat(value.toFixed(4)) : value,
-                 2); // Indent with 2 spaces
-                 // Limit overall string length for display
+                 2);
                  const maxLength = 1500;
                  if (formattedData.length > maxLength) {
                      formattedData = formattedData.substring(0, maxLength) + "\n... (Truncated)";
                  }
              } else {
-                 formattedData = String(dataSummary); // Fallback to string
+                 formattedData = String(dataSummary);
              }
         } catch(formatError) {
              console.error("Error formatting inspector data:", formatError);
              formattedData = "[Error formatting data]";
         }
 
-        outputContent = `${headerInfo}${status}\n${'-'.repeat(headerInfo.length + status.length)}\n${formattedData}`;
+        outputContent = `${headerInfo}${status}\n${'-'.repeat(Math.max(0, (headerInfo?.length || 0) + (status?.length || 0)))}\n${formattedData}`;
 
     } catch (e) {
         console.error(`Error inspecting data for element ${elementId}:`, e);
         outputContent = `Error inspecting data: ${e.message}`;
     }
 
-    // Update the <pre> element content
     el.textContent = outputContent;
 }
 
-// --- Add clampArray and softmax if they were used ---
-// (They weren't explicitly used in the provided app.js/agent.js,
-// but are generally useful math functions)
 
 /**
  * Clamps all values in a numerical array between a minimum and maximum.
@@ -348,8 +329,8 @@ export function inspectTensor(data, elementId) {
  */
 export function clampArray(arr, min, max) {
      if (!Array.isArray(arr)) return [];
-     if (typeof min !== 'number' || typeof max !== 'number') return arr; // Return original if bounds invalid
-    return arr.map(x => (typeof x === 'number' ? clamp(x, min, max) : x)); // Clamp only numbers
+     if (typeof min !== 'number' || typeof max !== 'number') return arr;
+    return arr.map(x => (typeof x === 'number' ? clamp(x, min, max) : x));
 }
 
 /**
@@ -361,38 +342,49 @@ export function clampArray(arr, min, max) {
 export function softmax(arr) {
     if (!Array.isArray(arr) || arr.length === 0) return [];
 
-    // Filter out non-finite numbers first
     const finiteArr = arr.filter(x => typeof x === 'number' && isFinite(x));
-    if (finiteArr.length === 0) return zeros([arr.length]); // Return zeros if no valid numbers
+    if (finiteArr.length === 0) return zeros([arr.length]);
 
-    // Subtract max for numeric stability (prevents large exponents)
     const maxVal = Math.max(...finiteArr);
     const exps = finiteArr.map(x => Math.exp(x - maxVal));
     const sumExps = exps.reduce((a, b) => a + b, 0);
 
-    // Handle edge case where sum is zero or infinite (e.g., all inputs were -Infinity or overflow)
     if (sumExps === 0 || !isFinite(sumExps)) {
-        console.warn("[softmax] Sum of exponents is zero or non-finite. Returning uniform distribution over finite inputs.");
-        const uniformProb = 1 / finiteArr.length;
+        // console.warn("[softmax] Sum of exponents is zero or non-finite. Returning uniform distribution over finite inputs."); // Noisy
+        const uniformProb = finiteArr.length > 0 ? 1 / finiteArr.length : 0;
         const result = zeros([arr.length]);
         let k = 0;
         for(let i = 0; i < arr.length; i++){
             if(typeof arr[i] === 'number' && isFinite(arr[i])){
-                result[i] = uniformProb; // Assign uniform probability to original positions of finite numbers
+                result[i] = uniformProb;
             }
         }
         return result;
     }
 
-    // Map results back to the original array structure, inserting probabilities
-    const softmaxResult = zeros([arr.length]); // Initialize with zeros
+    const softmaxResult = zeros([arr.length]);
     let expIndex = 0;
     for(let i=0; i<arr.length; i++) {
         if(typeof arr[i] === 'number' && isFinite(arr[i])) {
-            softmaxResult[i] = exps[expIndex] / sumExps; // Calculate probability
+            softmaxResult[i] = exps[expIndex] / sumExps;
             expIndex++;
         }
-        // Non-finite inputs remain zero probability
     }
     return softmaxResult;
+}
+
+/**
+ * Debounces a function to limit how often it can be called
+ * @param {Function} func - The function to debounce
+ * @param {number} delay - Delay in milliseconds
+ * @returns {Function} - Debounced function
+ */
+export function debounce(func, delay) {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            func.apply(this, args);
+        }, delay);
+    };
 }
