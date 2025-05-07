@@ -145,138 +145,135 @@
             </nav>
         </section>
 
-        <!-- Visualization Sections Wrapper -->
-        <div class="visualization-wrapper">
-            <!-- Interactive Visualization Section (Syntrometry Panel) -->
-            <section aria-labelledby="syntrometry-viz-heading">
-                <h2 id="syntrometry-viz-heading">Syntrometric Visualization</h2>
-                <p>Explore the Syntrometric simulation with real-time agent responses and interactive elements.</p>
-                <div class="visualization-container threejs-container" id="syntrometry-panel" aria-label="Syntrometric Simulation Panel">
-                    <div id="syntrometry-error-message" class="error-message"></div>
-                    <div id="live2d-container" aria-label="Live2D Avatar Display">
-                        <!-- Removed fallback message that appeared during initialization -->
-                    </div>
+        <!-- Interactive Visualization Section (Syntrometry + Agent Panels) -->
+        <section aria-labelledby="syntrometry-viz-heading">
+            <h2 id="syntrometry-viz-heading">Interactive Visualization</h2>
+            <p>Explore the Syntrometric simulation with real-time agent responses.</p>
+            <div class="visualization-container threejs-container" id="syntrometry-panel" aria-label="Syntrometric Simulation Panel">
+                <div id="syntrometry-error-message" class="error-message"></div>
+                <div id="live2d-container" aria-label="Live2D Avatar Display">
+                    <!-- Removed fallback message that appeared during initialization -->
+                </div>
 
-                    <!-- Controls Panel -->
-                    <div id="controls" class="overlay-panel controls-container panel-draggable" aria-label="Simulation Controls">
-                        <div class="panel-header" tabindex="0">Controls</div>
-                        <div class="control-group">
-                            <label for="integration-slider">Integration (I(S)) [Agent Learned]: <span id="integration-value">0.50</span></label>
-                            <input class="read-only-slider" type="range" id="integration-slider" name="integration" min="0" max="1" step="0.01" value="0.5" aria-labelledby="integration-slider-label" title="Reflects agent's internal value. Awaiting initialization." disabled>
-                        </div>
-                        <div class="control-group">
-                            <label for="reflexivity-slider">Reflexivity (Ψ) [Agent Learned]: <span id="reflexivity-value">0.50</span></label>
-                            <input class="read-only-slider" type="range" id="reflexivity-slider" name="reflexivity" min="0" max="1" step="0.01" value="0.5" aria-labelledby="reflexivity-slider-label" title="Reflects agent's internal value. Awaiting initialization." disabled>
-                        </div>
-                        <div class="button-group">
-                            <button id="save-state-button" type="button" disabled>Save State</button>
-                            <button id="load-state-button" type="button" disabled>Load State</button>
-                            <button id="pause-button" type="button">Pause</button>
-                        </div>
+                <!-- Controls Panel -->
+                <div id="controls" class="overlay-panel controls-container panel-draggable" aria-label="Simulation Controls">
+                    <div class="panel-header" tabindex="0">Controls</div>
+                    <div class="control-group">
+                        <label for="integration-slider">Integration (I(S)) [Agent Learned]: <span id="integration-value">0.50</span></label>
+                        <input class="read-only-slider" type="range" id="integration-slider" name="integration" min="0" max="1" step="0.01" value="0.5" aria-labelledby="integration-slider-label" title="Reflects agent's internal value. Awaiting initialization." disabled>
                     </div>
-
-                    <!-- Chat Panel -->
-                    <div id="chat-container" class="overlay-panel chat-container panel-draggable" aria-label="Simulation Chat">
-                        <div class="panel-header" tabindex="0">Chat</div>
-                        <div id="chat-output" role="log" aria-live="polite"><div><b>System:</b> Welcome to the Syntrometric Simulation (V2.3). Loading agent...</div></div>
-                        <input id="chat-input" type="text" placeholder="Loading agent, please wait..." aria-label="Chat Input" disabled>
+                    <div class="control-group">
+                        <label for="reflexivity-slider">Reflexivity (Ψ) [Agent Learned]: <span id="reflexivity-value">0.50</span></label>
+                        <input class="read-only-slider" type="range" id="reflexivity-slider" name="reflexivity" min="0" max="1" step="0.01" value="0.5" aria-labelledby="reflexivity-slider-label" title="Reflects agent's internal value. Awaiting initialization." disabled>
                     </div>
-
-                    <!-- Metrics Dashboard Panel -->
-                    <div id="dashboard-panel" class="overlay-panel dashboard-container panel-draggable" aria-label="Real-time Metrics Dashboard">
-                        <div class="panel-header" tabindex="0">Agent Dashboard</div>
-                        <div class="dashboard-metrics">
-                            <div class="metric-item">
-                                <span class="metric-label">RIH:</span>
-                                <progress id="metric-rih-progress" value="0" max="100"></progress>
-                                <span id="metric-rih-value" class="metric-value">0.0%</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Affinity:</span>
-                                <progress id="metric-affinity-progress" value="50" max="100"></progress>
-                                <span id="metric-affinity-value" class="metric-value">0.00</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Trust:</span>
-                                <progress id="metric-trust-progress" value="100" max="100"></progress>
-                                <span id="metric-trust-value" class="metric-value">100.0%</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Belief Norm:</span>
-                                <span id="metric-belief-norm" class="metric-value">0.000</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Self Norm:</span>
-                                <span id="metric-self-norm" class="metric-value">0.000</span>
-                            </div>
-                            <div class="metric-item metric-item-full-width">
-                                <span class="metric-label">Context:</span>
-                                <span id="metric-context" class="metric-value context-value">Initializing...</span>
-                            </div>
-                        </div>
-                        <div id="emotion-intensities" class="emotion-bar-container">
-                            <div class="intensity-bar joy" data-emotion="Joy"><span class="bar-label">Joy</span><div class="bar-fill"></div></div>
-                            <div class="intensity-bar fear" data-emotion="Fear"><span class="bar-label">Fear</span><div class="bar-fill"></div></div>
-                            <div class="intensity-bar curiosity" data-emotion="Curiosity"><span class="bar-label">Curiosity</span><div class="bar-fill"></div></div>
-                            <div class="intensity-bar frustration" data-emotion="Frustration"><span class="bar-label">Frustration</span><div class="bar-fill"></div></div>
-                            <div class="intensity-bar calm" data-emotion="Calm"><span class="bar-label">Calm</span><div class="bar-fill"></div></div>
-                            <div class="intensity-bar surprise" data-emotion="Surprise"><span class="bar-label">Surprise</span><div class="bar-fill"></div></div>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="metrics-chart"></canvas>
-                        </div>
-                        <div id="expression-timeline" class="timeline-container">
-                            <h5>Recent Actions/Expressions</h5>
-                            <ul id="expressions-list"></ul>
-                        </div>
-                    </div>
-
-                    <!-- Heatmap Panel -->
-                    <div id="heatmap-panel" class="overlay-panel heatmap-container panel-draggable" aria-label="Agent Internal State Heatmap">
-                        <div class="panel-header" tabindex="0">Self-State Activation</div>
-                        <div id="heatmap-content" role="grid" aria-label="Agent Internal State Heatmap">
-                            <div class="loading-spinner" aria-hidden="true">Loading...</div>
-                            <span class="sr-only">Initializing heatmap data</span>
-                        </div>
-                    </div>
-
-                    <!-- Tensor Inspector Panel -->
-                    <div id="tensor-inspector-panel" class="overlay-panel tensor-inspector-container panel-draggable" aria-label="Tensor Inspector">
-                        <div class="panel-header" tabindex="0">Belief Embedding Inspector <button id="toggle-inspector" title="Toggle Inspector View" aria-label="Toggle Inspector View">👁️</button></div>
-                        <pre id="tensor-inspector-content" role="log" aria-label="Belief Embedding Data">
-                            <div class="loading-spinner" aria-hidden="true">Loading...</div>
-                            <span class="sr-only">Initializing tensor data</span>
-                        </pre>
-                    </div>
-
-                    <!-- Cascade Viewer Panel -->
-                    <div id="cascade-viewer-panel" class="overlay-panel cascade-viewer-container panel-draggable" aria-label="Cascade Viewer">
-                        <div class="panel-header" tabindex="0">Strukturkaskade Viewer</div>
-                        <div id="cascade-viewer-content" aria-label="Strukturkaskade Data">
-                            <div class="loading-spinner" aria-hidden="true">Loading...</div>
-                            <span class="sr-only">Initializing Strukturkaskade data</span>
-                        </div>
+                    <div class="button-group">
+                        <button id="save-state-button" type="button" disabled>Save State</button>
+                        <button id="load-state-button" type="button" disabled>Load State</button>
+                        <button id="pause-button" type="button">Pause</button>
                     </div>
                 </div>
-            </section>
 
-            <!-- Concept Graph section -->
-            <section aria-labelledby="concept-viz-heading">
-                <h2 id="concept-viz-heading">Concept Graph Visualization</h2>
-                <p>Explore the relationships between Syntrometric concepts with interactive tooltips and navigation.</p>
-                <div class="control-group concept-graph-controls">
-                    <label for="labels-toggle">Show All Concept Labels: <input type="checkbox" id="labels-toggle" aria-label="Toggle all concept node labels"></label>
+                <!-- Chat Panel -->
+                <div id="chat-container" class="overlay-panel chat-container panel-draggable" aria-label="Simulation Chat">
+                    <div class="panel-header" tabindex="0">Chat</div>
+                    <div id="chat-output" role="log" aria-live="polite"><div><b>System:</b> Welcome to the Syntrometric Simulation (V2.3). Loading agent...</div></div>
+                    <input id="chat-input" type="text" placeholder="Loading agent, please wait..." aria-label="Chat Input" disabled>
                 </div>
-                <div class="visualization-container threejs-container-concept" id="concept-panel" aria-label="Concept Graph Panel" tabindex="0">
-                    <div id="concept-error-message" class="error-message"></div>
-                    <button id="toggle-info-panel" class="info-toggle-button" aria-label="Toggle Concept Info Panel" aria-expanded="false">Info</button>
-                    <div id="info-panel" class="overlay-panel info-panel-container" aria-label="Concept Details">
-                        <h3>Concept Information</h3>
-                        <p>Hover over, click, or use keyboard to explore concept nodes.</p>
+
+                <!-- Metrics Dashboard Panel -->
+                <div id="dashboard-panel" class="overlay-panel dashboard-container panel-draggable" aria-label="Real-time Metrics Dashboard">
+                    <div class="panel-header" tabindex="0">Agent Dashboard</div>
+                    <div class="dashboard-metrics">
+                        <div class="metric-item">
+                            <span class="metric-label">RIH:</span>
+                            <progress id="metric-rih-progress" value="0" max="100"></progress>
+                            <span id="metric-rih-value" class="metric-value">0.0%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Affinity:</span>
+                            <progress id="metric-affinity-progress" value="50" max="100"></progress>
+                            <span id="metric-affinity-value" class="metric-value">0.00</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Trust:</span>
+                            <progress id="metric-trust-progress" value="100" max="100"></progress>
+                            <span id="metric-trust-value" class="metric-value">100.0%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Belief Norm:</span>
+                            <span id="metric-belief-norm" class="metric-value">0.000</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Self Norm:</span>
+                            <span id="metric-self-norm" class="metric-value">0.000</span>
+                        </div>
+                        <div class="metric-item metric-item-full-width">
+                            <span class="metric-label">Context:</span>
+                            <span id="metric-context" class="metric-value context-value">Initializing...</span>
+                        </div>
+                    </div>
+                    <div id="emotion-intensities" class="emotion-bar-container">
+                        <div class="intensity-bar joy" data-emotion="Joy"><span class="bar-label">Joy</span><div class="bar-fill"></div></div>
+                        <div class="intensity-bar fear" data-emotion="Fear"><span class="bar-label">Fear</span><div class="bar-fill"></div></div>
+                        <div class="intensity-bar curiosity" data-emotion="Curiosity"><span class="bar-label">Curiosity</span><div class="bar-fill"></div></div>
+                        <div class="intensity-bar frustration" data-emotion="Frustration"><span class="bar-label">Frustration</span><div class="bar-fill"></div></div>
+                        <div class="intensity-bar calm" data-emotion="Calm"><span class="bar-label">Calm</span><div class="bar-fill"></div></div>
+                        <div class="intensity-bar surprise" data-emotion="Surprise"><span class="bar-label">Surprise</span><div class="bar-fill"></div></div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="metrics-chart"></canvas>
+                    </div>
+                    <div id="expression-timeline" class="timeline-container">
+                        <h5>Recent Actions/Expressions</h5>
+                        <ul id="expressions-list"></ul>
                     </div>
                 </div>
-            </section>
-        </div>
+
+                <!-- Heatmap Panel -->
+                <div id="heatmap-panel" class="overlay-panel heatmap-container panel-draggable" aria-label="Agent Internal State Heatmap">
+                    <div class="panel-header" tabindex="0">Self-State Activation</div>
+                    <div id="heatmap-content" role="grid" aria-label="Agent Internal State Heatmap">
+                        <div class="loading-spinner" aria-hidden="true">Loading...</div>
+                        <span class="sr-only">Initializing heatmap data</span>
+                    </div>
+                </div>
+
+                <!-- Tensor Inspector Panel -->
+                <div id="tensor-inspector-panel" class="overlay-panel tensor-inspector-container panel-draggable" aria-label="Tensor Inspector">
+                    <div class="panel-header" tabindex="0">Belief Embedding Inspector <button id="toggle-inspector" title="Toggle Inspector View" aria-label="Toggle Inspector View">👁️</button></div>
+                    <pre id="tensor-inspector-content" role="log" aria-label="Belief Embedding Data">
+                        <div class="loading-spinner" aria-hidden="true">Loading...</div>
+                        <span class="sr-only">Initializing tensor data</span>
+                    </pre>
+                </div>
+
+                <!-- Cascade Viewer Panel -->
+                <div id="cascade-viewer-panel" class="overlay-panel cascade-viewer-container panel-draggable" aria-label="Cascade Viewer">
+                    <div class="panel-header" tabindex="0">Strukturkaskade Viewer</div>
+                    <div id="cascade-viewer-content" aria-label="Strukturkaskade Data">
+                        <div class="loading-spinner" aria-hidden="true">Loading...</div>
+                        <span class="sr-only">Initializing Strukturkaskade data</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Concept Graph Visualization Section -->
+        <section aria-labelledby="concept-viz-heading">
+            <h2 id="concept-viz-heading">Concept Graph Visualization</h2>
+            <p>Explore the relationships between Syntrometric concepts with interactive tooltips. Use Arrow keys to navigate nodes and Enter to select.</p>
+            <div class="control-group concept-graph-controls">
+                <label for="labels-toggle">Show All Concept Labels: <input type="checkbox" id="labels-toggle" aria-label="Toggle all concept node labels"></label>
+            </div>
+            <div class="visualization-container threejs-container-concept" id="concept-panel" aria-label="Concept Graph Panel" tabindex="0">
+                <div id="concept-error-message" class="error-message"></div>
+                <button id="toggle-info-panel" class="info-toggle-button" aria-label="Toggle Concept Info Panel" aria-expanded="false">Info</button>
+                <div id="info-panel" class="overlay-panel info-panel-container" aria-label="Concept Details">
+                    <h3>Concept Information</h3>
+                    <p>Hover over, click, or use keyboard to explore concept nodes.</p>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- Main application script -->
