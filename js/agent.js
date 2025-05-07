@@ -1,20 +1,21 @@
 // js/agent.js
 
 import { Config, emotionNames, HEAD_MOVEMENT_LABELS, NUM_HEAD_MOVEMENTS } from './config.js';
-// Import updated core classes
-import { Enyphansyntrix, Affinitaetssyndrom, Strukturkondensation, ReflexiveIntegration, Synkolator } from './syntrometry-core.js';
-import { zeros, tensor, clamp, displayError, inspectTensor, norm } from './utils.js'; // Added norm
+import { Enyphansyntrix, Affinitaetssyndrom, Strukturkondensation, ReflexiveIntegration } from './syntrometry-core.js'; // Synkolator is internal to Strukturkondensation
+import { zeros, tensor, clamp, displayError, inspectTensor, norm } from './utils.js';
+
+// Assumes tf is available globally
 
 // --- Constants ---
 const NUM_GRAPH_FEATURES = 2; // From Syntrometry visualization (varianceZ, avgDistToRih)
-const BELIEF_EMBEDDING_DIM = Config.Agent.HIDDEN_DIM || 64;
+const BELIEF_EMBEDDING_DIM = Config.Agent?.HIDDEN_DIM ?? 64;
 // Input: Core State (DIMENSIONS) + Graph Features (NUM_GRAPH_FEATURES) + Self State (BELIEF_EMBEDDING_DIM)
-const BELIEF_NETWORK_INPUT_DIM = Config.DIMENSIONS + NUM_GRAPH_FEATURES + BELIEF_EMBEDDING_DIM;
+const BELIEF_NETWORK_INPUT_DIM = (Config?.DIMENSIONS ?? 12) + NUM_GRAPH_FEATURES + BELIEF_EMBEDDING_DIM;
 // Input to Cascade: Projected from Belief Embedding
-const CASCADE_INPUT_DIM = Config.DIMENSIONS; // Cascade operates on core dimension space
-const EMOTIONAL_DECAY_RATE = 0.97;
-const SELF_STATE_DECAY = 0.98; // Decay factor for self-state update
-const SELF_STATE_LEARN_RATE = 0.05; // Base learning rate for self-state update
+const CASCADE_INPUT_DIM = Config?.DIMENSIONS ?? 12; // Cascade operates on core dimension space
+const EMOTIONAL_DECAY_RATE = 0.97; // How much previous emotion persists
+const SELF_STATE_DECAY = 0.98; // How much previous self-state persists
+const SELF_STATE_LEARN_RATE = 0.05; // Base learning rate for self-state update from belief
 
 /**
  * Represents the Syntrometric Agent V2.3.
@@ -23,92 +24,79 @@ const SELF_STATE_LEARN_RATE = 0.05; // Base learning rate for self-state update
  */
 export class SyntrometricAgent {
     constructor() {
-        // --- Initialize Core Syntrometry Modules FIRST ---
-        // These are plain JS objects, less prone to async/init issues
-        this.enyphansyntrix = new Enyphansyntrix('continuous'); // Use perturbation
+        // --- Initialize Core Syntrometry Modules (Non-TF) ---
+        this.enyphansyntrix = new Enyphansyntrix('continuous');
         this.affinitaetssyndrom = new Affinitaetssyndrom();
         this.strukturkondensation = new Strukturkondensation(Config.CASCADE_LEVELS, Config.CASCADE_STAGE || 2);
         this.reflexiveIntegration = new ReflexiveIntegration();
-        // Synkolator is used internally by Strukturkondensation
 
-        // V2 Features & State Tracking
-        this.memorySize = Config.Agent.HISTORY_SIZE || 10;
-        this.memoryBuffer = []; // Holds last N { timestamp: Date, beliefEmbedding: tf.Tensor }
+        // --- V2 Features & State Tracking ---
+        this.memorySize = Config.Agent?.HISTORY_SIZE ?? 15;
+        this.memoryBuffer = []; // Holds last N { timestamp: number, beliefEmbedding: tf.Tensor }
         this.lastRIH = 0.0;
         this.lastCascadeVariance = 0.0;
         this.latestTrustScore = 1.0;
-        this.latestAffinities = []; // Cache affinities from last step for viz
-        this.latestBeliefEmbedding = null; // Cache for inspector
+        this.latestAffinities = []; // Cache affinities from last step
+        this.latestCascadeHistoryArrays = []; // Cache history arrays for viz
+        this.latestBeliefEmbedding = null; // Cache tensor clone for inspector
 
         // --- Initialize TF Members ---
-        this._set_tf_members_null(); // Nullify *only* TF members initially
+        this._set_tf_members_null(); // Nullify TF members initially
 
-        // --- TF.js Models & Variables ---
         if (typeof tf === 'undefined') {
             console.error("CRITICAL: TensorFlow.js not loaded. Agent cannot initialize TF components.");
             displayError("TensorFlow.js not loaded. Agent initialization failed.", true, 'error-message');
-             // Ensure core modules are nulled if TF isn't available from the start
-             this.enyphansyntrix = null; this.affinitaetssyndrom = null;
-             this.strukturkondensation = null; this.reflexiveIntegration = null;
+            // Ensure core JS modules are also nulled if TF is fundamentally unavailable
+            this.enyphansyntrix = null; this.affinitaetssyndrom = null;
+            this.strukturkondensation = null; this.reflexiveIntegration = null;
             return; // Stop constructor
         }
 
         try {
-            // --- Self-Learning Parameters ---
-            // These parameters represent the agent's internal strategy for balancing
-            // new information (Integration) vs. internal coherence (Reflexivity).
-            // They are trainable variables, adjusted based on performance (RIH, Trust, Variance).
-            this.integrationParam = tf.keep(tf.variable(tf.scalar(Math.random() * 0.5 + 0.25), true, 'agentIntegrationParam'));
-            this.reflexivityParam = tf.keep(tf.variable(tf.scalar(Math.random() * 0.5 + 0.25), true, 'agentReflexivityParam'));
-
-            // --- Belief Network ---
-            // Processes current state, graph context, and self-state to form a belief embedding.
-            this.beliefNetwork = tf.sequential({ name: 'beliefNetwork'});
-            this.beliefNetwork.add(tf.layers.dense({ units: Config.Agent.HIDDEN_DIM * 2, inputShape: [BELIEF_NETWORK_INPUT_DIM], activation: 'relu' })); // Wider first layer
-            this.beliefNetwork.add(tf.layers.dropout({ rate: 0.1 })); // Added dropout
-            this.beliefNetwork.add(tf.layers.dense({ units: BELIEF_EMBEDDING_DIM, activation: 'tanh' })); // Output embedding
-
-            // --- Cascade Input Projection Layer ---
-            // Maps the belief embedding to the dimensionality required by the Strukturkondensation.
-            this.cascadeInputLayer = tf.layers.dense({ units: CASCADE_INPUT_DIM, inputShape: [BELIEF_EMBEDDING_DIM], activation: 'tanh', name:'cascadeInputLayer' });
-
-            // --- Value and Feedback Heads (Currently not used for training, but structure is present) ---
-            // Could be used for future RL implementations (e.g., predicting state value or generating feedback).
-            this.valueHead = tf.layers.dense({ units: 1, inputShape: [BELIEF_EMBEDDING_DIM], name: 'valueHead'});
-            this.feedbackHead = tf.layers.dense({ units: Config.DIMENSIONS, inputShape: [BELIEF_EMBEDDING_DIM], name: 'feedbackHead'});
-
-            // --- Self-State Model ---
-            // Represents the agent's persistent internal state, updated based on belief embeddings and trust.
-            // It's a trainable variable, allowing the agent's core self-representation to evolve.
-            this.selfState = tf.keep(tf.variable(tf.randomNormal([BELIEF_EMBEDDING_DIM], 0, 0.1), true, 'agentSelfState')); // Start with small random values
-
-            // --- Emotion and Head Movement Models ---
-            this.emotionalModule = this._buildEmotionalModel();
-            this.headMovementHead = this._buildHeadMovementModel();
-
-            // --- Previous Emotion State ---
-            // Stores the emotion tensor from the previous step for temporal dynamics.
-            this.prevEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
-
-            // --- Optimizer ---
-            // Used for potentially training models in the future (currently only params are trained heuristically).
-            const learningRate = Config?.RL?.LR ?? 0.001;
-            this.optimizer = tf.train.adam(learningRate);
-
-
-             // --- Detailed Check for Initialization Failures ---
-             this._validateComponents(); // Run validation method
-
-             console.log("SyntrometricAgent V2.3 TF components initialized successfully.");
-
-        } catch (tfError) { // Catch errors specifically from TF setup
-            console.error("Error during TF model/optimizer setup in Agent:", tfError);
+            this._initializeTfComponents(); // Encapsulated TF setup
+            this._validateComponents(); // Check if everything was created
+            console.log("SyntrometricAgent V2.3 TF components initialized successfully.");
+        } catch (tfError) {
+            console.error("Error during TF setup in Agent constructor:", tfError);
             displayError(`Agent TF Setup Error: ${tfError.message}. Agent may be unstable.`, true, 'error-message');
-            this._cleanupTfMembers(); // Attempt cleanup of partially created TF members
-            this._set_tf_members_null(); // Ensure TF members are null
+            this._cleanupTfMembers(); // Attempt cleanup
+            this._set_tf_members_null(); // Ensure null state
             // Core JS modules remain, but TF functionality is lost.
-            return; // Stop constructor
         }
+    }
+
+    /** Encapsulates the creation of all TF-related components. */
+    _initializeTfComponents() {
+        // --- Self-Learning Parameters ---
+        this.integrationParam = tf.keep(tf.variable(tf.scalar(Math.random() * 0.5 + 0.25), true, 'agentIntegrationParam'));
+        this.reflexivityParam = tf.keep(tf.variable(tf.scalar(Math.random() * 0.5 + 0.25), true, 'agentReflexivityParam'));
+
+        // --- Belief Network ---
+        this.beliefNetwork = tf.sequential({ name: 'beliefNetwork'});
+        this.beliefNetwork.add(tf.layers.dense({ units: Config.Agent.HIDDEN_DIM * 2, inputShape: [BELIEF_NETWORK_INPUT_DIM], activation: 'relu' }));
+        this.beliefNetwork.add(tf.layers.dropout({ rate: 0.1 }));
+        this.beliefNetwork.add(tf.layers.dense({ units: BELIEF_EMBEDDING_DIM, activation: 'tanh' }));
+
+        // --- Cascade Input Projection Layer ---
+        this.cascadeInputLayer = tf.layers.dense({ units: CASCADE_INPUT_DIM, inputShape: [BELIEF_EMBEDDING_DIM], activation: 'tanh', name:'cascadeInputLayer' });
+
+        // --- Value and Feedback Heads (Structure present, not actively trained) ---
+        this.valueHead = tf.layers.dense({ units: 1, inputShape: [BELIEF_EMBEDDING_DIM], name: 'valueHead'});
+        this.feedbackHead = tf.layers.dense({ units: Config.DIMENSIONS, inputShape: [BELIEF_EMBEDDING_DIM], name: 'feedbackHead'});
+
+        // --- Self-State Model ---
+        this.selfState = tf.keep(tf.variable(tf.randomNormal([BELIEF_EMBEDDING_DIM], 0, 0.1), true, 'agentSelfState'));
+
+        // --- Emotion and Head Movement Models ---
+        this.emotionalModule = this._buildEmotionalModel();
+        this.headMovementHead = this._buildHeadMovementModel();
+
+        // --- Previous Emotion State ---
+        this.prevEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
+
+        // --- Optimizer ---
+        const learningRate = Config?.RL?.LR ?? 0.001;
+        this.optimizer = tf.train.adam(learningRate);
     }
 
     /** Helper to validate essential components after TF initialization attempt. */
@@ -133,7 +121,6 @@ export class SyntrometricAgent {
          }
     }
 
-
     /** Helper to nullify *only* TF-related members */
     _set_tf_members_null() {
         this.integrationParam = null; this.reflexivityParam = null; this.selfState = null;
@@ -141,44 +128,42 @@ export class SyntrometricAgent {
         this.emotionalModule = null; this.headMovementHead = null; this.prevEmotions = null;
         this.optimizer = null;
         this.latestBeliefEmbedding = null;
-        // DO NOT nullify core JS modules here
     }
 
     /** Helper to dispose *only* TF-related members */
     _cleanupTfMembers() {
         if (typeof tf === 'undefined') return;
-        // console.log("Cleaning up Agent TF members..."); // Reduce noise
-         const safeDispose = (item) => {
+        // console.log("Cleaning up Agent TF members...");
+        const safeDispose = (item) => {
              if (!item) return;
-             // Dispose tensors in memory buffer first
-             if (item === this.memoryBuffer) {
+             if (item === this.memoryBuffer) { // Special handling for memory buffer
                  item.forEach(memItem => safeDispose(memItem?.beliefEmbedding));
-                 this.memoryBuffer = []; // Clear array after disposing contents
+                 this.memoryBuffer = []; // Clear array
                  return;
              }
-             // Dispose single tensor/variable or weights of a model
              if (item instanceof tf.LayersModel) {
                  item.weights.forEach(w => safeDispose(w?.val)); // Dispose weights' tensors
+                 // Models themselves don't need disposal in the same way as tensors.
              } else if (item instanceof tf.Tensor && !item.isDisposed) {
                   try { item.dispose(); } catch (e) { console.error("Dispose error (tensor/var):", e); }
              }
-         };
+        };
 
-         safeDispose(this.beliefNetwork);
-         safeDispose(this.cascadeInputLayer);
-         safeDispose(this.valueHead);
-         safeDispose(this.feedbackHead);
-         safeDispose(this.emotionalModule);
-         safeDispose(this.headMovementHead);
-         safeDispose(this.prevEmotions);
-         safeDispose(this.selfState);
-         safeDispose(this.integrationParam);
-         safeDispose(this.reflexivityParam);
-         safeDispose(this.latestBeliefEmbedding);
-         safeDispose(this.memoryBuffer); // Dispose tensors within the buffer
+         safeDispose(this.beliefNetwork); // Disposes weights
+         safeDispose(this.cascadeInputLayer); // Disposes weights
+         safeDispose(this.valueHead); // Disposes weights
+         safeDispose(this.feedbackHead); // Disposes weights
+         safeDispose(this.emotionalModule); // Disposes weights
+         safeDispose(this.headMovementHead); // Disposes weights
+         safeDispose(this.prevEmotions); // Disposes tensor
+         safeDispose(this.selfState); // Disposes variable tensor
+         safeDispose(this.integrationParam); // Disposes variable tensor
+         safeDispose(this.reflexivityParam); // Disposes variable tensor
+         safeDispose(this.latestBeliefEmbedding); // Disposes cached tensor clone
+         safeDispose(this.memoryBuffer); // Disposes tensors within the buffer
 
          this.optimizer = null; // Optimizer doesn't have a dispose method
-         // console.log("Agent TF members disposed."); // Reduce noise
+         // console.log("Agent TF members disposed.");
     }
 
     // --- TF Model Builders ---
@@ -186,11 +171,10 @@ export class SyntrometricAgent {
         if (typeof tf === 'undefined') return null;
         try {
             const model = tf.sequential({ name: 'emotionalModule' });
-            // Input: Core State Dims + Previous Emotion Dims + Reward Signal (1) + Event Type Signal (1)
-            const inputDim = Config.DIMENSIONS + Config.Agent.EMOTION_DIM + 1 + 1;
+            const inputDim = (Config.DIMENSIONS || 12) + (Config.Agent.EMOTION_DIM || 6) + 1 + 1; // State + PrevEmotion + Reward + EventContext
             model.add(tf.layers.dense({ units: 32, inputShape: [inputDim], activation: 'relu' }));
             model.add(tf.layers.dense({ units: 16, activation: 'relu' }));
-            model.add(tf.layers.dense({ units: Config.Agent.EMOTION_DIM, activation: 'sigmoid' })); // Output emotions (0-1 range)
+            model.add(tf.layers.dense({ units: Config.Agent.EMOTION_DIM || 6, activation: 'sigmoid' }));
             return model;
         } catch (e) { console.error("Failed building emotional model:", e); return null; }
      }
@@ -199,10 +183,9 @@ export class SyntrometricAgent {
         if (typeof tf === 'undefined') return null;
         try {
             const model = tf.sequential({ name: 'headMovementHead' });
-            // Input: RIH (1) + Avg Affinity (1) + Dominant Emotion Index (1) + Full Emotion Vector (EMOTION_DIM)
-            const inputDim = 1 + 1 + 1 + Config.Agent.EMOTION_DIM;
+            const inputDim = 1 + 1 + 1 + (Config.Agent.EMOTION_DIM || 6); // RIH + Affinity + DominantEmotionIdx + EmotionsVector
             model.add(tf.layers.dense({ units: 16, inputShape: [inputDim], activation: 'relu' }));
-            model.add(tf.layers.dense({ units: NUM_HEAD_MOVEMENTS })); // Output logits for each head movement
+            model.add(tf.layers.dense({ units: NUM_HEAD_MOVEMENTS })); // Output logits
             return model;
         } catch (e) { console.error("Failed building head movement model:", e); return null; }
     }
@@ -213,13 +196,11 @@ export class SyntrometricAgent {
     _updateMemory(beliefTensor) {
         if (typeof tf === 'undefined' || !beliefTensor || beliefTensor.isDisposed) return;
         if (beliefTensor.rank !== 1 || beliefTensor.shape[0] !== BELIEF_EMBEDDING_DIM) {
-             console.warn(`[Agent Memory] Invalid belief tensor shape: ${beliefTensor.shape}. Expected [${BELIEF_EMBEDDING_DIM}]. Skipping memory update.`);
+             // console.warn(`[Agent Memory] Invalid belief tensor shape: ${beliefTensor.shape}. Skipping update.`); // Noisy
              return;
         }
-        // Store timestamp along with the tensor
         this.memoryBuffer.push({ timestamp: Date.now(), beliefEmbedding: tf.keep(beliefTensor.clone()) });
-        // Remove oldest entry if buffer exceeds size
-        if (this.memoryBuffer.length > this.memorySize) {
+        while (this.memoryBuffer.length > this.memorySize) {
             const oldEntry = this.memoryBuffer.shift();
             if (oldEntry?.beliefEmbedding && !oldEntry.beliefEmbedding.isDisposed) {
                 tf.dispose(oldEntry.beliefEmbedding);
@@ -229,15 +210,16 @@ export class SyntrometricAgent {
 
     /** Computes a trust score based on the similarity of the current belief to recent beliefs in memory. */
     _computeTrust(currentBeliefEmbedding) {
-        if (typeof tf === 'undefined' || !currentBeliefEmbedding || currentBeliefEmbedding.isDisposed) return 0.5; // Default trust
+        if (typeof tf === 'undefined' || !currentBeliefEmbedding || currentBeliefEmbedding.isDisposed) return 0.5;
         if (currentBeliefEmbedding.rank !== 1 || currentBeliefEmbedding.shape[0] !== BELIEF_EMBEDDING_DIM) return 0.5;
-        if (this.memoryBuffer.length === 0) return 1.0; // Full trust if no history yet
+        if (this.memoryBuffer.length === 0) return 1.0;
 
+        let avgSimilarityValue = 0.5; // Default trust
         try {
-            return tf.tidy(() => {
-                const flatCurrent = currentBeliefEmbedding; // Already flat (rank 1)
+            tf.tidy(() => { // Use tidy for intermediate tensors
+                const flatCurrent = currentBeliefEmbedding;
                 const currentNorm = flatCurrent.norm();
-                if (currentNorm.arraySync() < 1e-9) return tf.scalar(0.0); // No trust if current belief is zero vector
+                if (currentNorm.arraySync() < 1e-9) return; // Keep default avgSimilarityValue
 
                 const validSimilarities = this.memoryBuffer
                     .map(memEntry => {
@@ -246,113 +228,101 @@ export class SyntrometricAgent {
                         const flatMem = memTensor;
                         const memNorm = flatMem.norm();
                         const normProd = currentNorm.mul(memNorm);
-                        if (normProd.arraySync() < 1e-9) return tf.scalar(0); // Treat as dissimilar if either norm is near zero
-                        // Cosine Similarity
+                        if (normProd.arraySync() < 1e-9) return tf.scalar(0);
                         return flatCurrent.dot(flatMem).div(normProd).clipByValue(-1, 1);
                     })
-                    .filter(s => s !== null); // Filter out invalid entries
+                    .filter(s => s !== null);
 
-                if (validSimilarities.length === 0) return tf.scalar(0.5); // Default trust if no valid history
+                if (validSimilarities.length === 0) return; // Keep default
 
-                // Calculate weighted average similarity (more recent entries could have higher weight - TBD)
                 const avgSimilarity = tf.mean(tf.stack(validSimilarities));
-
-                // Convert similarity [-1, 1] to trust score [0, 1]
-                const trust = avgSimilarity.add(1).div(2);
-                return trust; // Return the tensor
-            }).arraySync(); // Get the JS number value
+                const trust = avgSimilarity.add(1).div(2); // Convert similarity [-1, 1] to trust [0, 1]
+                avgSimilarityValue = trust.arraySync(); // Extract JS value
+            });
         } catch (e) {
             console.error("Error computing trust:", e);
-            return 0.5; // Default trust on error
+            avgSimilarityValue = 0.5; // Fallback on error
         }
+        return clamp(avgSimilarityValue, 0, 1); // Ensure clamped result
     }
+
 
     /** Heuristically adjusts integration and reflexivity parameters based on performance metrics. */
     _learnParameters(trustScore, rihScore, cascadeVariance) {
         if (typeof tf === 'undefined' || !this.integrationParam || !this.reflexivityParam || this.integrationParam.isDisposed || this.reflexivityParam.isDisposed) {
-            return; // Cannot learn if params are invalid
+            return;
         }
 
-        tf.tidy(() => {
-            const learningRate = 0.006; // How fast parameters adapt
-            let integrationDelta = 0.0; // Change to apply to integrationParam
-            let reflexivityDelta = 0.0; // Change to apply to reflexivityParam
+        // Get current values safely
+        const { newIntegration, newReflexivity } = tf.tidy(() => {
+            const learningRate = Config.RL?.PARAM_LEARN_RATE ?? 0.006;
+            const decayFactor = Config.RL?.PARAM_DECAY ?? 0.03;
+            let integrationDelta = 0.0;
+            let reflexivityDelta = 0.0;
 
             const rihChange = rihScore - this.lastRIH;
             const varianceChange = cascadeVariance - this.lastCascadeVariance;
 
-            // --- Heuristic Rules ---
-            // Rule 1: High performance -> Increase integration, decrease reflexivity (explore more)
+            // --- Heuristic Rules (as before) ---
             if ((rihScore > 0.7 && trustScore > 0.7) || (rihChange > 0.02 && trustScore > 0.6)) {
-                integrationDelta += 1.0;
-                reflexivityDelta -= 1.0;
+                integrationDelta += 1.0; reflexivityDelta -= 1.0;
+            } else if (rihScore < 0.3 || trustScore < 0.4 || (rihChange < -0.03 && trustScore < 0.7)) {
+                integrationDelta -= 1.0; reflexivityDelta += 1.2;
             }
-            // Rule 2: Low performance -> Decrease integration, increase reflexivity (rely more on internal state)
-            else if (rihScore < 0.3 || trustScore < 0.4 || (rihChange < -0.03 && trustScore < 0.7)) {
-                integrationDelta -= 1.0;
-                reflexivityDelta += 1.2; // Increase reflexivity more strongly on failure
-            }
-
-            // Rule 3: High or increasing variance -> Increase integration (adapt to complexity), slight increase reflexivity (maintain some stability)
-            const highVarianceThreshold = 0.15;
-            const increasingVarianceThreshold = 0.01;
+            const highVarianceThreshold = 0.15; const increasingVarianceThreshold = 0.01;
             if (cascadeVariance > highVarianceThreshold || varianceChange > increasingVarianceThreshold) {
                 integrationDelta += 0.6 * clamp(cascadeVariance - highVarianceThreshold, 0, 1);
                 reflexivityDelta += 0.4 * clamp(varianceChange, 0, 0.1);
-            }
-            // Rule 4: Low variance (stable) -> Slight increase in reflexivity (reinforce stability)
-            else if (cascadeVariance < 0.02 && varianceChange <= 0) {
+            } else if (cascadeVariance < 0.02 && varianceChange <= 0) {
                 reflexivityDelta += 0.3;
             }
-
-            // Rule 5: Mean reversion -> Gently pull parameters back towards 0.5 over time
-            let currentIntegrationValue = 0.5, currentReflexivityValue = 0.5;
-            try { currentIntegrationValue = this.integrationParam.dataSync()[0]; currentReflexivityValue = this.reflexivityParam.dataSync()[0]; } catch(e) { console.error("Error reading param values for decay:", e); }
-            const decayFactor = 0.03; // Strength of mean reversion
+            // Mean reversion
+            // FIX: Access variables directly inside tidy
+            const currentIntegrationValue = this.integrationParam.dataSync()[0]; 
+            const currentReflexivityValue = this.reflexivityParam.dataSync()[0];
             integrationDelta += (0.5 - currentIntegrationValue) * decayFactor;
             reflexivityDelta += (0.5 - currentReflexivityValue) * decayFactor;
 
-            // Apply updates and clamp
-            const newIntegration = this.integrationParam.add(tf.scalar(integrationDelta * learningRate));
-            const newReflexivity = this.reflexivityParam.add(tf.scalar(reflexivityDelta * learningRate));
+            // Calculate new values
+            const updatedIntegration = this.integrationParam.add(tf.scalar(integrationDelta * learningRate)).clipByValue(0.05, 0.95);
+            const updatedReflexivity = this.reflexivityParam.add(tf.scalar(reflexivityDelta * learningRate)).clipByValue(0.05, 0.95);
 
-            this.integrationParam.assign(newIntegration.clipByValue(0.05, 0.95)); // Keep params within reasonable bounds
-            this.reflexivityParam.assign(newReflexivity.clipByValue(0.05, 0.95));
-
-            // Update last values for next step's calculation
-            this.lastCascadeVariance = cascadeVariance;
-            // lastRIH updated in process()
+            return { newIntegration: updatedIntegration, newReflexivity: updatedReflexivity };
         });
+
+        // Assign new values outside tidy block
+        this.integrationParam.assign(newIntegration);
+        this.reflexivityParam.assign(newReflexivity);
+
+        // Dispose intermediate tensors created by tidy
+        tf.dispose(newIntegration);
+        tf.dispose(newReflexivity);
+
+        // Update last values for next step's calculation
+        this.lastCascadeVariance = cascadeVariance;
     }
+
 
     /** Updates the agent's self-state based on the current belief, trust, and integration parameter. */
     _updateSelfState(currentBeliefEmbedding, trustScore, integrationParamValue) {
         if (typeof tf === 'undefined' || !this.selfState || this.selfState.isDisposed || !currentBeliefEmbedding || currentBeliefEmbedding.isDisposed) {
-             console.warn("[Agent SelfState] Update skipped due to invalid tensor/parameter.");
-             return;
-         }
-        // Dimension check
-        if (this.selfState.shape[0] !== currentBeliefEmbedding.shape[0]) {
-             console.error(`Self-state update error: Dimension mismatch! Self-state (${this.selfState.shape[0]}) vs Belief (${currentBeliefEmbedding.shape[0]}). Resetting self-state.`);
-             tf.dispose(this.selfState); // Dispose the invalid state
-             this.selfState = tf.keep(tf.variable(tf.zeros([BELIEF_EMBEDDING_DIM]), true, 'agentSelfState')); // Recreate
+             // console.warn("[Agent SelfState] Update skipped due to invalid tensor/parameter."); // Noisy
              return;
          }
 
-         tf.tidy(() => {
-             // Learn rate modulated by integration param (higher integration = faster self-state update)
+         // Perform update using assign outside tidy, but calculate newState inside
+         const newState = tf.tidy(() => {
              const effectiveLearnRate = SELF_STATE_LEARN_RATE * (0.5 + integrationParamValue);
-             // Trust modulates how much the current belief influences the update
              const trustFactor = tf.scalar(trustScore * effectiveLearnRate);
-             // Decay previous state slightly, add weighted current belief
-             const newState = this.selfState.mul(SELF_STATE_DECAY)
-                               .add(currentBeliefEmbedding.mul(trustFactor));
-             // Assign the updated state
-             this.selfState.assign(newState);
+             // FIX: Access selfState directly inside tidy
+             const prevStateTensor = this.selfState;
+             return prevStateTensor.mul(SELF_STATE_DECAY).add(currentBeliefEmbedding.mul(trustFactor));
          });
+         this.selfState.assign(newState); // Assign the result
+         tf.dispose(newState); // Dispose the intermediate tensor returned by tidy
     }
 
-    /** Exposes the latest belief embedding safely (returns a clone or null). */
+    /** Exposes the latest belief embedding safely (returns a clone or null). Caller must dispose. */
     getLatestBeliefEmbedding() {
         if (this.latestBeliefEmbedding && !this.latestBeliefEmbedding.isDisposed) {
             return tf.keep(this.latestBeliefEmbedding.clone()); // Return a kept clone
@@ -363,14 +333,11 @@ export class SyntrometricAgent {
 
     /**
      * Processes the current environment state and context, returning the agent's response.
-     * This is the main loop of the agent's cognition.
      */
     async process(rawState, graphFeatures, environmentContext = { eventType: null, reward: 0 }) {
-
-        // --- Rigorous Pre-Check ---
-        // Ensures all essential components are valid before proceeding.
+        // --- Pre-Check ---
         const isTfReady = typeof tf !== 'undefined';
-        const componentsValid = !(!this.beliefNetwork || !this.cascadeInputLayer || !this.valueHead || !this.feedbackHead ||
+        const componentsValid = !(!this.beliefNetwork || !this.cascadeInputLayer ||
                                 !this.integrationParam || this.integrationParam.isDisposed || !this.reflexivityParam || this.reflexivityParam.isDisposed ||
                                 !this.selfState || this.selfState.isDisposed || !this.prevEmotions || this.prevEmotions.isDisposed ||
                                 !this.enyphansyntrix || !this.strukturkondensation || !this.reflexiveIntegration || !this.affinitaetssyndrom ||
@@ -379,7 +346,6 @@ export class SyntrometricAgent {
         if (!isTfReady || !componentsValid) {
              console.error("Agent Pre-Process Check Failed! Aborting step.", { isTfReady, componentsValid });
              displayError("Agent critical component invalid before processing step. Simulation may halt.", true, 'error-message');
-             // Return default/error state
              const defaultEmotions = isTfReady ? tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM])) : null;
              return {
                  cascadeHistory: [], rihScore: 0, affinities: [], emotions: defaultEmotions, hmLabel: 'idle',
@@ -387,9 +353,8 @@ export class SyntrometricAgent {
                  trustScore: 0.0, beliefNorm: 0, feedbackNorm: 0, selfStateNorm: 0
              };
         }
-        // --- End Rigorous Pre-Check ---
+        // --- End Pre-Check ---
 
-        // Get current parameter values safely
         let currentIntegration = 0.5, currentReflexivity = 0.5;
         try {
             if (!this.integrationParam.isDisposed) currentIntegration = this.integrationParam.dataSync()[0];
@@ -398,142 +363,125 @@ export class SyntrometricAgent {
 
         let results = {};
         let beliefNormValue = 0.0, feedbackNormValue = 0.0, currentSelfStateNorm = 0.0;
+        let keptBeliefForUpdates = null; // Tensor kept specifically for memory/self-state updates
 
         try {
-             // --- Core Cognitive Loop (within tf.tidy for memory management) ---
-            results = tf.tidy(() => {
+            // --- Core Cognitive Loop ---
+             const processOutputs = tf.tidy(() => { // Use tidy for the main processing block
                 // 1. Prepare Input State
-                // Ensure input state array has the correct base dimensions
-                let stateArray = Array.isArray(rawState)
-                    ? rawState.slice(0, Config.Agent.BASE_STATE_DIM)
-                    : zeros([Config.Agent.BASE_STATE_DIM]);
-                while(stateArray.length < Config.Agent.BASE_STATE_DIM) stateArray.push(0);
+                const baseStateDim = Config.Agent?.BASE_STATE_DIM ?? 18;
+                const coreDim = Config.DIMENSIONS ?? 12;
+                let stateArray = Array.isArray(rawState) ? rawState.slice(0, baseStateDim) : zeros([baseStateDim]);
+                while(stateArray.length < baseStateDim) stateArray.push(0);
 
-                // Extract core dimensions for processing, ensure it's a tensor
-                const coreStateTensor = tf.tensor(stateArray.slice(0, Config.DIMENSIONS));
-                const graphFeaturesTensor = tf.tensor(graphFeatures); // Features from Syntrometry viz
-                const currentSelfState = this.selfState; // Get current self-state tensor
+                const coreStateTensor = tf.tensor(stateArray.slice(0, coreDim)); // Shape [coreDim]
+                const graphFeaturesTensor = tf.tensor(graphFeatures); // Shape [NUM_GRAPH_FEATURES]
+                const currentSelfState = this.selfState; // Shape [BELIEF_EMBEDDING_DIM]
 
                 // 2. Input Modulation & Perturbation (Enyphansyntrix)
-                // Modulate input by RIH and Reflexivity (higher reflexivity -> more internal focus)
-                const rihModulation = this.lastRIH * (currentReflexivity * 2 - 1); // Scale RIH influence based on reflexivity
+                const rihModulation = this.lastRIH * (currentReflexivity * 2 - 1);
                 let modulatedInput = coreStateTensor.add(tf.scalar(rihModulation * 0.1)).clipByValue(-1, 1);
-                // Apply perturbation (noise) based on inverse RIH and reflexivity (more noise if uncertain/less reflexive)
                 const perturbationScale = clamp(0.005 + (1.0 - this.lastRIH) * 0.02 + currentReflexivity * 0.02, 0.001, 0.05);
-                const perturbedInput = this.enyphansyntrix.apply(modulatedInput, perturbationScale); // Enyphansyntrix handles clipping
+                const perturbedInput = this.enyphansyntrix.apply(modulatedInput, perturbationScale); // Shape [coreDim]
 
                 // 3. Belief Formation
-                // Concatenate processed state, graph features, and self-state for the belief network
                 const beliefNetInput = tf.concat([
-                    perturbedInput.reshape([1, Config.DIMENSIONS]),
+                    perturbedInput.reshape([1, coreDim]),
                     graphFeaturesTensor.reshape([1, NUM_GRAPH_FEATURES]),
-                    currentSelfState.reshape([1, BELIEF_EMBEDDING_DIM]) // Use current self-state
-                ], 1); // Concatenate along the feature dimension
-
-                // Dimension check for safety
+                    currentSelfState.reshape([1, BELIEF_EMBEDDING_DIM])
+                ], 1);
                 if (beliefNetInput.shape[1] !== BELIEF_NETWORK_INPUT_DIM) {
                      throw new Error(`Belief network input dim mismatch: expected ${BELIEF_NETWORK_INPUT_DIM}, got ${beliefNetInput.shape[1]}`);
                 }
-                // Generate the belief embedding vector (internal representation)
-                const beliefEmbedding = this.beliefNetwork.apply(beliefNetInput).reshape([BELIEF_EMBEDDING_DIM]);
-                const keptBeliefEmbedding = tf.keep(beliefEmbedding.clone()); // Keep for updateMemory/updateSelfState outside tidy
+                const beliefEmbedding = this.beliefNetwork.apply(beliefNetInput).reshape([BELIEF_EMBEDDING_DIM]); // Shape [BELIEF_EMBEDDING_DIM]
+
+                // --- Keep a clone of the belief embedding *outside* the tidy scope ---
+                // This is crucial for updating memory and self-state later.
+                keptBeliefForUpdates = tf.keep(beliefEmbedding.clone());
 
                 // 4. Cascade Processing (Strukturkondensation)
-                // Project belief embedding onto the cascade input dimension
                 const cascadeInput = this.cascadeInputLayer.apply(beliefEmbedding.reshape([1, BELIEF_EMBEDDING_DIM])).reshape([CASCADE_INPUT_DIM]);
-                // Process through structural condensation levels
                 const cascadeHistoryTensors = this.strukturkondensation.process(cascadeInput); // Returns array of kept tensors
-                const cascadeHistoryArrays = cascadeHistoryTensors.map(t => t.arraySync()); // Convert to JS arrays for output
+                const cascadeHistoryArrays = cascadeHistoryTensors.map(t => t.arraySync()); // JS arrays for output
                 const lastCascadeLevelTensor = cascadeHistoryTensors.length > 0 ? cascadeHistoryTensors[cascadeHistoryTensors.length - 1] : tf.tensor([]);
 
                 // 5. Compute RIH & Affinities
-                // RIH score from the final cascade level (Reflexive Integration)
                 const currentRihScore = this.reflexiveIntegration.compute(lastCascadeLevelTensor);
-                // Affinities between cascade levels (Affinitaetssyndrom)
                 const currentAffinities = [];
                 if (cascadeHistoryTensors.length > 1) {
                     for (let i = 0; i < cascadeHistoryTensors.length - 1; i++) {
                         if (cascadeHistoryTensors[i]?.shape[0] > 0 && cascadeHistoryTensors[i+1]?.shape[0] > 0 && !cascadeHistoryTensors[i].isDisposed && !cascadeHistoryTensors[i+1].isDisposed) {
-                            try {
-                                const affinity = this.affinitaetssyndrom.compute(cascadeHistoryTensors[i], cascadeHistoryTensors[i+1]);
-                                currentAffinities.push(affinity);
-                            } catch (affError) { console.error(`Affinity Error L${i}: ${affError}`); currentAffinities.push(0); }
-                        } else { currentAffinities.push(0); } // Push 0 if tensors invalid/empty
+                            currentAffinities.push(this.affinitaetssyndrom.compute(cascadeHistoryTensors[i], cascadeHistoryTensors[i+1]));
+                        } else { currentAffinities.push(0); }
                     }
                 }
                 const currentAvgAffinity = currentAffinities.length > 0 ? currentAffinities.reduce((a, b) => a + b, 0) / currentAffinities.length : 0;
 
-                // 6. Compute Trust Score
-                const currentTrustScore = this._computeTrust(beliefEmbedding); // Based on memory comparison
+                // 6. Compute Trust Score (Needs beliefEmbedding, calculation done outside tidy using kept tensor)
 
-                // 7. Extract Cascade Features (for parameter learning)
+                // 7. Extract Cascade Features
                 let varFinal = 0.0, meanFinal = 0.0;
                 if (lastCascadeLevelTensor.size > 1) {
                     const moments = tf.moments(lastCascadeLevelTensor);
-                    varFinal = moments.variance.arraySync();
-                    meanFinal = moments.mean.arraySync();
+                    varFinal = moments.variance.arraySync(); meanFinal = moments.mean.arraySync();
                 } else if (lastCascadeLevelTensor.size === 1) { meanFinal = lastCascadeLevelTensor.arraySync()[0]; }
-                const cascadeFeatures = [clamp(varFinal, 0, 10), clamp(meanFinal, -10, 10)]; // Variance and Mean
+                const cascadeFeatures = [clamp(varFinal, 0, 10), clamp(meanFinal, -10, 10)];
 
-                // 8. Value/Feedback Prediction (currently unused for training)
+                // 8. Value/Feedback Prediction (optional, keep structure)
                 const valuePred = this.valueHead.apply(beliefEmbedding.reshape([1, BELIEF_EMBEDDING_DIM])).reshape([]);
-                const feedbackSignalRaw = this.feedbackHead.apply(beliefEmbedding.reshape([1, BELIEF_EMBEDDING_DIM])).reshape([Config.DIMENSIONS]);
-                const feedbackSignal = feedbackSignalRaw; // No modifications for now
+                const feedbackSignal = this.feedbackHead.apply(beliefEmbedding.reshape([1, BELIEF_EMBEDDING_DIM])).reshape([Config.DIMENSIONS]);
 
-                // Dispose intermediate cascade tensors (process returns kept ones)
+                // Dispose intermediate cascade tensors (they were kept by process)
                 cascadeHistoryTensors.forEach(t => tf.dispose(t));
 
-                // Return results needed outside the tidy block
+                // Return JS values needed outside tidy
                 return {
-                    keptBeliefEmbedding, // Must be kept for updates outside
-                    cascadeHistoryArrays, // JS arrays, no disposal needed
+                    cascadeHistoryArrays,
                     currentRihScore: currentRihScore ?? 0,
-                    currentAffinities: currentAffinities,
+                    currentAffinities,
                     currentAvgAffinity: currentAvgAffinity ?? 0,
-                    currentTrustScore: currentTrustScore ?? 0.5,
-                    cascadeFeatures: cascadeFeatures,
-                    valuePred: tf.keep(valuePred.clone()), // Keep if needed later
-                    feedbackSignal: tf.keep(feedbackSignal.clone()) // Keep if needed later
+                    cascadeFeatures,
+                    // Tensors like valuePred, feedbackSignal are disposed by tidy unless kept explicitly
+                    // We keep the belief embedding outside using keptBeliefForUpdates
+                    beliefNorm: beliefEmbedding.norm().arraySync(), // Calculate norm inside tidy for efficiency
+                    feedbackNorm: feedbackSignal.norm().arraySync(),
+                    selfStateNorm: currentSelfState.norm().arraySync()
                 };
-            }); // End tf.tidy
+            }); // End tf.tidy for core processing
 
             // --- Post-Tidy Updates ---
+            // Assign results from tidy block
+            results = processOutputs;
+            beliefNormValue = results.beliefNorm ?? 0.0;
+            feedbackNormValue = results.feedbackNorm ?? 0.0;
+            currentSelfStateNorm = results.selfStateNorm ?? 0.0;
+
+            // Compute trust score using the kept belief embedding
+            results.currentTrustScore = this._computeTrust(keptBeliefForUpdates);
 
             // Store results for state tracking and visualization
             this.latestRihScore = results.currentRihScore;
             this.latestAffinities = results.currentAffinities;
             this.latestTrustScore = results.currentTrustScore;
-            this.latestCascadeHistoryArrays = results.cascadeHistoryArrays; // Store for viz
+            this.latestCascadeHistoryArrays = results.cascadeHistoryArrays;
 
-            // Calculate norms for dashboard display
-            if (results.keptBeliefEmbedding && !results.keptBeliefEmbedding.isDisposed) {
-                beliefNormValue = norm(results.keptBeliefEmbedding.dataSync());
-                // Update memory and self-state using the kept belief embedding
-                this._updateMemory(results.keptBeliefEmbedding);
-                this._updateSelfState(results.keptBeliefEmbedding, results.currentTrustScore, currentIntegration);
+            // Update memory and self-state using the kept belief embedding
+            if (keptBeliefForUpdates && !keptBeliefForUpdates.isDisposed) {
+                this._updateMemory(keptBeliefForUpdates);
+                this._updateSelfState(keptBeliefForUpdates, results.currentTrustScore, currentIntegration);
 
                 // Cache the latest belief embedding (dispose previous if exists)
                 if (this.latestBeliefEmbedding && !this.latestBeliefEmbedding.isDisposed) tf.dispose(this.latestBeliefEmbedding);
-                this.latestBeliefEmbedding = tf.keep(results.keptBeliefEmbedding.clone());
-            } else { beliefNormValue = 0; }
-
-            if (results.feedbackSignal && !results.feedbackSignal.isDisposed) {
-                feedbackNormValue = norm(results.feedbackSignal.dataSync());
+                this.latestBeliefEmbedding = tf.keep(keptBeliefForUpdates.clone()); // Keep another clone for inspector
+            } else {
+                console.warn("Kept belief tensor invalid after tidy block.");
             }
-            if (this.selfState && !this.selfState.isDisposed) {
-                currentSelfStateNorm = norm(this.selfState.dataSync());
-            } else { currentSelfStateNorm = 0.0; }
 
             // Learn/Adjust integration/reflexivity parameters
-            this._learnParameters(results.currentTrustScore, results.currentRihScore, results.cascadeFeatures[0]); // Use variance feature
+            this._learnParameters(results.currentTrustScore, results.currentRihScore, results.cascadeFeatures[0]);
 
             // Update history for next step's calculations
             this.lastRIH = results.currentRihScore;
-
-            // Dispose kept tensors from tidy block now that they've been used/cached
-            if (results.keptBeliefEmbedding && !results.keptBeliefEmbedding.isDisposed) tf.dispose(results.keptBeliefEmbedding);
-            if (results.valuePred && !results.valuePred.isDisposed) tf.dispose(results.valuePred);
-            if (results.feedbackSignal && !results.feedbackSignal.isDisposed) tf.dispose(results.feedbackSignal);
 
         } catch (e) {
              console.error("Error during agent core processing:", e);
@@ -547,11 +495,18 @@ export class SyntrometricAgent {
                  currentTrustScore: this.latestTrustScore,
                  // Cannot reliably provide other values like beliefNorm etc. on error
              };
-             beliefNormValue = 0; feedbackNormValue = 0; currentSelfStateNorm = norm(this.selfState?.dataSync() ?? []);
+             beliefNormValue = 0; feedbackNormValue = 0;
+             try { currentSelfStateNorm = norm(this.selfState?.dataSync() ?? []); } catch { currentSelfStateNorm = 0;}
+
+        } finally {
+            // --- Dispose the tensor kept for updates ---
+             if (keptBeliefForUpdates && !keptBeliefForUpdates.isDisposed) {
+                  tf.dispose(keptBeliefForUpdates);
+             }
         }
 
         // --- Emotion Update ---
-        let currentEmotionsTensor;
+        let currentEmotionsTensor; // This will hold the KEPT tensor returned by _updateEmotions
         try {
             currentEmotionsTensor = await this._updateEmotions(rawState, environmentContext);
         } catch (e) {
@@ -559,13 +514,14 @@ export class SyntrometricAgent {
             displayError(`TF Error during emotion prediction: ${e.message}`, false, 'error-message');
             // Recover by decaying previous emotions or resetting to zero
             if (this.prevEmotions && !this.prevEmotions.isDisposed) {
-                const decayed = tf.tidy(()=> this.prevEmotions.mul(EMOTIONAL_DECAY_RATE).clipByValue(0,1));
+                 const decayed = tf.tidy(()=> this.prevEmotions.mul(EMOTIONAL_DECAY_RATE).clipByValue(0,1));
                  tf.dispose(this.prevEmotions);
                  this.prevEmotions = tf.keep(decayed);
             } else {
+                 if (this.prevEmotions && !this.prevEmotions.isDisposed) tf.dispose(this.prevEmotions); // Dispose if needed
                  this.prevEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
             }
-            currentEmotionsTensor = this.prevEmotions;
+            currentEmotionsTensor = tf.keep(this.prevEmotions.clone()); // Return a clone of the fallback
         }
 
 
@@ -573,13 +529,13 @@ export class SyntrometricAgent {
         let hmLabel = "idle";
         let dominantEmotionName = 'Unknown';
         try {
+            // Pass the current kept emotion tensor to prediction function
             if (this.headMovementHead && currentEmotionsTensor && !currentEmotionsTensor.isDisposed) {
                 const { label, dominantName } = await this._predictHeadMovement(currentEmotionsTensor, results.currentRihScore, results.currentAvgAffinity);
                 hmLabel = label;
                 dominantEmotionName = dominantName;
-            } else {
-                // Fallback logic if model or tensor is invalid
-                if (this.latestRihScore > 0.7) hmLabel = "nod";
+            } else { // Fallback logic
+                if (results.currentRihScore > 0.7) hmLabel = "nod";
                 else if ((results.currentAvgAffinity ?? 0) < 0.2) hmLabel = "shake";
                 if (currentEmotionsTensor && !currentEmotionsTensor.isDisposed){
                      const emotionArrayFallback = currentEmotionsTensor.arraySync()[0];
@@ -590,14 +546,13 @@ export class SyntrometricAgent {
         } catch (e) {
              console.error("Error predicting head movement:", e);
              displayError(`TF Error during head movement prediction: ${e.message}`, false, 'error-message');
-             hmLabel = "idle"; // Default on error
+             hmLabel = "idle";
         }
 
-
         // --- Prepare Response ---
-        const rihText = (this.latestRihScore ?? 0).toFixed(2);
+        const rihText = (results.currentRihScore ?? 0).toFixed(2);
         const affText = (results.currentAvgAffinity ?? 0).toFixed(2);
-        const trustText = (this.latestTrustScore ?? 0).toFixed(2);
+        const trustText = (results.currentTrustScore ?? 0).toFixed(2);
         const intText = (currentIntegration ?? 0.5).toFixed(2);
         const refText = (currentReflexivity ?? 0.5).toFixed(2);
         const cascadeVarText = (results.cascadeFeatures?.[0] ?? this.lastCascadeVariance).toFixed(2);
@@ -605,105 +560,89 @@ export class SyntrometricAgent {
 
         return {
             cascadeHistory: results.cascadeHistoryArrays || [],
-            rihScore: this.latestRihScore ?? 0,
-            affinities: this.latestAffinities || [],
-            emotions: currentEmotionsTensor, // Return the kept tensor
+            rihScore: results.currentRihScore ?? 0,
+            affinities: results.currentAffinities || [],
+            emotions: currentEmotionsTensor, // Return the kept tensor from _updateEmotions
             hmLabel: hmLabel,
             responseText: responseText,
-            trustScore: this.latestTrustScore ?? 0.5,
+            trustScore: results.currentTrustScore ?? 0.5,
             integration: currentIntegration ?? 0.5,
             reflexivity: currentReflexivity ?? 0.5,
             beliefNorm: beliefNormValue,
-            feedbackNorm: feedbackNormValue, // Include if needed
+            // feedbackNorm: feedbackNormValue, // Optional
             selfStateNorm: currentSelfStateNorm
         };
     }
 
     /** Internal helper to update emotions */
-        // Inside SyntrometricAgent class in agent.js
-
-    /** Internal helper to update emotions */
     async _updateEmotions(rawState, environmentContext) {
         if (!this.emotionalModule) {
              console.warn("Emotional module invalid. Cannot predict emotions.");
-             // Return a kept zero tensor if module is missing
              return tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
         }
         if (!this.prevEmotions || this.prevEmotions.isDisposed) {
-            console.warn("prevEmotions invalid. Resetting and returning zeros.");
+            console.warn("prevEmotions invalid. Resetting.");
             if(this.prevEmotions && !this.prevEmotions.isDisposed) tf.dispose(this.prevEmotions);
-            this.prevEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM])); // Reset if invalid
-            return tf.keep(this.prevEmotions.clone()); // Return clone of zeros
+            this.prevEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
         }
 
-        const coreStateForEmotion = (Array.isArray(rawState) ? rawState : zeros([Config.Agent.BASE_STATE_DIM])).slice(0, Config.DIMENSIONS);
-        while(coreStateForEmotion.length < Config.DIMENSIONS) coreStateForEmotion.push(0); // Ensure correct length
+        const coreDim = Config.DIMENSIONS || 12;
+        const emoDim = Config.Agent.EMOTION_DIM || 6;
+        const coreStateForEmotion = (Array.isArray(rawState) ? rawState : zeros([coreDim + emoDim])).slice(0, coreDim);
+        while(coreStateForEmotion.length < coreDim) coreStateForEmotion.push(0);
 
+        let newEmotionsResult; // Will hold the kept result
         try {
-            // Calculate new emotions within a tidy block
-            const newEmotionsResult = tf.tidy(() => {
-                const stateTensor = tf.tensor([coreStateForEmotion], [1, Config.DIMENSIONS]); // Ensure shape [1, DIMENSIONS]
+            const intermediateResult = tf.tidy(() => {
+                const stateTensor = tf.tensor([coreStateForEmotion], [1, coreDim]);
                 const rewardTensor = tf.tensor([[environmentContext.reward || 0]], [1, 1]);
-                const contextSignal = tf.tensor([[environmentContext.eventType ? 1 : 0]], [1, 1]); // Simple binary context signal
+                const contextSignal = tf.tensor([[environmentContext.eventType ? 1 : 0]], [1, 1]);
+                const prevEmotionsInput = this.prevEmotions.reshape([1, emoDim]);
 
-                // Ensure prevEmotions has the correct shape [1, EMOTION_DIM] before concat
-                const prevEmotionsInput = this.prevEmotions.reshape([1, Config.Agent.EMOTION_DIM]);
+                const input = tf.concat([stateTensor, prevEmotionsInput, rewardTensor, contextSignal], 1);
 
-                const input = tf.concat([stateTensor, prevEmotionsInput, rewardTensor, contextSignal], 1); // Ensure axis is correct (1 for columns)
-
-                // Check input shape
-                const expectedInputDim = Config.DIMENSIONS + Config.Agent.EMOTION_DIM + 1 + 1;
+                const expectedInputDim = coreDim + emoDim + 1 + 1;
                 if (input.shape[1] !== expectedInputDim) {
                     throw new Error(`Emotional module input dim mismatch: expected ${expectedInputDim}, got ${input.shape[1]}`);
                 }
 
-                // Predict and blend
                 const predictedEmotions = this.emotionalModule.predict(input);
                 const decayScalar = tf.scalar(EMOTIONAL_DECAY_RATE);
-                const blendedEmotions = prevEmotionsInput.mul(decayScalar) // Use reshaped prevEmotions
+                const blendedEmotions = prevEmotionsInput.mul(decayScalar)
                     .add(predictedEmotions.mul(tf.scalar(1.0).sub(decayScalar)))
-                    .clipByValue(0, 1); // Ensure emotions stay within [0, 1]
+                    .clipByValue(0, 1);
 
                 return blendedEmotions; // Return the result of tidy
             });
 
-            // --- CRITICAL: Keep the result immediately after tidy ---
-            const keptNewEmotions = tf.keep(newEmotionsResult);
+            // --- Keep the result immediately after tidy ---
+            newEmotionsResult = tf.keep(intermediateResult);
 
             // --- Safely update the internal state for the *next* step ---
-            // Dispose the old internal state tensor
-            if (this.prevEmotions && !this.prevEmotions.isDisposed) {
-                tf.dispose(this.prevEmotions);
-            }
-            // Keep a *separate clone* for the internal state
-            this.prevEmotions = tf.keep(keptNewEmotions.clone());
-
-            // --- Return the kept tensor for the *current* step's result ---
-            return keptNewEmotions;
+            if (this.prevEmotions && !this.prevEmotions.isDisposed) { tf.dispose(this.prevEmotions); }
+            this.prevEmotions = tf.keep(newEmotionsResult.clone()); // Keep a *separate clone* for internal state
 
         } catch (e) {
-             // Handle errors during the prediction/tidy process
              console.error("Error during emotion prediction/tidy block:", e);
              displayError(`TF Error during emotion prediction: ${e.message}`, false, 'error-message');
-
-             // Recover safely: Dispose potentially problematic prevEmotions and reset to zeros
-             if (this.prevEmotions && !this.prevEmotions.isDisposed) {
-                  try { tf.dispose(this.prevEmotions); } catch (disposeErr) { /* Ignore nested dispose error */ }
-             }
-             this.prevEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM]));
-
+             // Dispose potentially problematic prevEmotions and reset to zeros
+             if (this.prevEmotions && !this.prevEmotions.isDisposed) tf.dispose(this.prevEmotions);
+             this.prevEmotions = tf.keep(tf.zeros([1, emoDim]));
              // Return a *kept clone* of the zero tensor for the current step result
-             return tf.keep(this.prevEmotions.clone());
+             newEmotionsResult = tf.keep(this.prevEmotions.clone());
         }
-   } // End _updateEmotions
+        // --- Return the kept tensor for the *current* step's result ---
+        return newEmotionsResult;
+   }
 
      /** Internal helper to predict head movement */
      async _predictHeadMovement(currentEmotionsTensor, rihScore, avgAffinity) {
          let hmLabel = "idle";
          let dominantEmotionName = "Unknown";
+         const emoDim = Config.Agent.EMOTION_DIM || 6;
 
          if (!this.headMovementHead || !currentEmotionsTensor || currentEmotionsTensor.isDisposed) {
-             return { label: hmLabel, dominantName: dominantEmotionName }; // Return defaults if model/tensor invalid
+             return { label: hmLabel, dominantName: dominantEmotionName };
          }
 
          const emotionArray = currentEmotionsTensor.arraySync()[0];
@@ -711,27 +650,31 @@ export class SyntrometricAgent {
          dominantEmotionName = emotionNames[dominantEmotionIndex] || 'Unknown';
 
          if (dominantEmotionIndex !== -1) {
-             const hmLogits = tf.tidy(() => {
-                 const rihTensor = tf.tensor([[rihScore]], [1, 1]);
-                 const avgAffinityTensor = tf.tensor([[avgAffinity ?? 0]], [1, 1]);
-                 const dominantEmotionTensor = tf.tensor([[dominantEmotionIndex]], [1, 1]);
-                 const emotionTensorInput = currentEmotionsTensor.reshape([1, Config.Agent.EMOTION_DIM]);
+             let hmLogits = null;
+             try {
+                 hmLogits = tf.tidy(() => {
+                     const rihTensor = tf.tensor([[rihScore]], [1, 1]);
+                     const avgAffinityTensor = tf.tensor([[avgAffinity ?? 0]], [1, 1]);
+                     const dominantEmotionTensor = tf.tensor([[dominantEmotionIndex]], [1, 1]);
+                     const emotionTensorInput = currentEmotionsTensor.reshape([1, emoDim]);
 
-                 const input = tf.concat([rihTensor, avgAffinityTensor, dominantEmotionTensor, emotionTensorInput], 1);
+                     const input = tf.concat([rihTensor, avgAffinityTensor, dominantEmotionTensor, emotionTensorInput], 1);
 
-                 // Check input shape
-                 const expectedInputDim = 1 + 1 + 1 + Config.Agent.EMOTION_DIM;
-                 if (input.shape[1] !== expectedInputDim) {
-                     throw new Error(`Head movement model input dim mismatch: expected ${expectedInputDim}, got ${input.shape[1]}`);
-                 }
+                     const expectedInputDim = 1 + 1 + 1 + emoDim;
+                     if (input.shape[1] !== expectedInputDim) {
+                         throw new Error(`Head movement model input dim mismatch: expected ${expectedInputDim}, got ${input.shape[1]}`);
+                     }
+                     return this.headMovementHead.predict(input);
+                 });
 
-                 return this.headMovementHead.predict(input);
-             }); // hmLogits tensor is managed by tidy
-
-             if (hmLogits) {
-                 const hmIdx = hmLogits.argMax(1).arraySync()[0]; // Get index of max logit
+                 const hmIdx = hmLogits.argMax(1).arraySync()[0];
                  hmLabel = HEAD_MOVEMENT_LABELS[hmIdx] || "idle";
-                 tf.dispose(hmLogits); // Dispose tensor returned by predict
+
+             } catch (e) {
+                  console.error("Error during head movement prediction tidy:", e);
+                  hmLabel = "idle"; // Default on error
+             } finally {
+                 if (hmLogits && !hmLogits.isDisposed) tf.dispose(hmLogits); // Dispose tensor returned by predict
              }
          }
          return { label: hmLabel, dominantName: dominantEmotionName };
@@ -746,17 +689,23 @@ export class SyntrometricAgent {
              const memoryArrays = this.memoryBuffer.map(entry => ({
                  timestamp: entry.timestamp,
                  beliefEmbedding: entry.beliefEmbedding && !entry.beliefEmbedding.isDisposed ? entry.beliefEmbedding.arraySync() : null
-             }));
+             })).filter(e => e.beliefEmbedding !== null); // Filter out entries where tensor was invalid
+
              const prevEmotionsArray = this.prevEmotions && !this.prevEmotions.isDisposed ? this.prevEmotions.arraySync()[0] : zeros([Config.Agent.EMOTION_DIM]);
              let selfStateArray = zeros([BELIEF_EMBEDDING_DIM]);
              if (this.selfState && !this.selfState.isDisposed) selfStateArray = Array.from(this.selfState.dataSync());
              const integrationVal = this.integrationParam && !this.integrationParam.isDisposed ? this.integrationParam.dataSync()[0] : 0.5;
              const reflexivityVal = this.reflexivityParam && !this.reflexivityParam.isDisposed ? this.reflexivityParam.dataSync()[0] : 0.5;
 
+             // Helper to safely get weights as serializable arrays
              const getWeightsSafe = (model) => {
-                 if (!model || !model.getWeights) return null; // Return null if model invalid
-                 try { return model.getWeights().map(w => w.arraySync()); }
-                 catch (e) { console.error(`Error getting weights for ${model?.name || 'unknown model'}:`, e); return null; } // Return null on error
+                 if (!model || typeof model.getWeights !== 'function') return null;
+                 try {
+                     return model.getWeights().map(w => ({ shape: w.shape, data: w.arraySync() })); // Save shape and data
+                 } catch (e) {
+                     console.error(`Error getting weights for ${model?.name || 'unknown model'}:`, e);
+                     return null; // Return null on error
+                 }
              };
 
              return {
@@ -766,16 +715,16 @@ export class SyntrometricAgent {
                  lastRIH: this.lastRIH,
                  lastCascadeVariance: this.lastCascadeVariance,
                  latestTrustScore: this.latestTrustScore,
-                 integrationParam: integrationVal,
-                 reflexivityParam: reflexivityVal,
-                 selfState: selfStateArray,
+                 integrationParam: integrationVal, // Save current value
+                 reflexivityParam: reflexivityVal, // Save current value
+                 selfState: selfStateArray, // Save current value
                  beliefNetworkWeights: getWeightsSafe(this.beliefNetwork),
                  cascadeInputLayerWeights: getWeightsSafe(this.cascadeInputLayer),
                  valueHeadWeights: getWeightsSafe(this.valueHead),
                  feedbackHeadWeights: getWeightsSafe(this.feedbackHead),
-                 // Optional: Save weights for emotional/head models if they become trainable
-                 // emotionalModuleWeights: getWeightsSafe(this.emotionalModule),
-                 // headMovementHeadWeights: getWeightsSafe(this.headMovementHead),
+                 emotionalModuleWeights: getWeightsSafe(this.emotionalModule),
+                 headMovementHeadWeights: getWeightsSafe(this.headMovementHead),
+                 // NOTE: Optimizer state is generally NOT saved/loaded this way easily.
              };
          } catch(e) {
              console.error("Error getting agent state:", e);
@@ -783,188 +732,159 @@ export class SyntrometricAgent {
          }
     }
 
-    loadState(state) {
-        if (!state || typeof state !== 'object' || typeof tf === 'undefined') {
-             console.error("Invalid state object or TensorFlow not available for loading.");
-             return;
-        }
-        console.log("Loading agent state V2.3...");
-        if (state.version !== "2.3.1") { console.warn(`Loading state from different version (${state.version}). Compatibility not guaranteed.`); }
-        if (state.error) { console.error(`Saved state contains error: ${state.error}. Aborting load.`); return; }
-
-        // --- Full Cleanup and Reinitialization ---
-        // Ensure clean slate before loading weights and parameters
-        this.cleanup(); // Dispose existing TF resources and nullify members
-        console.log("Agent resources cleaned before loading state.");
-
+    /** Ensures agent has a minimal valid TF state if other operations fail. */
+    _ensureDefaultTfState() {
+        console.warn("Ensuring agent has a default TF state due to prior error.");
+        this._cleanupTfMembers();
+        this._set_tf_members_null();
         try {
-            // Re-initialize core JS modules
-            this.enyphansyntrix = new Enyphansyntrix('continuous');
-            this.affinitaetssyndrom = new Affinitaetssyndrom();
-            this.strukturkondensation = new Strukturkondensation(Config.CASCADE_LEVELS, Config.CASCADE_STAGE || 2);
-            this.reflexiveIntegration = new ReflexiveIntegration();
+            this._initializeTfComponents(); // Recreate TF components
+        } catch (e) {
+            console.error("CRITICAL: Failed to set agent to default TF state.", e);
+            displayError("Agent recovery failed. TensorFlow components are likely unusable.", true);
+        }
+    }
 
-            // Re-initialize TF components with default structures
-            // Weights and specific values will be loaded below
-            this._reinitializeTfComponents(); // Creates new TF variables and models
-            console.log("TF components re-initialized, ready for loading data.");
+    /** Loads state, ensuring proper cleanup and re-initialization. */
+    loadState(state) {
+        if (!state || typeof state !== 'object') {
+            console.error("Agent loadState: Invalid state object provided.");
+            if (typeof tf !== 'undefined') this._ensureDefaultTfState();
+            return;
+        }
+        if (typeof tf === 'undefined') {
+            console.error("Agent loadState: TensorFlow not available. Cannot load TF-dependent state.");
+            this.lastRIH = typeof state.lastRIH === 'number' ? state.lastRIH : 0.0; // Load non-TF state if possible
+            return;
+        }
 
-            // --- Load Data into Re-initialized Components ---
-            const prevEmotionsArray = Array.isArray(state.prevEmotions) && state.prevEmotions.length === Config.Agent.EMOTION_DIM
-                 ? state.prevEmotions
-                 : zeros([Config.Agent.EMOTION_DIM]);
-            this.prevEmotions.assign(tf.tensor([prevEmotionsArray], [1, Config.Agent.EMOTION_DIM]));
+        console.log("Loading agent state V2.3...");
+        if (state.version !== "2.3.1") {
+            console.warn(`Agent loadState: Loading state from different version (${state.version}). Compatibility not guaranteed.`);
+            // Attempt to load anyway, but might fail.
+        }
+        if (state.error) {
+            console.error(`Agent loadState: Saved state contains error: ${state.error}. Attempting reset.`);
+            this._ensureDefaultTfState();
+            return;
+        }
 
-            // Load memory buffer
+        // 1. Full cleanup of existing TF resources
+        this._cleanupTfMembers();
+        this._set_tf_members_null();
+
+        // 2. Re-initialize core JS modules (if they have state needing reset)
+        this.enyphansyntrix = new Enyphansyntrix('continuous');
+        this.affinitaetssyndrom = new Affinitaetssyndrom();
+        this.strukturkondensation = new Strukturkondensation(Config.CASCADE_LEVELS, Config.CASCADE_STAGE || 2);
+        this.reflexiveIntegration = new ReflexiveIntegration();
+
+        // 3. Re-initialize TF components to their default structures
+        try {
+            this._initializeTfComponents(); // Create new variables and models
+        } catch (reinitError) {
+            console.error("CRITICAL: Failed to re-initialize TF components during loadState. Agent will be unstable.", reinitError);
+            displayError("Agent core re-initialization failed during load. Agent is likely broken.", true);
+            return; // Cannot proceed
+        }
+
+        // 4. Load data into the newly re-initialized components
+        try {
+            const emoDim = Config.Agent.EMOTION_DIM || 6;
+            const prevEmotionsArray = (Array.isArray(state.prevEmotions) && state.prevEmotions.length === emoDim)
+                ? state.prevEmotions
+                : zeros([emoDim]);
+            if (this.prevEmotions) this.prevEmotions.assign(tf.tensor([prevEmotionsArray], [1, emoDim]));
+
+            this.memoryBuffer = []; // Clear existing buffer
             if (Array.isArray(state.memoryBuffer)) {
-                 state.memoryBuffer.forEach(memEntry => {
-                     if (memEntry && memEntry.beliefEmbedding && Array.isArray(memEntry.beliefEmbedding) && memEntry.beliefEmbedding.length === BELIEF_EMBEDDING_DIM) {
-                         try {
-                             this.memoryBuffer.push({
-                                 timestamp: memEntry.timestamp || Date.now(), // Use saved timestamp or now
-                                 beliefEmbedding: tf.keep(tf.tensor(memEntry.beliefEmbedding, [BELIEF_EMBEDDING_DIM]))
-                             });
-                         } catch(e) { console.warn("Error creating tensor from loaded memory buffer array.", e); }
-                     } else { console.warn("Skipping invalid memory item during load:", memEntry); }
-                 });
-                 // Ensure memory buffer doesn't exceed size limit after loading
-                 while (this.memoryBuffer.length > this.memorySize) {
-                      const removedEntry = this.memoryBuffer.shift();
-                      if (removedEntry?.beliefEmbedding && !removedEntry.beliefEmbedding.isDisposed) {
-                          tf.dispose(removedEntry.beliefEmbedding);
-                      }
-                 }
-                 console.log(`Loaded ${this.memoryBuffer.length} items into memory buffer.`);
-             } else { console.warn("Memory buffer missing or invalid in saved state."); }
-
+                state.memoryBuffer.forEach(memEntry => {
+                    if (memEntry && memEntry.beliefEmbedding && Array.isArray(memEntry.beliefEmbedding) && memEntry.beliefEmbedding.length === BELIEF_EMBEDDING_DIM) {
+                        try {
+                            this.memoryBuffer.push({
+                                timestamp: memEntry.timestamp || Date.now(),
+                                beliefEmbedding: tf.keep(tf.tensor(memEntry.beliefEmbedding, [BELIEF_EMBEDDING_DIM]))
+                            });
+                        } catch(e) { console.warn("Error creating tensor from loaded memory buffer item.", e); }
+                    }
+                });
+                while (this.memoryBuffer.length > this.memorySize) { // Prune excess
+                    const oldest = this.memoryBuffer.shift();
+                    if (oldest?.beliefEmbedding && !oldest.beliefEmbedding.isDisposed) { tf.dispose(oldest.beliefEmbedding); }
+                }
+            }
 
             // Load scalar values
             this.lastRIH = typeof state.lastRIH === 'number' ? state.lastRIH : 0.0;
             this.lastCascadeVariance = typeof state.lastCascadeVariance === 'number' ? state.lastCascadeVariance : 0.0;
             this.latestTrustScore = typeof state.latestTrustScore === 'number' ? state.latestTrustScore : 1.0;
 
-            // Load parameters
+            // Load TF variable values
             const integrationVal = typeof state.integrationParam === 'number' ? state.integrationParam : 0.5;
             const reflexivityVal = typeof state.reflexivityParam === 'number' ? state.reflexivityParam : 0.5;
-            this.integrationParam.assign(tf.scalar(integrationVal));
-            this.reflexivityParam.assign(tf.scalar(reflexivityVal));
+            if (this.integrationParam) this.integrationParam.assign(tf.scalar(integrationVal));
+            if (this.reflexivityParam) this.reflexivityParam.assign(tf.scalar(reflexivityVal));
 
-            // Load self-state
-            const selfStateArray = Array.isArray(state.selfState) ? state.selfState : zeros([BELIEF_EMBEDDING_DIM]);
-            if (selfStateArray.length === BELIEF_EMBEDDING_DIM) {
-                this.selfState.assign(tf.tensor(selfStateArray, [BELIEF_EMBEDDING_DIM]));
-            } else { console.warn(`Self-state dim mismatch on load (${selfStateArray.length} vs ${BELIEF_EMBEDDING_DIM}). Keeping re-initialized state.`); }
+            const selfStateArray = (Array.isArray(state.selfState) && state.selfState.length === BELIEF_EMBEDDING_DIM)
+                ? state.selfState
+                : zeros([BELIEF_EMBEDDING_DIM]);
+            if (this.selfState) this.selfState.assign(tf.tensor(selfStateArray, [BELIEF_EMBEDDING_DIM]));
 
-            // Load network weights safely
-            console.log("Loading network weights...");
+            // Helper to safely load weights
             const loadWeightsSafe = (model, weightsData, modelName) => {
-                 if (!model) { console.warn(`Attempted to load weights for non-existent model: ${modelName}.`); return; }
-                 if (!weightsData || !Array.isArray(weightsData)) { console.warn(`No valid weights data found for ${modelName} in saved state. Using initialized weights.`); return; }
-                 try {
-                     // Basic check: does number of weight tensors match?
-                     if (weightsData.length === model.weights.length) {
-                         model.setWeights(weightsData.map(w => tf.tensor(w))); // Assume w is array data
-                         console.log(`Weights loaded successfully for ${modelName}.`);
-                     } else {
-                         console.warn(`Weight array count mismatch loading ${modelName}. Expected ${model.weights.length}, got ${weightsData.length}. Skipping.`);
-                     }
-                 } catch (loadErr) {
-                     console.error(`Error setting weights for ${modelName}:`, loadErr);
-                     displayError(`Error loading weights for ${modelName}: ${loadErr.message}`, false);
+                 if (!model || !weightsData || !Array.isArray(weightsData)) {
+                     console.warn(`Skipping weight loading for ${modelName}: Invalid model or weights data.`);
+                     return;
                  }
-             };
+                 try {
+                     // Ensure weightsData has the expected structure { shape: number[], data: number[] }
+                     const tensors = weightsData.map(w => {
+                         if (!w || !w.shape || !w.data) throw new Error("Invalid weight structure in saved state.");
+                         return tf.tensor(w.data, w.shape);
+                     });
+                     model.setWeights(tensors);
+                     tensors.forEach(t => tf.dispose(t)); // Dispose temporary tensors
+                 } catch (e) {
+                     console.error(`Failed to load ${modelName} weights:`, e);
+                     // Optionally try to reset model? Or leave it with initial weights.
+                 }
+            };
 
+            // Load model weights
             loadWeightsSafe(this.beliefNetwork, state.beliefNetworkWeights, 'beliefNetwork');
             loadWeightsSafe(this.cascadeInputLayer, state.cascadeInputLayerWeights, 'cascadeInputLayer');
             loadWeightsSafe(this.valueHead, state.valueHeadWeights, 'valueHead');
             loadWeightsSafe(this.feedbackHead, state.feedbackHeadWeights, 'feedbackHead');
-            // Load emotional/head weights if they were saved
-            // loadWeightsSafe(this.emotionalModule, state.emotionalModuleWeights, 'emotionalModule');
-            // loadWeightsSafe(this.headMovementHead, state.headMovementHeadWeights, 'headMovementHead');
+            loadWeightsSafe(this.emotionalModule, state.emotionalModuleWeights, 'emotionalModule');
+            loadWeightsSafe(this.headMovementHead, state.headMovementHeadWeights, 'headMovementHead');
 
-
-            // Reset transient state tracking
+            // Reset transient state
             this.latestAffinities = [];
             if (this.latestBeliefEmbedding && !this.latestBeliefEmbedding.isDisposed) tf.dispose(this.latestBeliefEmbedding);
             this.latestBeliefEmbedding = null;
+            this.latestCascadeHistoryArrays = [];
 
-            console.log("Agent state loaded successfully (V2.3).");
-
-        } catch(loadError) {
-            console.error("CRITICAL ERROR during agent state loading process:", loadError);
-            displayError(`Agent Load Error: ${loadError.message}. Resetting agent state.`, true);
-            this.cleanup(); // Ensure cleanup again on error
-            console.warn("Agent reset due to loading error.");
-            // Reset internal state variables
-            this._set_tf_members_null();
-            this.memoryBuffer = []; this.lastRIH = 0.0; this.lastCascadeVariance = 0.0; this.latestTrustScore = 1.0;
-            this.latestAffinities = [];
-            // Attempt to re-initialize core and TF components to a default state
-            try {
-                 this.enyphansyntrix = new Enyphansyntrix('continuous'); this.affinitaetssyndrom = new Affinitaetssyndrom();
-                 this.strukturkondensation = new Strukturkondensation(Config.CASCADE_LEVELS, Config.CASCADE_STAGE || 2); this.reflexiveIntegration = new ReflexiveIntegration();
-                 this._reinitializeTfComponents();
-                 console.log("Agent re-initialized to default state after load error.");
-            } catch(reinitError) { console.error("Failed to re-initialize agent after load error:", reinitError); }
+            console.log("Agent state loaded successfully into re-initialized components (V2.3).");
+        } catch(loadDataError) {
+            console.error("Error populating agent components from loaded state:", loadDataError);
+            displayError(`Agent Data Load Error: ${loadDataError.message}. Agent state may be inconsistent.`, true);
+            // Agent was re-initialized, but populating it failed. Reset to default.
+            this._ensureDefaultTfState();
         }
     }
 
 
-    /** Re-initializes TF components to a default state. Assumes cleanup has been called. */
-    _reinitializeTfComponents() {
-         if (typeof tf === 'undefined') {
-             console.error("Cannot re-initialize TF components: TensorFlow not available.");
-             return;
-         }
-         console.log("Attempting to re-initialize TF components...");
-         // Ensure members are null before creating new ones
-         this._set_tf_members_null();
-
-         try {
-             // Recreate variables and models
-             this.integrationParam = tf.keep(tf.variable(tf.scalar(Math.random() * 0.5 + 0.25), true, 'agentIntegrationParam'));
-             this.reflexivityParam = tf.keep(tf.variable(tf.scalar(Math.random() * 0.5 + 0.25), true, 'agentReflexivityParam'));
-
-             this.beliefNetwork = tf.sequential({ name: 'beliefNetwork'});
-             this.beliefNetwork.add(tf.layers.dense({ units: Config.Agent.HIDDEN_DIM * 2, inputShape: [BELIEF_NETWORK_INPUT_DIM], activation: 'relu' }));
-             this.beliefNetwork.add(tf.layers.dropout({ rate: 0.1 }));
-             this.beliefNetwork.add(tf.layers.dense({ units: BELIEF_EMBEDDING_DIM, activation: 'tanh' }));
-
-             this.cascadeInputLayer = tf.layers.dense({ units: CASCADE_INPUT_DIM, inputShape: [BELIEF_EMBEDDING_DIM], activation: 'tanh', name:'cascadeInputLayer' });
-             this.valueHead = tf.layers.dense({ units: 1, inputShape: [BELIEF_EMBEDDING_DIM], name: 'valueHead'});
-             this.feedbackHead = tf.layers.dense({ units: Config.DIMENSIONS, inputShape: [BELIEF_EMBEDDING_DIM], name: 'feedbackHead'});
-             this.selfState = tf.keep(tf.variable(tf.randomNormal([BELIEF_EMBEDDING_DIM], 0, 0.1), true, 'agentSelfState')); // Reset self-state
-             this.emotionalModule = this._buildEmotionalModel();
-             this.headMovementHead = this._buildHeadMovementModel();
-             this.prevEmotions = tf.keep(tf.zeros([1, Config.Agent.EMOTION_DIM])); // Reset prev emotions
-             const learningRate = Config?.RL?.LR ?? 0.001;
-             this.optimizer = tf.train.adam(learningRate);
-
-             // Validate after creation
-             this._validateComponents();
-
-             console.log("TF components re-initialized successfully.");
-         } catch (e) {
-             console.error("Error during TF component re-initialization:", e);
-             displayError("Failed to recover agent state after load error. Simulation may be broken.", true);
-             this._cleanupTfMembers(); // Cleanup partially created components
-             this._set_tf_members_null(); // Ensure null state
-         }
-     }
-
     /** Cleans up ALL agent resources, TF and core modules */
      cleanup() {
-         // console.log("Cleaning up ALL Agent resources (V2.3)..."); // Reduce noise
-         // Cleanup TF members first
-         this._cleanupTfMembers();
-         // Nullify TF members
-         this._set_tf_members_null();
-         // Nullify core JS modules
+         console.log("Cleaning up Agent resources (V2.3)...");
+         this._cleanupTfMembers(); // Dispose TF resources
+         this._set_tf_members_null(); // Nullify TF references
+         // Nullify core JS module references
          this.enyphansyntrix = null;
          this.affinitaetssyndrom = null;
          this.strukturkondensation = null;
          this.reflexiveIntegration = null;
-         // console.log("Agent full cleanup complete."); // Reduce noise
+         console.log("Agent full cleanup complete.");
      }
 
 } // End of SyntrometricAgent class
