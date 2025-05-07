@@ -121,12 +121,14 @@
 
                 <!-- Chat Panel -->
                 <div id="chat-container" class="overlay-panel chat-container panel-draggable" aria-label="Simulation Chat">
+                    <div class="panel-header">Chat</div>
                     <div id="chat-output" aria-live="polite"><div><b>System:</b> Welcome to the Syntrometric Simulation (V2.3).</div></div>
                     <input id="chat-input" type="text" placeholder="Interact with the simulation..." aria-label="Chat Input" disabled>
                 </div>
 
                 <!-- Metrics Dashboard Panel -->
                 <div id="dashboard-panel" class="overlay-panel dashboard-container panel-draggable" aria-label="Real-time Metrics Dashboard">
+                    <div class="panel-header">Agent Dashboard</div>
                     <div class="dashboard-metrics">
                         <div class="metric-item">
                             <span class="metric-label">RIH:</span>
@@ -178,6 +180,7 @@
 
                 <!-- Heatmap Panel -->
                  <div id="heatmap-panel" class="overlay-panel heatmap-container panel-draggable" aria-label="Agent Internal State Heatmap">
+                    <div class="panel-header">Self-State Activation</div>
                     <div id="heatmap-content">
                         <!-- Heatmap cells will be generated here by JS -->
                     </div>
@@ -185,12 +188,13 @@
 
                 <!-- Tensor Inspector Panel -->
                  <div id="tensor-inspector-panel" class="overlay-panel tensor-inspector-container panel-draggable" aria-label="Tensor Inspector">
-                     <button id="toggle-inspector" title="Toggle Inspector View" class="no-drag">👁️</button>
+                     <div class="panel-header">Belief Embedding Inspector <button id="toggle-inspector" title="Toggle Inspector View">👁️</button></div>
                      <pre id="tensor-inspector-content">Initializing...</pre>
                  </div>
 
                  <!-- Cascade Viewer Panel -->
                  <div id="cascade-viewer-panel" class="overlay-panel cascade-viewer-container panel-draggable" aria-label="Cascade Viewer">
+                    <div class="panel-header">Strukturkaskade Viewer</div>
                     <div id="cascade-viewer-content">Initializing...</div>
                  </div>
 
