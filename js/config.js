@@ -65,13 +65,29 @@ export const Config = {
             BaseColor: 0x888888,
             BaseEmissive: 0x222222,
             BaseOpacity: 0.5
+        },
+        ConceptGraph: {
+            backgroundColor: 0x111111,
+            fov: 60,
+            near: 0.1,
+            far: 1000,
+            // Add other concept graph settings as needed
         }
     }
 };
 
 // Derived Configuration Value: Total dimensions of the state vector passed FROM the environment TO the agent.
 // This includes the core processing dimensions and the environment's current emotional state.
-Config.Agent.BASE_STATE_DIM = Config.DIMENSIONS + Config.Agent.EMOTION_DIM;
+// It's crucial that Config.Agent and Config.DIMENSIONS are defined before this.
+if (Config.Agent && typeof Config.DIMENSIONS === 'number' && typeof Config.Agent.EMOTION_DIM === 'number') {
+    Config.Agent.BASE_STATE_DIM = Config.DIMENSIONS + Config.Agent.EMOTION_DIM;
+} else {
+    console.warn("Config.DIMENSIONS or Config.Agent.EMOTION_DIM not fully defined. BASE_STATE_DIM might be incorrect.");
+    // Provide a fallback or ensure the environment/agent handle this potential inconsistency
+    Config.Agent = Config.Agent || {}; // Ensure Agent object exists
+    Config.Agent.BASE_STATE_DIM = (Config.DIMENSIONS || 10) + (Config.Agent.EMOTION_DIM || 6); // Example fallback
+}
+
 
 /**
  * Defines emotion keywords and their properties for text analysis and environmental impact.
