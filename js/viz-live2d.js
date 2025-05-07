@@ -5,7 +5,7 @@ import { clamp, displayError, zeros, lerp, debounce } from './utils.js';
 const DEFAULT_LIVE2D_CONFIG = {
     // Use a CDN-hosted model as fallback
     ModelPath: 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@master/Samples/Resources/Hiyori/Hiyori.model3.json',
-    Scale: 0.0625, // Reduced by another 50% from 0.125 (now 25% of original 0.25)
+    Scale: 0.06875, // Increased by 10% from 0.0625
     FallbackModels: [
         'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@master/Samples/Resources/Hiyori/Hiyori.model3.json',
         'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@master/Samples/Resources/Rice/Rice.model3.json',
@@ -539,7 +539,7 @@ export function applyCurrentScale() {
     
     try {
         const live2dConfig = Config.Live2D || DEFAULT_LIVE2D_CONFIG;
-        const modelScale = live2dConfig.Scale || 0.0625;
+        const modelScale = live2dConfig.Scale || 0.06875;
         live2dModel.scale.set(modelScale);
         console.log(`[Live2D] Applied current scale: ${modelScale}`);
     } catch (e) {
