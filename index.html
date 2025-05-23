@@ -4,295 +4,1177 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Heim's Syntrometric Theory & Live2D Agent Demo</title>
-    <!-- Google Font -->
+    
+    <!-- SEO & Meta -->
+    <meta name="description" content="Interactive visualization of Heim's Syntrometric Theory with AI-driven Live2D agent, featuring real-time simulations and concept exploration.">
+    <meta name="keywords" content="syntrometric theory, live2d, AI agent, interactive visualization, complex systems">
+    <meta name="author" content="Heim Theory Research">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:title" content="Heim's Syntrometric Theory Demo">
+    <meta property="og:description" content="Interactive visualization of complex systems through higher-dimensional interactions">
+    <meta property="og:type" content="website">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png">
+    
+    <!-- Preconnect to external domains -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- External CSS -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cubism.live2d.com" crossorigin>
+    
+    <!-- Google Fonts with font-display: swap for better performance -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Critical CSS -->
     <link rel="stylesheet" href="style.css">
-
-    <!-- Basic error handling for scripts -->
+    
+    <!-- Enhanced Script Error Handling -->
     <script>
-        function handleScriptError(library, fallback, message) {
-            console.error(`[Error] Failed to load ${library}. ${message || ''}`);
-            const errorEl = document.getElementById('error-message') || document.createElement('div');
-            if (!errorEl.id) {
-                errorEl.id = 'error-message';
-                errorEl.className = 'error-message';
-                requestAnimationFrame(() => {
-                    (document.body || document.documentElement).prepend(errorEl);
-                });
+        // Enhanced error handling with better UX
+        class ScriptErrorHandler {
+            constructor() {
+                this.errors = new Map();
+                this.retryAttempts = new Map();
+                this.maxRetries = 2;
+                this.containerCreated = false; // Don't create container immediately, wait for DOM
             }
-            errorEl.innerHTML = `<strong>Error:</strong> Failed to load ${library}. ${message || ''}`;
-            errorEl.style.display = 'block';
-            if (fallback) {
-                console.log(`[Error] Attempting to load fallback: ${fallback}`);
+            
+            createErrorContainer() {
+                if (this.containerCreated || document.getElementById('error-message')) {
+                    this.containerCreated = true;
+                    return;
+                }
+                if (!document.body) return; // Check if body exists
+                
+                const errorEl = document.createElement('div');
+                errorEl.id = 'error-message';
+                errorEl.className = 'error-message global-error-message'; // Added class for specific global styling
+                errorEl.setAttribute('role', 'alert');
+                errorEl.setAttribute('aria-live', 'assertive');
+                errorEl.style.display = 'none';
+                
+                const header = document.querySelector('header');
+                if (header && header.nextSibling) {
+                    header.parentNode.insertBefore(errorEl, header.nextSibling);
+                } else {
+                    document.body.prepend(errorEl);
+                }
+                this.containerCreated = true;
+            }
+            
+            handleError(library, fallbackUrl = null, customMessage = '') {
+                console.error(`[ScriptLoader] Failed to load ${library}. ${customMessage}`);
+                const errorKey = library.toLowerCase().replace(/\s+/g, '-');
+                const currentRetries = this.retryAttempts.get(errorKey) || 0;
+                
+                if (currentRetries < this.maxRetries && fallbackUrl) {
+                    this.retryAttempts.set(errorKey, currentRetries + 1);
+                    console.log(`[ScriptLoader] Retry attempt ${currentRetries + 1}/${this.maxRetries} for ${library}`);
+                    this.loadFallback(fallbackUrl, library, errorKey);
+                } else {
+                    this.displayError(library, customMessage);
+                }
+            }
+            
+            loadFallback(url, library, errorKey) {
                 const script = document.createElement('script');
-                script.src = fallback;
+                script.src = url;
+                script.async = true;
                 script.onerror = () => {
-                    errorEl.innerHTML += ` Fallback (${fallback}) also failed.`;
+                    console.error(`[ScriptLoader] Fallback failed for ${library}: ${url}`);
+                    this.displayError(library, 'Fallback also failed to load.');
+                };
+                script.onload = () => {
+                    console.log(`[ScriptLoader] Successfully loaded fallback for ${library}`);
+                    this.errors.delete(errorKey);
+                    this.updateErrorDisplay();
                 };
                 document.head.appendChild(script);
             }
-        }
-        // Suppress specific WebGL/D3D warning
-        const originalConsoleWarn = console.warn;
-        console.warn = function (...args) {
-            if (typeof args[0] === 'string' && args[0].includes('gl.getProgramInfoLog') && args[0].includes('X3557')) return;
-            originalConsoleWarn.apply(console, args);
-        };
-    </script>
-
-    <!-- Dependencies -->
-    <!-- TensorFlow.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js"
-        onerror="handleScriptError('TensorFlow.js', 'https://unpkg.com/@tensorflow/tfjs@4.21.0/dist/tf.min.js', 'Could not load TensorFlow.js. Agent/Simulation may not work.')"></script>
-    
-    <!-- Three.js - Use the version from package.json (0.132.2) -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"
-        onerror="handleScriptError('Three.js', 'https://unpkg.com/three@0.132.2/build/three.min.js', 'Could not load Three.js.')"></script>
-    
-    <!-- Three.js Examples - Use the same version -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"
-        onerror="handleScriptError('OrbitControls', 'https://unpkg.com/three@0.132.2/examples/js/controls/OrbitControls.js', 'Could not load OrbitControls.')"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/renderers/CSS2DRenderer.js"
-        onerror="handleScriptError('CSS2DRenderer', 'https://unpkg.com/three@0.132.2/examples/js/renderers/CSS2DRenderer.js', 'Could not load CSS2DRenderer.')"></script>
-    
-    <!-- Pixi.js - Use the version from package.json (6.5.10) -->
-    <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"
-        onerror="handleScriptError('Pixi.js', 'https://unpkg.com/pixi.js@6.5.10/dist/browser/pixi.min.js', 'Could not load Pixi.js.')"></script>
-    
-    <!-- Cubism 4 Core -->
-    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"
-        onerror="handleScriptError('Cubism 4 Core', 'https://unpkg.com/live2dcubismcore@1.0.0/live2dcubismcore.min.js', 'Could not load Cubism 4 Core.')"></script>
-    
-    <!-- pixi-live2d-display -->
-    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"
-        onerror="handleScriptError('pixi-live2d-display', 'https://unpkg.com/pixi-live2d-display@0.4.0/dist/cubism4.min.js', 'Could not load pixi-live2d-display.')"></script>
-    
-    <!-- Chart.js v3 and dependencies - Better compatibility with streaming plugin -->
-    <script src="https://cdn.jsdelivr.net/npm/luxon@2.5.2/build/global/luxon.min.js"
-        onerror="handleScriptError('Luxon', 'https://unpkg.com/luxon@2.5.2/build/global/luxon.min.js', 'Could not load Luxon.')"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"
-        onerror="handleScriptError('Chart.js', 'https://unpkg.com/chart.js@3.9.1/dist/chart.min.js', 'Could not load Chart.js.')"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0/dist/chartjs-adapter-luxon.min.js"
-        onerror="handleScriptError('Chart.js Adapter Luxon', 'https://unpkg.com/chartjs-adapter-luxon@1.2.0/dist/chartjs-adapter-luxon.min.js', 'Could not load Chart.js Adapter Luxon.')"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@2.0.0/dist/chartjs-plugin-streaming.min.js"
-        onerror="handleScriptError('Chart.js Streaming Plugin', 'https://unpkg.com/chartjs-plugin-streaming@2.0.0/dist/chartjs-plugin-streaming.min.js', 'Could not load Chart.js Streaming Plugin.')"></script>
-    
-    <!-- Register Chart.js plugins -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check if Chart.js is loaded
-            if (typeof Chart !== 'undefined') {
-                console.log('Chart.js loaded successfully');
-                
-                // Register the streaming plugin if available
-                if (typeof ChartStreaming !== 'undefined') {
-                    Chart.register(ChartStreaming);
-                    console.log('Chart.js streaming plugin registered successfully');
-                } else if (window.chartjs && window.chartjs.streaming) {
-                    Chart.register(window.chartjs.streaming);
-                    console.log('Chart.js streaming plugin registered from window.chartjs');
-                } else {
-                    console.error('Chart.js streaming plugin not found');
-                }
-            } else {
-                console.error('Chart.js failed to load');
+            
+            displayError(library, message) {
+                const errorKey = library.toLowerCase().replace(/\s+/g, '-');
+                this.errors.set(errorKey, { library, message });
+                this.updateErrorDisplay();
             }
             
-            // Check if Three.js is loaded
-            if (typeof THREE !== 'undefined') {
-                console.log('Three.js loaded successfully');
+            updateErrorDisplay() {
+                // Ensure container is created on first error if not already by DOM
+                if (!this.containerCreated) this.createErrorContainer();
+                const errorEl = document.getElementById('error-message');
+                if (!errorEl) return;
                 
-                // Check if Three.js components are loaded
-                if (typeof THREE.OrbitControls !== 'undefined' && 
-                    typeof THREE.CSS2DRenderer !== 'undefined') {
-                    console.log('Three.js components loaded successfully');
-                } else {
-                    console.error('Three.js components not fully loaded');
+                if (this.errors.size === 0) {
+                    errorEl.style.display = 'none';
+                    return;
                 }
-            } else {
-                console.error('Three.js failed to load');
+                
+                const errorMessages = Array.from(this.errors.values())
+                    .map(({ library, message }) => `<strong>${library}:</strong> ${message}`)
+                    .join('<br>');
+                
+                errorEl.innerHTML = `
+                    <div class="error-header">⚠️ Loading Issues Detected</div>
+                    <div class="error-content">${errorMessages}</div>
+                    <div class="error-actions">
+                        <button onclick="window.location.reload()" class="error-retry-btn">Retry Page</button>
+                        <button onclick="this.parentElement.parentElement.style.display='none'" class="error-dismiss-btn">Dismiss</button>
+                    </div>
+                `;
+                errorEl.style.display = 'block';
             }
-        });
+        }
+        
+        window.scriptErrorHandler = new ScriptErrorHandler();
+        window.handleScriptError = (library, fallback, message) => {
+            window.scriptErrorHandler.handleError(library, fallback, message);
+        };
+        
+        // Enhanced console warning suppression
+        const originalConsoleWarn = console.warn;
+        const suppressedWarnings = ['gl.getProgramInfoLog', 'X3557', 'WebGL', 'WEBGL_debug_renderer_info'];
+        
+        console.warn = function(...args) {
+            const message = args.join(' ');
+            if (suppressedWarnings.some(warning => message.includes(warning))) return;
+            originalConsoleWarn.apply(console, args);
+        };
+        
+        // Performance monitoring
+        window.performanceMonitor = {
+            startTime: performance.now(),
+            checkpoints: new Map(),
+            checkpoint(name) {
+                this.checkpoints.set(name, performance.now() - this.startTime);
+                console.log(`[Performance] ${name}: ${this.checkpoints.get(name).toFixed(2)}ms`);
+            }
+        };
     </script>
 </head>
+
 <body>
+    <!-- Skip to main content for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
     <header role="banner">
-        <h1>Heim's Syntrometric Theory & Live2D Agent Demo</h1>
-        <p>Interactive visualization of Syntrometric concepts with an AI-driven Live2D agent (V2.3).</p>
-    </header>
-
-    <!-- General Error Message Container -->
-    <div id="error-message" class="error-message" role="alert" aria-live="assertive"></div>
-
-    <main role="main">
-        <!-- Syntrometric Theory Section -->
-        <section aria-labelledby="theory-heading">
-            <h2 id="theory-heading">Syntrometric Theory</h2>
-            <p>
-                Heim's Syntrometric Theory proposes a framework for understanding complex systems through higher-dimensional interactions of Syntrix and Metrons, governed by Reflexive Integration and Structural Condensation. This demo visualizes these concepts interactively, with an AI agent reflecting emotional states via a Live2D avatar. Agent parameters (Integration, Reflexivity) are now self-learned.
-            </p>
-            <nav aria-label="Quick Links">
-                <h3>Quick Links</h3>
-                <ul class="quick-links-list">
-                    <li><a href="syntrometrie_framework.html" title="View 2D Diagram">Syntrometrie Framework Diagram</a></li>
-                    <li><a href="conscious_agent_arch.html" title="View Agent Architecture">Conscious Agent Architecture Diagram</a></li>
-                    <li><a href="README.md" title="Go to Main Project Readme">Main Project README</a></li>
-                    <li><a href="https://heim-theory.com/" target="_blank" title="External Resource (Opens New Tab)">Heim Theory Resources</a></li>
+        <div class="header-content">
+            <h1>Heim's Syntrometric Theory & Live2D Agent Demo</h1>
+            <p class="header-subtitle">Interactive visualization of Syntrometric concepts with an AI-driven Live2D agent <span class="version-badge">V2.3</span></p>
+            
+            <nav class="header-nav" aria-label="Primary navigation">
+                <ul>
+                    <li><a href="#syntrometry-viz-heading">Simulation</a></li>
+                    <li><a href="#concept-viz-heading">Concepts</a></li>
+                    <li><a href="#theory-heading">Theory</a></li>
                 </ul>
             </nav>
+        </div>
+    </header>
+
+    <!-- Global Error Message Container (managed by ScriptErrorHandler) -->
+    <div id="error-message" class="error-message global-error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen" role="status" aria-label="Loading application">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h2>Initializing Syntrometric Simulation</h2>
+            <p id="loading-status">Loading core systems...</p>
+            <div class="loading-progress">
+                <div class="progress-bar" id="loading-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <main id="main-content" role="main">
+        <!-- Syntrometric Theory Section -->
+        <section class="theory-section" aria-labelledby="theory-heading">
+            <div class="section-container">
+                <h2 id="theory-heading">Syntrometric Theory Overview</h2>
+                <div class="theory-content">
+                    <p class="theory-intro">
+                        Heim's Syntrometric Theory proposes a framework for understanding complex systems through higher-dimensional interactions of <strong>Syntrix</strong> and <strong>Metrons</strong>, governed by <em>Reflexive Integration</em> and <em>Structural Condensation</em>.
+                    </p>
+                    
+                    <details class="theory-details">
+                        <summary>Learn More About Core Concepts</summary>
+                        <div class="theory-expanded">
+                            <dl class="concept-definitions">
+                                <dt>Syntrix</dt>
+                                <dd>Fundamental structural elements that define system organization</dd>
+                                <dt>Metrons</dt>
+                                <dd>Measurement units that quantify system states and transformations</dd>
+                                <dt>Reflexive Integration</dt>
+                                <dd>Self-referential processes that enable system self-awareness</dd>
+                                <dt>Structural Condensation</dt>
+                                <dd>Mechanisms by which complex patterns emerge from simpler interactions</dd>
+                            </dl>
+                        </div>
+                    </details>
+                </div>
+                
+                <nav class="quick-links" aria-label="Related resources">
+                    <h3>Explore Further</h3>
+                    <div class="quick-links-grid">
+                        <a href="syntrometrie_framework.html" class="quick-link-card" title="View 2D Framework Diagram">
+                            <span class="link-icon">📊</span> <span class="link-title">Framework Diagram</span> <span class="link-desc">2D visualization of core relationships</span>
+                        </a>
+                        <a href="conscious_agent_arch.html" class="quick-link-card" title="View Agent Architecture">
+                            <span class="link-icon">🤖</span> <span class="link-title">Agent Architecture</span> <span class="link-desc">Conscious agent system design</span>
+                        </a>
+                        <a href="README.md" class="quick-link-card" title="Project Documentation">
+                            <span class="link-icon">📚</span> <span class="link-title">Documentation</span> <span class="link-desc">Complete project guide</span>
+                        </a>
+                        <a href="https://heim-theory.com/" target="_blank" rel="noopener noreferrer" class="quick-link-card external-link" title="External Resource">
+                            <span class="link-icon">🌐</span> <span class="link-title">Heim Theory</span> <span class="link-desc">Official theory resources</span>
+                        </a>
+                    </div>
+                </nav>
+            </div>
         </section>
 
         <!-- Visualization Sections Wrapper -->
         <div class="visualization-wrapper">
-            <!-- Interactive Visualization Section (Syntrometry Panel) -->
-            <section aria-labelledby="syntrometry-viz-heading">
-                <h2 id="syntrometry-viz-heading">Syntrometric Visualization</h2>
-                <p>Explore the Syntrometric simulation with real-time agent responses and interactive elements.</p>
-                <div class="visualization-container threejs-container" id="syntrometry-panel" aria-label="Syntrometric Simulation Panel">
-                    <div id="syntrometry-error-message" class="error-message"></div>
-                    <div id="live2d-container" aria-label="Live2D Avatar Display">
-                        <!-- Removed fallback message that appeared during initialization -->
-                    </div>
-
-                    <!-- Controls Panel -->
-                    <div id="controls" class="overlay-panel controls-container panel-draggable" aria-label="Simulation Controls">
-                        <div class="panel-header" tabindex="0">Controls</div>
-                        <div class="control-group">
-                            <label for="integration-slider">Integration (I(S)) [Agent Learned]: <span id="integration-value">0.50</span></label>
-                            <input class="read-only-slider" type="range" id="integration-slider" name="integration" min="0" max="1" step="0.01" value="0.5" aria-labelledby="integration-slider-label" title="Reflects agent's internal value. Awaiting initialization." disabled>
+            <!-- Interactive Simulation Section -->
+            <section class="visualization-section" aria-labelledby="syntrometry-viz-heading">
+                <div class="section-container">
+                    <header class="section-header">
+                        <h2 id="syntrometry-viz-heading">Syntrometric Simulation</h2>
+                        <p class="section-description">
+                            Explore the interactive simulation with real-time agent responses and adaptive learning mechanisms.
+                        </p>
+                        <div class="status-indicator" id="simulation-status" role="status">
+                            <span class="status-dot" aria-hidden="true"></span>
+                            <span class="status-text">Ready</span>
                         </div>
-                        <div class="control-group">
-                            <label for="reflexivity-slider">Reflexivity (Ψ) [Agent Learned]: <span id="reflexivity-value">0.50</span></label>
-                            <input class="read-only-slider" type="range" id="reflexivity-slider" name="reflexivity" min="0" max="1" step="0.01" value="0.5" aria-labelledby="reflexivity-slider-label" title="Reflects agent's internal value. Awaiting initialization." disabled>
-                        </div>
-                        <div class="button-group">
-                            <button id="save-state-button" type="button" disabled>Save State</button>
-                            <button id="load-state-button" type="button" disabled>Load State</button>
-                            <button id="pause-button" type="button">Pause</button>
-                        </div>
-                    </div>
-
-                    <!-- Chat Panel -->
-                    <div id="chat-container" class="overlay-panel chat-container panel-draggable" aria-label="Simulation Chat">
-                        <div class="panel-header" tabindex="0">Chat</div>
-                        <div id="chat-output" role="log" aria-live="polite"><div><b>System:</b> Welcome to the Syntrometric Simulation (V2.3). Loading agent...</div></div>
-                        <input id="chat-input" type="text" placeholder="Loading agent, please wait..." aria-label="Chat Input" disabled>
-                    </div>
-
-                    <!-- Metrics Dashboard Panel -->
-                    <div id="dashboard-panel" class="overlay-panel dashboard-container panel-draggable" aria-label="Real-time Metrics Dashboard">
-                        <div class="panel-header" tabindex="0">Agent Dashboard</div>
-                        <div class="dashboard-metrics">
-                            <div class="metric-item">
-                                <span class="metric-label">RIH:</span>
-                                <progress id="metric-rih-progress" value="0" max="100"></progress>
-                                <span id="metric-rih-value" class="metric-value">0.0%</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Affinity:</span>
-                                <progress id="metric-affinity-progress" value="50" max="100"></progress>
-                                <span id="metric-affinity-value" class="metric-value">0.00</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Trust:</span>
-                                <progress id="metric-trust-progress" value="100" max="100"></progress>
-                                <span id="metric-trust-value" class="metric-value">100.0%</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Belief Norm:</span>
-                                <span id="metric-belief-norm" class="metric-value">0.000</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Self Norm:</span>
-                                <span id="metric-self-norm" class="metric-value">0.000</span>
-                            </div>
-                            <div class="metric-item metric-item-full-width">
-                                <span class="metric-label">Context:</span>
-                                <span id="metric-context" class="metric-value context-value">Initializing...</span>
+                    </header>
+                    
+                    <div class="visualization-container threejs-container" id="syntrometry-panel" 
+                         aria-label="Syntrometric Simulation Interface" role="application">
+                        
+                        <div id="syntrometry-error-message" class="error-message local-error" role="alert" style="display: none;"></div>
+                        
+                        <!-- Add syntrometry controls with fullscreen button on the left side -->
+                        <div class="syntrometry-controls syntrometry-controls-left">
+                            <div class="view-controls">
+                                <button id="syntrometry-fullscreen" class="btn btn-secondary">
+                                    <span class="btn-icon">⛶</span> Fullscreen
+                                </button>
+                                <button id="reset-syntrometry-view" class="btn btn-secondary">
+                                    <span class="btn-icon">🎯</span> Reset View
+                                </button>
                             </div>
                         </div>
-                        <div id="emotion-intensities" class="emotion-bar-container">
-                            <div class="intensity-bar joy" data-emotion="Joy"><span class="bar-label">Joy</span><div class="bar-fill"></div></div>
-                            <div class="intensity-bar fear" data-emotion="Fear"><span class="bar-label">Fear</span><div class="bar-fill"></div></div>
-                            <div class="intensity-bar curiosity" data-emotion="Curiosity"><span class="bar-label">Curiosity</span><div class="bar-fill"></div></div>
-                            <div class="intensity-bar frustration" data-emotion="Frustration"><span class="bar-label">Frustration</span><div class="bar-fill"></div></div>
-                            <div class="intensity-bar calm" data-emotion="Calm"><span class="bar-label">Calm</span><div class="bar-fill"></div></div>
-                            <div class="intensity-bar surprise" data-emotion="Surprise"><span class="bar-label">Surprise</span><div class="bar-fill"></div></div>
+                        
+                        <div id="live2d-container" class="avatar-container" aria-label="AI Agent Avatar">
+                            <div class="avatar-loading" id="avatar-loading">
+                                <div class="avatar-placeholder">
+                                    <div class="placeholder-icon">🤖</div>
+                                    <div class="placeholder-text" id="avatar-loading-text">Loading Agent...</div>
+                                </div>
+                            </div>
+                            <!-- Add a script to force update the loading text after a timeout -->
+                            <script>
+                                // Force update the avatar loading text after 5 seconds
+                                setTimeout(() => {
+                                    const loadingText = document.getElementById('avatar-loading-text');
+                                    if (loadingText) {
+                                        loadingText.textContent = 'Agent Ready';
+                                    }
+                                    
+                                    // Also try to hide the loading overlay
+                                    const avatarLoading = document.getElementById('avatar-loading');
+                                    if (avatarLoading) {
+                                        avatarLoading.style.opacity = '0';
+                                        setTimeout(() => {
+                                            avatarLoading.style.display = 'none';
+                                        }, 500);
+                                    }
+                                }, 5000);
+                            </script>
                         </div>
-                        <div class="chart-container">
-                            <canvas id="metrics-chart"></canvas>
-                        </div>
-                        <div id="expression-timeline" class="timeline-container">
-                            <h5>Recent Actions/Expressions</h5>
-                            <ul id="expressions-list"></ul>
-                        </div>
-                    </div>
 
-                    <!-- Heatmap Panel -->
-                    <div id="heatmap-panel" class="overlay-panel heatmap-container panel-draggable" aria-label="Agent Internal State Heatmap">
-                        <div class="panel-header" tabindex="0">Self-State Activation</div>
-                        <div id="heatmap-content" role="grid" aria-label="Agent Internal State Heatmap">
-                            <div class="loading-spinner" aria-hidden="true">Loading...</div>
-                            <span class="sr-only">Initializing heatmap data</span>
+                        <div id="controls" class="overlay-panel controls-container panel-draggable" 
+                             aria-label="Simulation Controls" role="region">
+                            <header class="panel-header" role="button" tabindex="0" aria-expanded="true" aria-controls="controls-content">
+                                <span class="panel-title">Controls</span>
+                                <button class="panel-toggle" aria-label="Toggle Controls Panel">▼</button>
+                            </header>
+                            <div class="panel-content" id="controls-content">
+                                <div class="info-content">
+                                    <p class="info-intro">
+                                        Hover over, click, or use keyboard navigation to explore concept nodes and their relationships.
+                                    </p>
+                                    <div class="concept-legend">
+                                        <h4>Node Types</h4>
+                                        <ul class="legend-list">
+                                            <li><span class="legend-color core"></span> Core Concepts</li>
+                                            <li><span class="legend-color process"></span> Processes</li>
+                                            <li><span class="legend-color property"></span> Properties</li>
+                                            <li><span class="legend-color relation"></span> Relations</li>
+                                        </ul>
+                                    </div>
+                                    <div class="interaction-help">
+                                        <h4>Controls</h4>
+                                        <dl class="help-list">
+                                            <dt>Mouse/Touch:</dt> <dd>Drag to rotate, scroll to zoom, click nodes for details</dd>
+                                            <dt>Keyboard:</dt> <dd>Arrow keys to navigate, Enter to select, Esc to deselect</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                                <div class="control-group">
+                                    <label for="integration-slider" class="control-label">
+                                        Integration (I(S)) <span class="control-badge">Agent Learned</span>
+                                    </label>
+                                    <div class="slider-container">
+                                        <input class="read-only-slider" type="range" id="integration-slider" 
+                                               name="integration" min="0" max="1" step="0.01" value="0.5" 
+                                               aria-describedby="integration-desc" disabled>
+                                        <output for="integration-slider" id="integration-value" class="slider-value">0.50</output>
+                                    </div>
+                                    <small id="integration-desc" class="control-desc">
+                                        Reflects agent's internal integration value. Updates automatically.
+                                    </small>
+                                </div>
+                                <div class="control-group">
+                                    <label for="reflexivity-slider" class="control-label">
+                                        Reflexivity (Ψ) <span class="control-badge">Agent Learned</span>
+                                    </label>
+                                    <div class="slider-container">
+                                        <input class="read-only-slider" type="range" id="reflexivity-slider" 
+                                               name="reflexivity" min="0" max="1" step="0.01" value="0.5" 
+                                               aria-describedby="reflexivity-desc" disabled>
+                                        <output for="reflexivity-slider" id="reflexivity-value" class="slider-value">0.50</output>
+                                    </div>
+                                    <small id="reflexivity-desc" class="control-desc">
+                                        Reflects agent's internal reflexivity value. Updates automatically.
+                                    </small>
+                                </div>
+                                <div class="button-group" role="group" aria-label="Simulation actions">
+                                    <button id="save-state-button" type="button" class="btn btn-secondary" disabled>
+                                        <span class="btn-icon">💾</span> Save State
+                                    </button>
+                                    <button id="load-state-button" type="button" class="btn btn-secondary" disabled>
+                                        <span class="btn-icon">📁</span> Load State
+                                    </button>
+                                    <button id="pause-button" type="button" class="btn btn-primary">
+                                        <span class="btn-icon">⏸️</span> Pause
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                        
+                        <div id="concept-navigation" class="concept-nav-overlay" role="navigation" aria-label="Concept navigation">
+                            <div class="nav-cluster" data-cluster="core">
+                                <button class="nav-button" data-concept="syntrix">Syntrix</button>
+                                <button class="nav-button" data-concept="metron">Metron</button>
+                            </div>
+                            <div class="nav-cluster" data-cluster="processes">
+                                <button class="nav-button" data-concept="integration">Integration</button>
+                                <button class="nav-button" data-concept="condensation">Condensation</button>
+                            </div>
+                        </div>
 
-                    <!-- Tensor Inspector Panel -->
-                    <div id="tensor-inspector-panel" class="overlay-panel tensor-inspector-container panel-draggable" aria-label="Tensor Inspector">
-                        <div class="panel-header" tabindex="0">Belief Embedding Inspector <button id="toggle-inspector" title="Toggle Inspector View" aria-label="Toggle Inspector View">👁️</button></div>
-                        <pre id="tensor-inspector-content" role="log" aria-label="Belief Embedding Data">
-                            <div class="loading-spinner" aria-hidden="true">Loading...</div>
-                            <span class="sr-only">Initializing tensor data</span>
-                        </pre>
-                    </div>
+                        <div id="chat-container" class="overlay-panel chat-container panel-draggable" 
+                             aria-label="Agent Communication" role="region">
+                            <header class="panel-header" role="button" tabindex="0" aria-expanded="true" aria-controls="chat-content">
+                                <span class="panel-title">Agent Chat</span>
+                                <div class="chat-status">
+                                    <span class="status-indicator online" id="chat-status-indicator"></span>
+                                    <span class="status-text" id="chat-status-text">Connecting...</span>
+                                </div>
+                                <!-- <button class="panel-toggle" aria-label="Toggle Chat Panel">▼</button> -->
+                            </header>
+                            <div class="panel-content" id="chat-content">
+                                <div id="chat-output" class="chat-messages" role="log" aria-live="polite" aria-label="Chat history">
+                                    <div class="chat-message system-message">
+                                        <span class="message-sender">System</span>
+                                        <span class="message-content">Welcome to the Syntrometric Simulation (V2.3). Initializing agent...</span>
+                                        <time class="message-time" datetime="">Just now</time>
+                                    </div>
+                                </div>
+                                <div class="chat-input-container">
+                                    <label for="chat-input" class="sr-only">Message to agent</label>
+                                    <input id="chat-input" type="text" class="chat-input" 
+                                           placeholder="Loading agent, please wait..." 
+                                           aria-label="Chat message input" 
+                                           maxlength="500" disabled>
+                                    <button id="chat-send-button" type="button" class="chat-send-btn" 
+                                            aria-label="Send message" disabled>
+                                        <span class="btn-icon">📤</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
-                    <!-- Cascade Viewer Panel -->
-                    <div id="cascade-viewer-panel" class="overlay-panel cascade-viewer-container panel-draggable" aria-label="Cascade Viewer">
-                        <div class="panel-header" tabindex="0">Strukturkaskade Viewer</div>
-                        <div id="cascade-viewer-content" aria-label="Strukturkaskade Data">
-                            <div class="loading-spinner" aria-hidden="true">Loading...</div>
-                            <span class="sr-only">Initializing Strukturkaskade data</span>
+                        <div id="dashboard-panel" class="overlay-panel dashboard-container panel-draggable" 
+                             aria-label="Agent Metrics Dashboard" role="region">
+                            <header class="panel-header" role="button" tabindex="0" aria-expanded="true" aria-controls="dashboard-content">
+                                <span class="panel-title">Agent Dashboard</span>
+                                <button class="panel-refresh" aria-label="Refresh metrics">🔄</button>
+                                <!-- <button class="panel-toggle" aria-label="Toggle Dashboard Panel">▼</button> -->
+                            </header>
+                            <div class="panel-content" id="dashboard-content">
+                                <div class="dashboard-metrics" role="group" aria-label="Core metrics">
+                                    <div class="metric-item">
+                                        <label id="metric-rih-label" class="metric-label">RIH (Reflexive Integration Harmony)</label>
+                                        <div class="metric-display">
+                                            <progress id="metric-rih-progress" value="0" max="100" 
+                                                     aria-labelledby="metric-rih-label" aria-describedby="metric-rih-desc"></progress>
+                                            <output id="metric-rih-value" class="metric-value" for="metric-rih-progress">0.0%</output>
+                                        </div>
+                                        <small id="metric-rih-desc" class="metric-desc sr-only">Measures system coherence and stability</small>
+                                    </div>
+                                    <div class="metric-item">
+                                        <label id="metric-affinity-label" class="metric-label">Affinity</label>
+                                        <div class="metric-display">
+                                            <progress id="metric-affinity-progress" value="50" max="100"
+                                                     aria-labelledby="metric-affinity-label" aria-describedby="metric-affinity-desc"></progress>
+                                            <output id="metric-affinity-value" class="metric-value" for="metric-affinity-progress">0.00</output>
+                                        </div>
+                                        <small id="metric-affinity-desc" class="metric-desc sr-only">Agent's connection to simulation context</small>
+                                    </div>
+                                    <div class="metric-item">
+                                        <label id="metric-trust-label" class="metric-label">Trust Level</label>
+                                        <div class="metric-display">
+                                            <progress id="metric-trust-progress" value="100" max="100"
+                                                     aria-labelledby="metric-trust-label" aria-describedby="metric-trust-desc"></progress>
+                                            <output id="metric-trust-value" class="metric-value" for="metric-trust-progress">100.0%</output>
+                                        </div>
+                                        <small id="metric-trust-desc" class="metric-desc sr-only">System reliability and consistency</small>
+                                    </div>
+                                    <div class="metric-row">
+                                        <div class="metric-item metric-compact">
+                                            <label id="metric-belief-norm-label" class="metric-label">Belief Norm</label>
+                                            <output id="metric-belief-norm" class="metric-value" aria-labelledby="metric-belief-norm-label">0.000</output>
+                                        </div>
+                                        <div class="metric-item metric-compact">
+                                            <label id="metric-self-norm-label" class="metric-label">Self Norm</label>
+                                            <output id="metric-self-norm" class="metric-value" aria-labelledby="metric-self-norm-label">0.000</output>
+                                        </div>
+                                    </div>
+                                    <div class="metric-item metric-context">
+                                        <label id="metric-context-label" class="metric-label">Current Context</label>
+                                        <output id="metric-context" class="metric-value context-value" aria-labelledby="metric-context-label">Initializing...</output>
+                                    </div>
+                                </div>
+                                <div id="emotion-intensities" class="emotion-section" role="group" aria-label="Emotional state">
+                                    <h4 class="section-subtitle">Emotional Spectrum</h4>
+                                    <div class="emotion-grid">
+                                        <!-- Example Emotion Item (repeat for others) -->
+                                        <div class="emotion-item" data-emotion="Joy">
+                                            <label class="emotion-label" id="emotion-label-joy">Joy</label>
+                                            <div class="emotion-bar" role="meter" aria-labelledby="emotion-label-joy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                                <div class="emotion-fill" style="width: 0%;"></div>
+                                            </div>
+                                            <output class="emotion-value" for="emotion-label-joy">0%</output>
+                                        </div>
+                                        <div class="emotion-item" data-emotion="Fear">
+                                            <label class="emotion-label" id="emotion-label-fear">Fear</label>
+                                            <div class="emotion-bar" role="meter" aria-labelledby="emotion-label-fear" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                                <div class="emotion-fill" style="width: 0%;"></div>
+                                            </div>
+                                            <output class="emotion-value" for="emotion-label-fear">0%</output>
+                                        </div>
+                                        <div class="emotion-item" data-emotion="Curiosity">
+                                            <label class="emotion-label" id="emotion-label-curiosity">Curiosity</label>
+                                            <div class="emotion-bar" role="meter" aria-labelledby="emotion-label-curiosity" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                                <div class="emotion-fill" style="width: 0%;"></div>
+                                            </div>
+                                            <output class="emotion-value" for="emotion-label-curiosity">0%</output>
+                                        </div>
+                                        <div class="emotion-item" data-emotion="Frustration">
+                                            <label class="emotion-label" id="emotion-label-frustration">Frustration</label>
+                                            <div class="emotion-bar" role="meter" aria-labelledby="emotion-label-frustration" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                                <div class="emotion-fill" style="width: 0%;"></div>
+                                            </div>
+                                            <output class="emotion-value" for="emotion-label-frustration">0%</output>
+                                        </div>
+                                        <div class="emotion-item" data-emotion="Calm">
+                                            <label class="emotion-label" id="emotion-label-calm">Calm</label>
+                                            <div class="emotion-bar" role="meter" aria-labelledby="emotion-label-calm" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                                <div class="emotion-fill" style="width: 0%;"></div>
+                                            </div>
+                                            <output class="emotion-value" for="emotion-label-calm">0%</output>
+                                        </div>
+                                        <div class="emotion-item" data-emotion="Surprise">
+                                            <label class="emotion-label" id="emotion-label-surprise">Surprise</label>
+                                            <div class="emotion-bar" role="meter" aria-labelledby="emotion-label-surprise" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                                <div class="emotion-fill" style="width: 0%;"></div>
+                                            </div>
+                                            <output class="emotion-value" for="emotion-label-surprise">0%</output>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="chart-section">
+                                    <h4 class="section-subtitle">Metrics Timeline</h4>
+                                    <div class="chart-container">
+                                        <canvas id="metrics-chart" aria-label="Real-time metrics chart"></canvas>
+                                    </div>
+                                </div>
+                                <div id="expression-timeline" class="timeline-section">
+                                    <h4 class="section-subtitle">Recent Actions</h4>
+                                    <ul id="expressions-list" class="expressions-list" role="log" aria-label="Agent actions timeline"></ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="heatmap-panel" class="overlay-panel heatmap-container panel-draggable" 
+                             aria-label="Agent Internal State Visualization" role="region">
+                            <header class="panel-header" role="button" tabindex="0" aria-expanded="true" aria-controls="heatmap-content-wrapper">
+                                <span class="panel-title">Self-State Activation</span>
+                                <div class="panel-controls">
+                                    <button class="panel-control" aria-label="Refresh heatmap">🔄</button>
+                                    <button class="panel-control" aria-label="Export heatmap">📊</button>
+                                </div>
+                                <!-- <button class="panel-toggle" aria-label="Toggle Heatmap Panel">▼</button> -->
+                            </header>
+                            <div class="panel-content" id="heatmap-content-wrapper">
+                                <div id="heatmap-content" class="heatmap-content" role="img" 
+                                     aria-label="Agent internal state heatmap visualization">
+                                    <div class="loading-placeholder">
+                                        <div class="loading-spinner"></div>
+                                        <span>Initializing heatmap data...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="tensor-inspector-panel" class="overlay-panel tensor-inspector-container panel-draggable" 
+                             aria-label="Belief Embedding Inspector" role="region">
+                            <header class="panel-header" role="button" tabindex="0" aria-expanded="true" aria-controls="tensor-inspector-content-wrapper">
+                                <span class="panel-title">Belief Embedding Inspector</span>
+                                <button id="toggle-inspector" class="panel-control" 
+                                        title="Toggle Inspector View" aria-label="Toggle detailed view">👁️</button>
+                                <!-- <button class="panel-toggle" aria-label="Toggle Tensor Inspector Panel">▼</button> -->
+                            </header>
+                            <div class="panel-content" id="tensor-inspector-content-wrapper">
+                                <pre id="tensor-inspector-content" class="tensor-content" role="log" 
+                                     aria-label="Belief embedding tensor data">
+                                    <!-- Content will be populated by JavaScript -->
+                                    <div class="tensor-data">
+                                        [0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000]
+                                    </div>
+                                </pre>
+                            </div>
+                        </div>
+
+                        <div id="cascade-viewer-panel" class="overlay-panel cascade-viewer-container panel-draggable" 
+                             aria-label="Strukturkaskade Viewer" role="region">
+                            <header class="panel-header" role="button" tabindex="0" aria-expanded="true" aria-controls="cascade-viewer-content-wrapper">
+                                <span class="panel-title">Strukturkaskade Viewer</span>
+                                <div class="panel-controls">
+                                    <button class="panel-control" aria-label="Zoom in">🔍+</button>
+                                    <button class="panel-control" aria-label="Zoom out">🔍-</button>
+                                </div>
+                                <!-- <button class="panel-toggle" aria-label="Toggle Cascade Viewer Panel">▼</button> -->
+                            </header>
+                            <div class="panel-content" id="cascade-viewer-content-wrapper">
+                                <div id="cascade-viewer-content" class="cascade-content" 
+                                     aria-label="Strukturkaskade visualization data">
+                                    <div class="loading-placeholder">
+                                        <div class="loading-spinner"></div>
+                                        <span>Initializing Strukturkaskade data...</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- Concept Graph section -->
-            <section aria-labelledby="concept-viz-heading">
-                <h2 id="concept-viz-heading">Concept Graph Visualization</h2>
-                <p>Explore the relationships between Syntrometric concepts with interactive tooltips and navigation.</p>
-                <div class="control-group concept-graph-controls">
-                    <label for="labels-toggle">Show All Concept Labels: <input type="checkbox" id="labels-toggle" aria-label="Toggle all concept node labels"></label>
-                </div>
-                <div class="visualization-container threejs-container-concept" id="concept-panel" aria-label="Concept Graph Panel" tabindex="0">
-                    <div id="concept-error-message" class="error-message"></div>
-                    <button id="toggle-info-panel" class="info-toggle-button" aria-label="Toggle Concept Info Panel" aria-expanded="false">Info</button>
-                    <div id="info-panel" class="overlay-panel info-panel-container" aria-label="Concept Details">
-                        <h3>Concept Information</h3>
-                        <p>Hover over, click, or use keyboard to explore concept nodes.</p>
+            <!-- Concept Graph Section -->
+            <section class="visualization-section" aria-labelledby="concept-viz-heading">
+                <div class="section-container">
+                    <header class="section-header">
+                        <h2 id="concept-viz-heading">Concept Graph Visualization</h2>
+                        <p class="section-description">
+                            Explore the relationships between Syntrometric concepts through an interactive knowledge graph.
+                        </p>
+                    </header>
+                    
+                    <div class="concept-controls">
+                        <div class="control-group">
+                            <label class="toggle-label" for="labels-toggle">
+                                <input type="checkbox" id="labels-toggle" aria-describedby="labels-toggle-desc">
+                                <span class="toggle-slider"></span>
+                                Show All Concept Labels
+                            </label>
+                            <small id="labels-toggle-desc" class="control-desc sr-only">
+                                Toggle visibility of all node labels in the concept graph.
+                            </small>
+                        </div>
+                        <div class="view-controls">
+                            <button id="reset-view" class="btn btn-secondary">
+                                <span class="btn-icon">🎯</span> Reset View
+                            </button>
+                            <button id="fullscreen-concept" class="btn btn-secondary">
+                                <span class="btn-icon">⛶</span> Fullscreen
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="visualization-container threejs-container-concept" id="concept-panel" 
+                         aria-label="Interactive Concept Graph" role="application" tabindex="0">
+                        <div id="concept-error-message" class="error-message local-error" role="alert" style="display: none;"></div>
+                        
+                        <button id="toggle-info-panel" class="info-toggle-button floating-btn" 
+                                aria-label="Toggle concept information panel" aria-expanded="false" aria-controls="info-panel-content">
+                            <span class="btn-icon">ℹ️</span>
+                            <span class="btn-text">Info</span>
+                        </button>
+                        
+                        <div id="info-panel" class="overlay-panel info-panel-container" 
+                             aria-label="Concept Information Panel" role="complementary" aria-hidden="true">
+                            <header class="panel-header">
+                                <h3 class="panel-title">Concept Information</h3>
+                                <button class="panel-close" aria-label="Close panel">✕</button>
+                            </header>
+                            <div class="panel-content" id="info-panel-content">
+                                <!-- Content for info panel will be populated by JavaScript -->
+                                <p>Select a concept node in the graph to see its details here.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
         </div>
     </main>
 
-    <!-- Main application script -->
-    <script type="module" src="./js/app.js"></script>
+    <footer role="contentinfo" class="site-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>Heim's Syntrometric Theory</h3>
+                <p>Advanced framework for understanding complex systems through higher-dimensional interactions.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Resources</h4>
+                <ul>
+                    <li><a href="README.md">Documentation</a></li>
+                    <li><a href="https://heim-theory.com/" target="_blank" rel="noopener noreferrer">Official Site</a></li>
+                    <li><a href="#theory-heading">Theory Overview</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Technical</h4>
+                <ul>
+                    <li><a href="#" id="performance-stats">Performance Stats</a></li>
+                    <li><a href="#" id="system-info">System Info</a></li>
+                    <li><a href="#" id="accessibility-info">Accessibility</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2024 Heim Theory Research. <span class="build-info">Build: <span id="build-version">2.3.0</span></span></p>
+        </div>
+    </footer>
 
-    <!-- Initialize draggable panels -->
-    <script type="module">
-        import { initializeDraggablePanels } from './js/draggablePanels.js';
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeDraggablePanels(
-                '.panel-draggable',
-                '.visualization-container',
-                ['input', 'button', 'textarea', 'select', 'progress', 'canvas', '.no-drag', '[role="button"]', 'a', 'pre']
-            );
-            console.log('Draggable panels initialized');
+    <!-- Accessibility Announcements -->
+    <div id="announcements" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+
+    <!-- Performance and Dependencies Management Scripts -->
+    <script>
+        // Enhanced dependency loading with better error recovery
+        class DependencyManager {
+            constructor() {
+                this.dependencies = new Map();
+                this.loadingPromises = new Map();
+                this.criticalDependencies = ['tensorflowjs', 'threejs', 'pixijs', 'chartjs'];
+            }
+            async loadDependency(name, urls, critical = false) {
+                if (this.dependencies.has(name)) return this.dependencies.get(name);
+                if (this.loadingPromises.has(name)) return this.loadingPromises.get(name);
+                const loadPromise = this.attemptLoad(name, urls, critical);
+                this.loadingPromises.set(name, loadPromise);
+                try {
+                    const result = await loadPromise;
+                    this.dependencies.set(name, result);
+                    return result;
+                } catch (error) {
+                    this.loadingPromises.delete(name);
+                    throw error;
+                }
+            }
+            async attemptLoad(name, urls, critical) {
+                const urlArray = Array.isArray(urls) ? urls : [urls];
+                let lastError;
+                for (const url of urlArray) {
+                    try {
+                        await this.loadScript(url);
+                        console.log(`[DependencyManager] Successfully loaded ${name} from ${url}`);
+                        return { name, url, loaded: true };
+                    } catch (error) {
+                        console.warn(`[DependencyManager] Failed to load ${name} from ${url}:`, error);
+                        lastError = error;
+                    }
+                }
+                if (critical) throw new Error(`Critical dependency ${name} failed to load: ${lastError?.message}`);
+                console.error(`[DependencyManager] All attempts failed for ${name}`);
+                return { name, loaded: false, error: lastError };
+            }
+            loadScript(url) {
+                return new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = url;
+                    script.async = true;
+                    script.onload = resolve;
+                    script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
+                    document.head.appendChild(script);
+                });
+            }
+        }
+        window.dependencyManager = new DependencyManager();
+        
+        class LoadingManager {
+            constructor() {
+                this.totalSteps = 14;
+                this.currentStep = 0;
+                this.loadingScreen = document.getElementById('loading-screen');
+                this.progressBar = document.getElementById('loading-progress-bar');
+                this.statusText = document.getElementById('loading-status');
+                this.startTime = performance.now();
+                
+                // Set a maximum loading time of 20 seconds
+                this.maxLoadingTime = setTimeout(() => {
+                    console.warn('[LoadingManager] Maximum loading time reached, forcing completion');
+                    this.forceComplete();
+                }, 20000);
+            }
+            
+            updateProgress(step, message) {
+                this.currentStep = Math.min(step, this.totalSteps);
+                const percentage = (this.currentStep / this.totalSteps) * 100;
+                if (this.progressBar) this.progressBar.style.width = `${percentage}%`;
+                if (this.statusText && message) this.statusText.textContent = message;
+                console.log(`[LoadingManager] Progress: ${this.currentStep}/${this.totalSteps} (${Math.round(percentage)}%) - ${message}`);
+            }
+            
+            // Force complete without transitions or delays
+            forceComplete() {
+                console.log("[LoadingManager] Force completing loading process");
+                clearTimeout(this.maxLoadingTime);
+                
+                if (this.loadingScreen) {
+                    this.loadingScreen.style.display = 'none';
+                    console.log("[LoadingManager] Loading screen forcibly hidden");
+                }
+                
+                const loadTime = performance.now() - this.startTime;
+                console.log(`[LoadingManager] Application force-loaded in ${loadTime.toFixed(2)}ms`);
+                window.performanceMonitor?.checkpoint('Application Ready (Forced)');
+            }
+            
+            complete() {
+                console.log("[LoadingManager] Complete called - finalizing loading process");
+                this.updateProgress(this.totalSteps, 'Initialization complete');
+                clearTimeout(this.maxLoadingTime);
+                
+                const loadTime = performance.now() - this.startTime;
+                
+                // IMPORTANT: Delay slightly to ensure UI is ready and transitions can play
+                setTimeout(() => {
+                    if (this.loadingScreen) {
+                        console.log("[LoadingManager] Starting opacity transition");
+                        this.loadingScreen.style.opacity = '0';
+                        
+                        // Add a safety timeout in case transitionend doesn't fire
+                        const safetyTimeout = setTimeout(() => {
+                            console.log("[LoadingManager] Safety timeout triggered - forcing hide");
+                            if (this.loadingScreen && this.loadingScreen.style.display !== 'none') {
+                                this.loadingScreen.style.display = 'none';
+                            }
+                        }, 2000); // 2 second safety
+                        
+                        this.loadingScreen.addEventListener('transitionend', () => {
+                            console.log("[LoadingManager] Transition completed - hiding screen");
+                            clearTimeout(safetyTimeout); // Clear safety timeout
+                            this.loadingScreen.style.display = 'none';
+                            // Focus management after loading
+                            const firstFocusable = document.querySelector('main [tabindex="0"], main button:not([disabled]), main input:not([disabled]), main a[href]');
+                            if (firstFocusable) firstFocusable.focus();
+                        }, { once: true }); // Crucial: use once: true
+                    } else {
+                        console.warn("[LoadingManager] Loading screen element not found");
+                    }
+                    
+                    console.log(`[LoadingManager] Application loaded in ${loadTime.toFixed(2)}ms`);
+                    window.performanceMonitor?.checkpoint('Application Ready');
+                }, 200); // A small delay helps ensure UI is ready
+            }
+            
+            error(message, error) {
+                this.updateProgress(this.currentStep, `Error: ${message}`);
+                console.error('[LoadingManager]', message, error);
+                clearTimeout(this.maxLoadingTime);
+                
+                if (this.statusText) {
+                    this.statusText.innerHTML = `
+                        <span class="error-text">⚠️ ${message}</span>
+                        <button onclick="window.location.reload()" class="retry-button">Retry</button>`;
+                }
+                
+                // Hide loading screen after a short delay
+                setTimeout(() => {
+                    if (this.loadingScreen) {
+                        this.loadingScreen.style.opacity = '0';
+                        setTimeout(() => {
+                            this.loadingScreen.style.display = 'none';
+                            console.log("[LoadingManager] Loading screen hidden after error");
+                        }, 500);
+                    }
+                }, 2000);
+            }
+        }
+        window.loadingManager = new LoadingManager();
+        
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                const openModals = document.querySelectorAll('.overlay-panel[aria-expanded="true"]:not([aria-hidden="true"])');
+                if (openModals.length > 0) {
+                    const panelToClose = openModals[openModals.length - 1];
+                    const closeButton = panelToClose.querySelector('.panel-close, .panel-toggle');
+                    if (closeButton) {
+                        closeButton.click();
+                         event.preventDefault();
+                    } else if (panelToClose.id === 'info-panel') { // Special handling for info panel
+                        document.getElementById('toggle-info-panel')?.click();
+                        event.preventDefault();
+                    }
+                }
+            }
+            // Tab trapping can be complex and might be better handled by a dedicated library if needed for specific modals.
+            // The current tab trapping logic is a bit broad.
         });
     </script>
+
+    <!-- Load Dependencies -->
+    <script>
+        const dependencyQueue = [
+            { name: 'tensorflowjs', urls: ['https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js', 'https://unpkg.com/@tensorflow/tfjs@4.21.0/dist/tf.min.js'], critical: true },
+            { name: 'threejs', urls: ['https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js', 'https://unpkg.com/three@0.132.2/build/three.min.js'], critical: true },
+            { name: 'threejs-controls', urls: ['https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js', 'https://unpkg.com/three@0.132.2/examples/js/controls/OrbitControls.js'] },
+            { name: 'threejs-renderers', urls: ['https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/renderers/CSS2DRenderer.js', 'https://unpkg.com/three@0.132.2/examples/js/renderers/CSS2DRenderer.js'] },
+            { name: 'pixijs', urls: ['https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js', 'https://unpkg.com/pixi.js@6.5.10/dist/browser/pixi.min.js'], critical: true },
+            { name: 'cubism-core', urls: ['https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js', 'https://unpkg.com/live2dcubismcore@1.0.0/live2dcubismcore.min.js'] },
+            { name: 'pixi-live2d', urls: ['https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js', 'https://unpkg.com/pixi-live2d-display@0.4.0/dist/cubism4.min.js'] },
+            { name: 'luxon', urls: ['https://cdn.jsdelivr.net/npm/luxon@2.5.2/build/global/luxon.min.js', 'https://unpkg.com/luxon@2.5.2/build/global/luxon.min.js'] },
+            { name: 'chartjs', urls: ['https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js', 'https://unpkg.com/chart.js@3.9.1/dist/chart.min.js'], critical: true },
+            { name: 'chartjs-adapter', urls: ['https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0/dist/chartjs-adapter-luxon.min.js', 'https://unpkg.com/chartjs-adapter-luxon@1.2.0/dist/chartjs-adapter-luxon.min.js'] },
+            { name: 'chartjs-streaming', urls: ['https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@2.0.0/dist/chartjs-plugin-streaming.min.js', 'https://unpkg.com/chartjs-plugin-streaming@2.0.0/dist/chartjs-plugin-streaming.min.js'] }
+        ];
+        
+        async function loadAllDependencies() {
+            for (let i = 0; i < dependencyQueue.length; i++) {
+                const dep = dependencyQueue[i];
+                window.loadingManager?.updateProgress(i + 1, `Loading ${dep.name}...`);
+                try {
+                    await window.dependencyManager.loadDependency(dep.name, dep.urls, dep.critical);
+                    console.log(`[Dependencies] ✓ ${dep.name} loaded successfully`);
+                } catch (error) {
+                    console.error(`[Dependencies] ✗ ${dep.name} failed to load:`, error);
+                    if (dep.critical) {
+                        window.loadingManager?.error(`Critical dependency ${dep.name} failed to load`, error);
+                        return false;
+                    }
+                }
+            }
+            const criticalCheck = verifyCriticalDependencies();
+            if (!criticalCheck.success) {
+                window.loadingManager?.error('Critical dependencies missing', criticalCheck.error);
+                return false;
+            }
+            return true;
+        }
+        
+        function verifyCriticalDependencies() {
+            const checks = [
+                { name: 'TensorFlow.js', test: () => typeof window.tf !== 'undefined' },
+                { name: 'Three.js', test: () => typeof window.THREE !== 'undefined' },
+                { name: 'Pixi.js', test: () => typeof window.PIXI !== 'undefined' },
+                { name: 'Chart.js', test: () => typeof window.Chart !== 'undefined' }
+            ];
+            for (const check of checks) {
+                if (!check.test()) return { success: false, error: `${check.name} not available` };
+            }
+            try {
+                if (window.Chart && window.ChartStreaming) { // Check Chart exists
+                    window.Chart.register(window.ChartStreaming);
+                    console.log('[Dependencies] Chart.js streaming plugin registered');
+                }
+            } catch (error) {
+                console.warn('[Dependencies] Chart.js streaming plugin registration failed:', error);
+            }
+            return { success: true };
+        }
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            window.performanceMonitor?.checkpoint('DOM Ready');
+            window.scriptErrorHandler?.createErrorContainer(); // Ensure error container is set up early
+            window.loadingManager?.updateProgress(1, 'DOM loaded, initializing dependencies...');
+            
+            // CRITICAL FIX: Force hide loading screen after 5 seconds
+            setTimeout(() => {
+                console.warn('[DOMContentLoaded] Forcing loading screen hide');
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen && loadingScreen.style.display !== 'none') {
+                    loadingScreen.style.display = 'none';
+                }
+            }, 5000);
+            
+            const dependenciesLoaded = await loadAllDependencies();
+            
+            if (dependenciesLoaded) {
+                window.loadingManager?.updateProgress(dependencyQueue.length + 1, 'Loading application modules...');
+                
+                try {
+                    const appModule = await import('./js/app.js');
+                    let initApp;
+                    
+                    // Check for the initialize function which should be exported both as default and named
+                    if (typeof appModule.default === 'function') {
+                        initApp = appModule.default;
+                        console.log('[App] Using default export as initialization function');
+                    } else if (typeof appModule.initialize === 'function') {
+                        initApp = appModule.initialize;
+                        console.log('[App] Using named export "initialize" as initialization function');
+                    } else {
+                        console.error('[App] No initialization function found in app.js');
+                        throw new Error('App initialization function not found');
+                    }
+                    
+                    // Set a safety timeout to ensure loading screen disappears
+                    window.loadingManagerTimeout = setTimeout(() => {
+                        console.warn('[App] Loading timeout reached - forcing completion');
+                        if (window.loadingManager && 
+                            window.loadingManager.loadingScreen && 
+                            window.loadingManager.loadingScreen.style.display !== 'none') {
+                            window.loadingManager.forceComplete();
+                        }
+                    }, 10000);
+                    
+                    window.loadingManager?.updateProgress(dependencyQueue.length + 2, 'Initializing application...');
+                    
+                    // Call the initialization function
+                    const initResult = await initApp();
+                    console.log('[App] Initialization complete with result:', initResult);
+                    
+                    // Note: We don't need to call loadingManager.complete() here
+                    // The app.js initialize function should handle this
+
+                } catch (error) {
+                    console.error('[App] Failed to initialize application:', error);
+                    window.loadingManager?.error('Application initialization failed', error);
+                    
+                    // Force hide loading screen after error
+                    setTimeout(() => {
+                        const loadingScreen = document.getElementById('loading-screen');
+                        if (loadingScreen) {
+                            loadingScreen.style.opacity = '0';
+                            setTimeout(() => loadingScreen.style.display = 'none', 500);
+                        }
+                    }, 3000);
+                }
+                
+                // After dependencies are loaded, initialize draggable panels
+                try {
+                    const { initializeDraggablePanels } = await import('./js/draggablePanels.js');
+                    console.log('[App] Initializing draggable panels');
+                    
+                    // Initialize draggable panels with proper selectors
+                    initializeDraggablePanels(
+                        '.panel-draggable',
+                        '.visualization-container', // Constrain within this parent
+                        ['input', 'button', 'textarea', 'select', 'progress', 'canvas', '.no-drag', '[role="button"]', 'a', 'pre', '.panel-content'] // Add .panel-content to prevent dragging by content
+                    );
+                    console.log('[App] Draggable panels initialized');
+                } catch (error) {
+                    console.warn('[App] Draggable panels initialization failed:', error);
+                }
+            }
+        });
+        
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                fetch('./sw.js', { method: 'HEAD' }) // Use HEAD request to check existence without downloading
+                    .then(response => {
+                        if (!response.ok) {
+                            return Promise.reject(new Error(`Service worker file not found (${response.status})`));
+                        }
+                        return navigator.serviceWorker.register('./sw.js');
+                    })
+                    .then(registration => console.log('[ServiceWorker] Registered successfully:', registration.scope))
+                    .catch(error => console.log('[ServiceWorker] Registration skipped:', error.message));
+            });
+        }
+    </script>
+    <!-- Force hide any stuck loading indicators -->
+    <script>
+        // Wait for the page to fully load
+        window.addEventListener('load', () => {
+            // Force hide avatar loading after 8 seconds
+            setTimeout(() => {
+                const avatarLoading = document.getElementById('avatar-loading');
+                const loadingText = document.getElementById('avatar-loading-text');
+                
+                if (loadingText) {
+                    loadingText.textContent = 'Agent Ready';
+                }
+                
+                if (avatarLoading) {
+                    avatarLoading.classList.add('hidden');
+                    setTimeout(() => {
+                        avatarLoading.style.display = 'none';
+                    }, 500);
+                }
+            }, 8000);
+        });
+    </script>
+    <!-- Force update simulation status after timeout -->
+    <script>
+        setTimeout(() => {
+            const statusText = document.querySelector('#simulation-status .status-text');
+            const statusDot = document.querySelector('#simulation-status .status-dot');
+            
+            if (statusText && statusText.textContent === 'Initializing...') {
+                statusText.textContent = 'Ready';
+            }
+            
+            if (statusDot) {
+                statusDot.className = 'status-dot active';
+            }
+        }, 5000);
+    </script>
+    <!-- Add this script to handle fullscreen functionality -->
+    <script>
+        // Make sure this script runs after the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('[Fullscreen] Initializing fullscreen functionality');
+            
+            // Get fullscreen buttons
+            const fullscreenConceptBtn = document.getElementById('fullscreen-concept');
+            const syntrometryFullscreenBtn = document.getElementById('syntrometry-fullscreen');
+            
+            if (fullscreenConceptBtn) {
+                fullscreenConceptBtn.addEventListener('click', function() {
+                    toggleFullscreen('concept-panel');
+                });
+                console.log('[Fullscreen] Added event listener to concept fullscreen button');
+            } else {
+                console.warn('[Fullscreen] Concept fullscreen button not found');
+            }
+            
+            if (syntrometryFullscreenBtn) {
+                syntrometryFullscreenBtn.addEventListener('click', function() {
+                    toggleFullscreen('syntrometry-panel');
+                });
+                console.log('[Fullscreen] Added event listener to syntrometry fullscreen button');
+            } else {
+                console.warn('[Fullscreen] Syntrometry fullscreen button not found');
+            }
+            
+            // Log all fullscreen buttons for debugging
+            const allButtons = document.querySelectorAll('button');
+            console.log('[Fullscreen] All buttons:', Array.from(allButtons).map(b => b.id || 'unnamed'));
+        });
+        
+        // Function to toggle fullscreen for an element
+        function toggleFullscreen(elementId) {
+            const element = document.getElementById(elementId);
+            if (!element) {
+                console.error(`[Fullscreen] Element with ID ${elementId} not found`);
+                return;
+            }
+            
+            console.log(`[Fullscreen] Toggling fullscreen for ${elementId}`);
+            
+            if (!document.fullscreenElement && 
+                !document.mozFullScreenElement && 
+                !document.webkitFullscreenElement && 
+                !document.msFullscreenElement) {
+                
+                // Enter fullscreen
+                if (element.requestFullscreen) {
+                    element.requestFullscreen();
+                } else if (element.msRequestFullscreen) {
+                    element.msRequestFullscreen();
+                } else if (element.mozRequestFullScreen) {
+                    element.mozRequestFullScreen();
+                } else if (element.webkitRequestFullscreen) {
+                    element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+                }
+                console.log(`[Fullscreen] Entered fullscreen for ${elementId}`);
+                
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+                console.log(`[Fullscreen] Exited fullscreen`);
+            }
+        }
+        
+        // Listen for fullscreen change events to update UI
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+        
+        function handleFullscreenChange() {
+            const isFullscreen = document.fullscreenElement || 
+                                document.webkitFullscreenElement || 
+                                document.mozFullScreenElement || 
+                                document.msFullscreenElement;
+            
+            // Update button text/icon if needed
+            const fullscreenButtons = document.querySelectorAll('[id$="-fullscreen"]');
+            fullscreenButtons.forEach(button => {
+                const btnIcon = button.querySelector('.btn-icon');
+                if (btnIcon) {
+                    btnIcon.textContent = isFullscreen ? '⛶' : '⛶';
+                }
+                
+                // Update button text if it has text content
+                const btnText = button.textContent.trim().replace(btnIcon?.textContent || '', '').trim();
+                if (btnText) {
+                    button.textContent = '';
+                    if (btnIcon) button.appendChild(btnIcon);
+                    button.appendChild(document.createTextNode(isFullscreen ? ' Exit Fullscreen' : ' Fullscreen'));
+                }
+            });
+            
+            console.log(`[Fullscreen] Fullscreen state changed: ${isFullscreen ? 'entered' : 'exited'}`);
+            
+            // Trigger resize events for visualizations
+            window.dispatchEvent(new Event('resize'));
+        }
+    </script>
+    // Add event listener for reset syntrometry view button
+    document.addEventListener('DOMContentLoaded', async function() {
+        const resetSyntrometryViewBtn = document.getElementById('reset-syntrometry-view');
+        
+        if (resetSyntrometryViewBtn) {
+            resetSyntrometryViewBtn.addEventListener('click', async function() {
+                try {
+                    const { resetSyntrometryView } = await import('./js/viz-syntrometry.js');
+                    resetSyntrometryView();
+                } catch (error) {
+                    console.warn('[App] Failed to reset syntrometry view:', error);
+                }
+            });
+            console.log('[App] Added event listener to reset syntrometry view button');
+        } else {
+            console.warn('[App] Reset syntrometry view button not found');
+        }
+    });
 </body>
 </html>
