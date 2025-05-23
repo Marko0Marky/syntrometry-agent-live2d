@@ -1115,14 +1115,41 @@ export function cleanupConceptVisualization() {
 /** Handles window resize events for the Concept Graph panel */
 function onConceptWindowResize() {
     if (!conceptInitialized || !conceptContainer || !conceptCamera || !conceptRenderer || !conceptLabelRenderer) return;
-    const width = conceptContainer.clientWidth;
-    const height = conceptContainer.clientHeight;
+    
+    // Check if we're in fullscreen mode
+    const isFullscreen = document.fullscreenElement === conceptContainer || 
+                         document.webkitFullscreenElement === conceptContainer ||
+                         document.mozFullScreenElement === conceptContainer ||
+                         document.msFullscreenElement === conceptContainer;
+    
+    let width, height;
+    
+    if (isFullscreen) {
+        // Use window dimensions in fullscreen mode
+        width = window.innerWidth;
+        height = window.innerHeight;
+        console.log(`[ConceptViz] Resizing for fullscreen: ${width}x${height}`);
+    } else {
+        // Use container dimensions in normal mode
+        width = conceptContainer.clientWidth;
+        height = conceptContainer.clientHeight;
+        console.log(`[ConceptViz] Resizing for normal view: ${width}x${height}`);
+    }
+    
     if (width <= 0 || height <= 0) return; // Ignore resize if container is hidden
+    
     conceptCamera.aspect = width / height;
     conceptCamera.updateProjectionMatrix();
     conceptRenderer.setSize(width, height);
     conceptLabelRenderer.setSize(width, height);
-    // Re-rendering will happen in the main animation loop
+    
+    // Force a render to update the view
+    if (conceptRenderer && conceptScene && conceptCamera) {
+        conceptRenderer.render(conceptScene, conceptCamera);
+    }
+    if (conceptLabelRenderer && conceptScene && conceptCamera) {
+        conceptLabelRenderer.render(conceptScene, conceptCamera);
+    }
 }
 
 // Wrapper functions for event listeners to ensure interactable objects are current
@@ -1162,4 +1189,9 @@ export function isConceptVisualizationReady() {
            conceptLabelRenderer !== null && 
            conceptScene !== null && 
            conceptCamera !== null;
+}
+
+// Export the resize function so it can be called from outside
+export function resizeConceptVisualization() {
+    onConceptWindowResize();
 }
