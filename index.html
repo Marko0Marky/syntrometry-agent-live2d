@@ -253,21 +253,20 @@
                         </div>
                     </header>
                     
+                    <!-- Ensure the syntrometry panel exists with the correct ID -->
                     <div class="visualization-container threejs-container" id="syntrometry-panel" 
                          aria-label="Syntrometric Simulation Interface" role="application">
                         
                         <div id="syntrometry-error-message" class="error-message local-error" role="alert" style="display: none;"></div>
                         
-                        <!-- Add syntrometry controls with fullscreen button on the left side -->
-                        <div class="syntrometry-controls syntrometry-controls-left">
-                            <div class="view-controls">
-                                <button id="syntrometry-fullscreen" class="btn btn-secondary">
-                                    <span class="btn-icon">⛶</span> Fullscreen
-                                </button>
-                                <button id="reset-syntrometry-view" class="btn btn-secondary">
-                                    <span class="btn-icon">🎯</span> Reset View
-                                </button>
-                            </div>
+                        <!-- Add explicit inline styles to ensure visibility -->
+                        <div class="view-controls syntrometry-view-controls" style="position: absolute; bottom: 20px; right: 20px; z-index: 1000; display: flex; gap: 10px;">
+                            <button id="reset-syntrometry-view" class="btn btn-secondary" style="background-color: rgba(40, 40, 40, 0.9); color: white; border: 1px solid rgba(255, 255, 255, 0.3); padding: 8px 12px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                <span class="btn-icon" style="font-size: 16px;">🎯</span> Reset View
+                            </button>
+                            <button id="syntrometry-fullscreen" class="btn btn-secondary" style="background-color: rgba(40, 40, 40, 0.9); color: white; border: 1px solid rgba(255, 255, 255, 0.3); padding: 8px 12px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                <span class="btn-icon" style="font-size: 16px;">⛶</span> Fullscreen
+                            </button>
                         </div>
                         
                         <div id="live2d-container" class="avatar-container" aria-label="AI Agent Avatar">
@@ -1048,88 +1047,79 @@
             }
         }, 5000);
     </script>
-    <!-- Add this script to handle fullscreen functionality -->
+    <!-- Add fullscreen and reset view functionality -->
     <script>
-        // Function to toggle fullscreen for an element
-        function toggleFullscreen(elementId) {
-            const element = document.getElementById(elementId);
-            if (!element) {
-                console.error(`[Fullscreen] Element with ID ${elementId} not found`);
-                return;
-            }
-            
-            console.log(`[Fullscreen] Toggling fullscreen for ${elementId}`);
-            
-            if (!document.fullscreenElement && 
-                !document.mozFullScreenElement && 
-                !document.webkitFullscreenElement && 
-                !document.msFullscreenElement) {
-                
-                // Enter fullscreen
-                if (element.requestFullscreen) {
-                    element.requestFullscreen();
-                } else if (element.msRequestFullscreen) {
-                    element.msRequestFullscreen();
-                } else if (element.mozRequestFullScreen) {
-                    element.mozRequestFullScreen();
-                } else if (element.webkitRequestFullscreen) {
-                    element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-                }
-                console.log(`[Fullscreen] Entered fullscreen for ${elementId}`);
-                
-            } else {
-                // Exit fullscreen
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                } else if (document.mozCancelFullScreen) {
-                    document.mozCancelFullScreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                }
-                console.log(`[Fullscreen] Exited fullscreen`);
-            }
+    // Function to toggle fullscreen for an element
+    function toggleFullscreen(elementId) {
+        const element = document.getElementById(elementId);
+        if (!element) {
+            console.error(`[Fullscreen] Element with ID ${elementId} not found`);
+            return;
         }
-
-        // Initialize fullscreen buttons
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('[Fullscreen] Initializing fullscreen functionality');
+        
+        console.log(`[Fullscreen] Toggling fullscreen for ${elementId}`);
+        
+        if (!document.fullscreenElement && 
+            !document.mozFullScreenElement && 
+            !document.webkitFullscreenElement && 
+            !document.msFullscreenElement) {
             
-            const syntrometryFullscreenBtn = document.getElementById('syntrometry-fullscreen');
-            
-            if (syntrometryFullscreenBtn) {
-                syntrometryFullscreenBtn.addEventListener('click', function() {
-                    toggleFullscreen('syntrometry-panel');
-                });
-                console.log('[Fullscreen] Added event listener to syntrometry fullscreen button');
-            } else {
-                console.warn('[Fullscreen] Syntrometry fullscreen button not found');
+            // Enter fullscreen
+            if (element.requestFullscreen) {
+                element.requestFullscreen();
+            } else if (element.msRequestFullscreen) {
+                element.msRequestFullscreen();
+            } else if (element.mozRequestFullScreen) {
+                element.mozRequestFullScreen();
+            } else if (element.webkitRequestFullscreen) {
+                element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
             }
+            console.log(`[Fullscreen] Entered fullscreen for ${elementId}`);
             
-            // Log all fullscreen buttons for debugging
-            const allButtons = document.querySelectorAll('button');
-            console.log('[Fullscreen] All buttons:', Array.from(allButtons).map(b => b.id || 'unnamed'));
-        });
-
-        // Add event listener for reset syntrometry view button
-        document.addEventListener('DOMContentLoaded', async function() {
-            const resetSyntrometryViewBtn = document.getElementById('reset-syntrometry-view');
-            
-            if (resetSyntrometryViewBtn) {
-                resetSyntrometryViewBtn.addEventListener('click', async function() {
-                    try {
-                        const { resetSyntrometryView } = await import('./js/viz-syntrometry.js');
-                        resetSyntrometryView();
-                    } catch (error) {
-                        console.warn('[App] Failed to reset syntrometry view:', error);
-                    }
-                });
-                console.log('[App] Added event listener to reset syntrometry view button');
-            } else {
-                console.warn('[App] Reset syntrometry view button not found');
+        } else {
+            // Exit fullscreen
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
             }
-        });
+            console.log(`[Fullscreen] Exited fullscreen`);
+        }
+    }
+
+    // Initialize fullscreen and reset view buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        // Setup fullscreen button
+        const syntrometryFullscreenBtn = document.getElementById('syntrometry-fullscreen');
+        if (syntrometryFullscreenBtn) {
+            syntrometryFullscreenBtn.addEventListener('click', function() {
+                toggleFullscreen('syntrometry-panel');
+            });
+            console.log('[Fullscreen] Added event listener to syntrometry fullscreen button');
+        } else {
+            console.warn('[Fullscreen] Syntrometry fullscreen button not found');
+        }
+        
+        // Setup reset view button
+        const resetSyntrometryViewBtn = document.getElementById('reset-syntrometry-view');
+        if (resetSyntrometryViewBtn) {
+            resetSyntrometryViewBtn.addEventListener('click', async function() {
+                try {
+                    const { resetSyntrometryView } = await import('./js/viz-syntrometry.js');
+                    resetSyntrometryView();
+                } catch (error) {
+                    console.warn('[App] Failed to reset syntrometry view:', error);
+                }
+            });
+            console.log('[App] Added event listener to reset syntrometry view button');
+        } else {
+            console.warn('[App] Reset syntrometry view button not found');
+        }
+    });
     </script>
 </body>
 </html>
