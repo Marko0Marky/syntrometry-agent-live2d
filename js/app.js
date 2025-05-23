@@ -260,73 +260,140 @@ export function updateSliderDisplays(integrationValue, reflexivityValue) {
 }
 
 // --- Initialization ---
-async function initialize() {
+export default async function initialize() {
     console.log("Initializing application (Agent V2.3.1)...");
-    const coreInitSuccess = initAgentAndEnvironment();
-    if (!coreInitSuccess) {
-        criticalError = true;
-        displayError("Core simulation components (Agent/Environment/TF) failed to initialize. Aborting.", true, 'error-message');
-        disableControls();
-        return;
-    }
-
-    const threeSuccess = initThreeJS();
-    const conceptSuccess = initConceptVisualization(appClock);
-    const live2dSuccess = await initLive2D();
-
-    if (!threeSuccess) displayError("Syntrometry visualization failed to initialize.", false, 'syntrometry-error-message');
-    if (!conceptSuccess) displayError("Concept Graph visualization failed to initialize.", false, 'concept-error-message');
-    if (!live2dSuccess) displayError("Live2D avatar failed to initialize.", false, 'error-message');
-
-    initMetricsChart();
-    setupControls();
-    setupChat();
-    setupInspectorToggle();
-
-    let initialStateLoaded = false;
-    if (hasSavedState()) {
-        initialStateLoaded = loadState(false);
-    }
-
-    if (!initialStateLoaded) {
-        console.log("No valid saved state or load failed, initializing new simulation state...");
-        await initializeNewSimulationState();
-    }
-
-    if (criticalError) {
-        console.error("Critical error encountered during initialization or state loading.");
-        setDefaultSimulationMetrics();
-        disableControls();
-    } else {
-        updateAllUI(
-            simulationMetrics,
-            agent,
-            simulationMetrics.currentAgentEmotions,
-            0,
-            { elapsedTime: 0, lastIntegrationInputTime: -1, lastReflexivityInputTime: -1, lastChatImpactTime: -1, inputFeedbackDuration },
-            threeInitialized,
-            conceptInitialized,
-            live2dInitialized
-        );
-        updateMetricsChart();
-        logToTimeline("System Initialized", 'expressions-list');
-        if (agent?.selfState && !agent.selfState.isDisposed) {
-            try {
-                updateHeatmap(Array.from(agent.selfState.dataSync()), 'heatmap-content');
-            } catch (e) {
-                console.error("Initial heatmap update failed:", e);
-                updateHeatmap([], 'heatmap-content');
-            }
+    
+    // CRITICAL FIX: Force hide loading screen after 6 seconds
+    setTimeout(() => {
+        console.warn('[App] Forcing loading screen hide from app.js');
+        if (window.loadingManager) {
+            window.loadingManager.forceComplete();
         } else {
-            updateHeatmap([], 'heatmap-content');
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.style.display = 'none';
+            }
+        }
+    }, 6000);
+    
+    try {
+        const coreInitSuccess = initAgentAndEnvironment();
+        if (!coreInitSuccess) {
+            criticalError = true;
+            displayError("Core simulation components (Agent/Environment/TF) failed to initialize. Aborting.", true, 'error-message');
+            disableControls();
+            // Signal loading manager about the error
+            if (window.loadingManager) {
+                window.loadingManager.error("Core simulation initialization failed", new Error("Core init failed"));
+            }
+            return false;
         }
 
-        console.log("Initialization complete (V2.3.1). Starting animation loop.");
-        isPaused = false;
-        window.addEventListener('resize', debouncedResizeConceptGraph);
-        animate();
+        const threeSuccess = initThreeJS();
+        const conceptSuccess = initConceptVisualization(appClock);
+        const live2dSuccess = await initLive2D();
+
+        if (!threeSuccess) displayError("Syntrometry visualization failed to initialize.", false, 'syntrometry-error-message');
+        if (!conceptSuccess) displayError("Concept Graph visualization failed to initialize.", false, 'concept-error-message');
+        if (!live2dSuccess) displayError("Live2D avatar failed to initialize.", false, 'error-message');
+
+        initMetricsChart();
+        setupControls();
+        setupChat();
+        setupInspectorToggle();
+
+        let initialStateLoaded = false;
+        if (hasSavedState()) {
+            initialStateLoaded = loadState(false);
+        }
+
+        if (!initialStateLoaded) {
+            console.log("No valid saved state or load failed, initializing new simulation state...");
+            await initializeNewSimulationState();
+        }
+
+        if (criticalError) {
+            console.error("Critical error encountered during initialization or state loading.");
+            setDefaultSimulationMetrics();
+            disableControls();
+            // Signal loading manager about the error
+            if (window.loadingManager) {
+                window.loadingManager.error("Critical error during initialization", new Error("Critical init error"));
+            }
+            return false;
+        } else {
+            updateAllUI(
+                simulationMetrics,
+                agent,
+                simulationMetrics.currentAgentEmotions,
+                0,
+                { elapsedTime: 0, lastIntegrationInputTime: -1, lastReflexivityInputTime: -1, lastChatImpactTime: -1, inputFeedbackDuration },
+                threeInitialized,
+                conceptInitialized,
+                live2dInitialized
+            );
+            updateMetricsChart();
+            logToTimeline("System Initialized", 'expressions-list');
+            if (agent?.selfState && !agent.selfState.isDisposed) {
+                try {
+                    updateHeatmap(Array.from(agent.selfState.dataSync()), 'heatmap-content');
+                } catch (e) {
+                    console.error("Initial heatmap update failed:", e);
+                    updateHeatmap([], 'heatmap-content');
+                }
+            } else {
+                updateHeatmap([], 'heatmap-content');
+            }
+
+            console.log("Initialization complete (V2.3.1). Starting animation loop.");
+            isPaused = false;
+            window.addEventListener('resize', debouncedResizeConceptGraph);
+            animate();
+            
+            // IMPORTANT: Signal loading manager that initialization is complete
+            console.log("[App] Signaling LoadingManager to complete");
+            if (window.loadingManager) {
+                // Clear any timeout set in index.html
+                if (window.loadingManagerTimeout) {
+                    clearTimeout(window.loadingManagerTimeout);
+                }
+                window.loadingManager.complete();
+            } else {
+                console.warn("[App] LoadingManager not found on window object");
+                // Fallback if loadingManager is somehow unavailable
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.style.opacity = '0';
+                    setTimeout(() => loadingScreen.style.display = 'none', 500);
+                }
+            }
+            
+            return true;
+        }
+    } catch (error) {
+        console.error("FATAL ERROR during initialize function:", error);
+        criticalError = true;
+        displayError(`Fatal Initialization Error: ${error.message}. Please check console.`, true, 'error-message');
+        disableControls();
+        
+        // Signal loading manager about the error
+        if (window.loadingManager) {
+            window.loadingManager.error(`Fatal Init: ${error.message}`, error);
+        } else {
+            // Fallback if loadingManager is somehow unavailable
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => loadingScreen.style.display = 'none', 500);
+            }
+        }
+        
+        return false;
     }
 }
+
+// Make sure initialize is also available as a named export
+export { initialize };
 
 async function initializeNewSimulationState() {
     if (!environment || !agent) {
