@@ -520,14 +520,46 @@ export function updateThreeJS(deltaTime, stateVector, rihScore, affinities, inte
 /** Handles window resize events for the Syntrometry panel. */
 function onWindowResize() {
     if (!threeInitialized || !camera || !renderer || !labelRenderer || !syntrometryContainer) return;
-    const width = syntrometryContainer.clientWidth;
-    const height = syntrometryContainer.clientHeight;
+    
+    // Check if we're in fullscreen mode
+    const isFullscreen = document.fullscreenElement === syntrometryContainer || 
+                         document.webkitFullscreenElement === syntrometryContainer ||
+                         document.mozFullScreenElement === syntrometryContainer ||
+                         document.msFullscreenElement === syntrometryContainer;
+    
+    let width, height;
+    
+    if (isFullscreen) {
+        // Use window dimensions in fullscreen mode
+        width = window.innerWidth;
+        height = window.innerHeight;
+        console.log(`[SyntrometryViz] Resizing for fullscreen: ${width}x${height}`);
+    } else {
+        // Use container dimensions in normal mode
+        width = syntrometryContainer.clientWidth;
+        height = syntrometryContainer.clientHeight;
+        console.log(`[SyntrometryViz] Resizing for normal view: ${width}x${height}`);
+    }
+    
     if (width <= 0 || height <= 0) return;
 
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setSize(width, height);
     labelRenderer.setSize(width, height);
+    
+    // Force a render to update the view
+    if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+    }
+    if (labelRenderer && scene && camera) {
+        labelRenderer.render(scene, camera);
+    }
+}
+
+// Export the resize function so it can be called from outside
+export function resizeSyntrometryVisualization() {
+    onWindowResize();
 }
 
 /** Cleans up Three.js resources used by the Syntrometry visualization. */
@@ -650,4 +682,26 @@ export function calculateGraphFeatures() {
         console.error("Error calculating graph features in viz-syntrometry:", e);
         return [0.0, 0.0];
     }
+}
+
+/**
+ * Resets the camera view to the default position
+ */
+export function resetSyntrometryView() {
+    if (!camera) return;
+    
+    // Default camera position
+    camera.position.set(0, 0, 3.5);
+    camera.lookAt(0, 0, 0);
+    camera.up.set(0, 1, 0);
+    
+    // Force a render to update the view
+    if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+    }
+    if (labelRenderer && scene && camera) {
+        labelRenderer.render(scene, camera);
+    }
+    
+    console.log('[SyntrometryViz] View reset to default position');
 }
