@@ -92,8 +92,9 @@ export function initializeDraggablePanels(
         const targetElement = e.target;
 
         // Check if the clicked element should prevent dragging
+        // Only ignore drag if the target is inside an ignoreSelector AND not inside the header
         if (ignoreSelectors.some(sel => targetElement.closest(sel)) && 
-            !targetElement.classList.contains('panel-header')) {
+            !targetElement.closest('.panel-header')) {
             return;
         }
 
