@@ -2,389 +2,701 @@
 
 // Assume tf is loaded globally via CDN and checked where used
 
+// Cache for DOM elements to avoid repeated lookups
+const elementCache = new Map();
+
+/**
+ * Gets a DOM element by ID with caching for performance
+ * @param {string} id - The element ID
+ * @returns {HTMLElement|null} The DOM element or null if not found
+ */
+function getCachedElement(id) {
+    if (elementCache.has(id)) {
+        const element = elementCache.get(id);
+        // Verify element is still in DOM
+        if (document.contains(element)) {
+            return element;
+        }
+        elementCache.delete(id);
+    }
+    
+    const element = document.getElementById(id);
+    if (element) {
+        elementCache.set(id, element);
+    }
+    return element;
+}
+
+/**
+ * Sanitizes HTML content to prevent XSS attacks
+ * @param {string} content - Content to sanitize
+ * @returns {string} Sanitized content
+ */
+function sanitizeHTML(content) {
+    if (typeof content !== 'string') return '';
+    return content
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
+/**
+ * Validates if a value is a finite number
+ * @param {any} value - Value to check
+ * @returns {boolean} True if value is a finite number
+ */
+function isFiniteNumber(value) {
+    return typeof value === 'number' && isFinite(value);
+}
+
 /**
  * Handles script loading errors and displays messages in the main error div.
  * Note: A simpler fallback handleScriptError is in index.html for very early failures.
+ * @param {string} library - Name of the library that failed to load
+ * @param {string} [fallback] - Optional fallback URL to try
+ * @param {string} [message] - Optional additional error message
  */
 export function handleScriptError(library, fallback, message) {
-    console.error(`[Error] Failed to load ${library}. ${message || ''}`);
-    // Use displayError to show the message in the designated area
-    displayError(`Failed to load library: ${library}. ${message || ''}`, true); // Treat library load failure as potentially critical
+    const errorMsg = `Failed to load ${library}. ${message || ''}`;
+    console.error(`[Error] ${errorMsg}`);
+    displayError(`Failed to load library: ${library}. ${message || ''}`, true);
 
     if (fallback) {
         console.log(`[Fallback] Attempting to load fallback: ${fallback}`);
-        const script = document.createElement('script');
-        script.src = fallback;
-        script.onerror = () => {
-             console.error(`[Fallback Error] Fallback script ${fallback} also failed.`);
-             displayError(`Fallback library ${library} also failed to load.`, true);
-        }
-        script.async = false; // Try loading fallback synchronously? Might block. Defer might be better.
-        document.head.appendChild(script);
+        
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = fallback;
+            script.async = true; // Use async for better performance
+            script.defer = true;  // Defer execution
+            
+            script.onload = () => {
+                console.log(`[Fallback Success] ${library} loaded successfully`);
+                resolve();
+            };
+            
+            script.onerror = () => {
+                const fallbackError = `Fallback library ${library} also failed to load.`;
+                console.error(`[Fallback Error] ${fallbackError}`);
+                displayError(fallbackError, true);
+                reject(new Error(fallbackError));
+            };
+            
+            document.head.appendChild(script);
+        });
     }
+    
+    return Promise.reject(new Error(errorMsg));
 }
 
 /**
  * Displays an error message in a specific container element.
- * @param {string} message The error message to display.
- * @param {boolean} [isCritical=false] If true, indicates a more severe error. (Currently mainly for logging distinction).
- * @param {string} [targetId='error-message'] The ID of the HTML element to display the error in.
+ * @param {string} message - The error message to display
+ * @param {boolean} [isCritical=false] - If true, indicates a more severe error
+ * @param {string} [targetId='error-message'] - The ID of the HTML element to display the error in
  */
 export function displayError(message, isCritical = false, targetId = 'error-message') {
     const errorPrefix = isCritical ? "[Critical Error] " : "[Error] ";
-    console.error(errorPrefix + message); // Log to console regardless
+    const fullMessage = errorPrefix + message;
+    
+    console.error(fullMessage);
 
-    const errorDiv = document.getElementById(targetId);
-     if (errorDiv) {
-        // Basic check to prevent flooding with identical messages
-        if (!errorDiv.innerHTML.includes(message)) {
-             // Sanitize message before inserting as HTML
-             const sanitizedMessage = message.replace(/</g, "<").replace(/>/g, ">");
-             errorDiv.innerHTML += errorPrefix + sanitizedMessage + '<br>';
-             errorDiv.style.display = 'block'; // Ensure visible
-             errorDiv.scrollTop = errorDiv.scrollHeight; // Scroll to bottom
+    const errorDiv = getCachedElement(targetId);
+    if (errorDiv) {
+        // Use Set to track unique messages more efficiently
+        if (!errorDiv.dataset.messages) {
+            errorDiv.dataset.messages = JSON.stringify(new Set());
         }
-     } else {
+        
+        const existingMessages = new Set(JSON.parse(errorDiv.dataset.messages));
+        
+        if (!existingMessages.has(message)) {
+            existingMessages.add(message);
+            errorDiv.dataset.messages = JSON.stringify([...existingMessages]);
+            
+            const sanitizedMessage = sanitizeHTML(fullMessage);
+            const messageElement = document.createElement('div');
+            messageElement.className = `error-item ${isCritical ? 'critical' : 'standard'}`;
+            messageElement.innerHTML = sanitizedMessage;
+            
+            errorDiv.appendChild(messageElement);
+            errorDiv.style.display = 'block';
+            errorDiv.scrollTop = errorDiv.scrollHeight;
+        }
+    } else {
         console.error("Target error message container not found:", targetId);
-     }
+    }
 }
-
 
 /**
  * Creates an array (or nested array) filled with zeros.
- * @param {number[]} shape Array representing the dimensions (e.g., [2, 3]).
- * @returns {number|number[]|Array<number[]>} The zero-filled structure. Returns 0 if shape is empty.
+ * @param {number[]} shape - Array representing the dimensions (e.g., [2, 3])
+ * @returns {number|number[]|Array<number[]>} The zero-filled structure
  */
 export function zeros(shape) {
     if (!Array.isArray(shape) || shape.length === 0) {
-         console.warn("[zeros] Invalid or empty shape provided. Returning 0.");
-         return 0;
+        console.warn("[zeros] Invalid or empty shape provided. Returning 0.");
+        return 0;
     }
 
-    // Recursive function to build nested arrays
+    // Validate all dimensions are positive integers
+    for (let i = 0; i < shape.length; i++) {
+        const dim = shape[i];
+        if (!isFiniteNumber(dim) || dim < 0 || !Number.isInteger(dim)) {
+            console.warn(`[zeros] Invalid dimension at index ${i}: ${dim}`);
+            return [];
+        }
+    }
+
     const buildArray = (currentShape) => {
         if (currentShape.length === 1) {
-            const len = Math.max(0, Math.floor(currentShape[0])); // Ensure non-negative integer length
-             if (!isFinite(len)) { console.warn("[zeros] Invalid length in shape:", currentShape[0]); return []; }
-            return new Array(len).fill(0);
+            return new Array(currentShape[0]).fill(0);
         }
-        const len = Math.max(0, Math.floor(currentShape[0]));
-         if (!isFinite(len)) { console.warn("[zeros] Invalid length in shape:", currentShape[0]); return []; }
-        const remainingShape = currentShape.slice(1);
-        return Array(len).fill(null).map(() => buildArray(remainingShape));
+        
+        const [firstDim, ...remainingShape] = currentShape;
+        return Array.from({ length: firstDim }, () => buildArray(remainingShape));
     };
 
     return buildArray(shape);
 }
 
 /**
- * Creates a TensorFlow.js tensor. Requires tf global. Includes error handling.
- * @param {any} data The data to create the tensor from. Can be scalar, array, typed array.
- * @param {number[]} [shape] Optional. The desired shape of the tensor. If not provided, inferred from data.
- * @param {string} [dtype] Optional data type (e.g., 'float32', 'int32').
- * @returns {tf.Tensor|null} The TensorFlow.js tensor or null if tf is not available or an error occurs.
+ * Creates a TensorFlow.js tensor with enhanced error handling and validation.
+ * @param {any} data - The data to create the tensor from
+ * @param {number[]} [shape] - Optional shape of the tensor
+ * @param {string} [dtype='float32'] - Optional data type
+ * @returns {tf.Tensor|null} The TensorFlow.js tensor or null if creation fails
  */
-export function tensor(data, shape, dtype) {
+export function tensor(data, shape, dtype = 'float32') {
     if (typeof tf === 'undefined') {
-        // displayError("TensorFlow.js (tf) not loaded, cannot create tensor.", false); // Can be noisy
         console.error("TensorFlow (tf) is undefined in tensor()");
         return null;
     }
+    
     try {
-        // Basic validation
+        // Enhanced validation
         if (data === undefined && shape === undefined) {
-             console.error("Cannot create tensor: both data and shape are undefined.");
-             return null;
+            console.error("Cannot create tensor: both data and shape are undefined.");
+            return null;
         }
-        // tf.tensor can often handle undefined data if shape is provided (creates uninitialized tensor),
-        // but explicitly creating zeros might be safer if that's the intent.
+        
+        // Validate shape if provided
+        if (shape && (!Array.isArray(shape) || shape.some(dim => !isFiniteNumber(dim) || dim < 0))) {
+            console.error("Invalid shape provided:", shape);
+            return null;
+        }
+        
+        // Create tensor with undefined data using zeros
         if (data === undefined && shape !== undefined) {
-            // console.warn("Creating tensor with undefined data and shape:", shape, ". Using tf.zeros instead."); // Potentially noisy
             return tf.zeros(shape, dtype);
+        }
+        
+        // Validate data type compatibility
+        if (Array.isArray(data)) {
+            const flatData = data.flat(Infinity);
+            if (flatData.some(val => val !== null && val !== undefined && !isFiniteNumber(val))) {
+                console.warn("Data contains non-numeric values, tensor creation may fail");
+            }
         }
 
         return tf.tensor(data, shape, dtype);
 
-    } catch (e) {
-        console.error(`TensorFlow Error creating tensor: ${e.message}`, { data_type: typeof data, shape, dtype });
-        // Avoid flooding UI with TF errors unless critical
-        // displayError(`TF Error creating tensor: ${e.message}`, false);
+    } catch (error) {
+        const errorDetails = {
+            message: error.message,
+            dataType: typeof data,
+            dataShape: Array.isArray(data) ? `Array[${data.length}]` : 'Not Array',
+            shape,
+            dtype
+        };
+        
+        console.error("TensorFlow Error creating tensor:", errorDetails);
         return null;
     }
 }
 
-
 /**
  * Clamps a numerical value between a minimum and maximum boundary.
- * @param {number} value The value to clamp.
- * @param {number} min The minimum allowed value.
- * @param {number} max The maximum allowed value.
- * @returns {number} The clamped value. Returns NaN if inputs are not numbers.
+ * @param {number} value - The value to clamp
+ * @param {number} min - The minimum allowed value
+ * @param {number} max - The maximum allowed value
+ * @returns {number} The clamped value
  */
 export function clamp(value, min, max) {
-     if (typeof value !== 'number' || typeof min !== 'number' || typeof max !== 'number') return NaN;
+    if (!isFiniteNumber(value) || !isFiniteNumber(min) || !isFiniteNumber(max)) {
+        console.warn("[clamp] Non-finite input values:", { value, min, max });
+        return NaN;
+    }
+    
+    if (min > max) {
+        console.warn("[clamp] min is greater than max, swapping values");
+        [min, max] = [max, min];
+    }
+    
     return Math.max(min, Math.min(max, value));
 }
 
 /**
  * Computes the L2 norm (Euclidean norm) of a numerical array.
- * @param {number[]} arr The array of numbers.
- * @returns {number} The L2 norm. Returns 0 for non-arrays, empty arrays, or arrays with non-finite values.
+ * @param {number[]} arr - The array of numbers
+ * @returns {number} The L2 norm
  */
 export function norm(arr) {
-     if (!Array.isArray(arr) || arr.length === 0) return 0.0;
-     let sumSq = 0;
-     for (const val of arr) {
-         if (typeof val === 'number' && isFinite(val)) {
-             sumSq += val * val;
-         } else {
-              // If any value is non-numeric or non-finite, the norm is arguably undefined or should be handled.
-              // Returning 0 might be misleading. Consider NaN or throwing an error depending on use case.
-              // console.warn("[norm] Input array contains non-finite values. Result might be inaccurate.", arr); // Can be noisy
-              return 0.0; // Return 0 for now to avoid breaking calculations
-         }
-     }
+    if (!Array.isArray(arr) || arr.length === 0) {
+        return 0.0;
+    }
+    
+    let sumSq = 0;
+    let validCount = 0;
+    
+    for (const val of arr) {
+        if (isFiniteNumber(val)) {
+            sumSq += val * val;
+            validCount++;
+        }
+    }
+    
+    if (validCount === 0) {
+        console.warn("[norm] No valid finite numbers found in array");
+        return 0.0;
+    }
+    
+    if (validCount !== arr.length) {
+        console.warn(`[norm] ${arr.length - validCount} non-finite values ignored`);
+    }
+    
     return Math.sqrt(sumSq);
 }
 
 /**
  * Linear interpolation (lerp) between two values.
- * @param {number} start The starting value.
- * @param {number} end The ending value.
- * @param {number} t The interpolation factor (progress), clamped between 0 and 1.
- * @returns {number} The interpolated value. Returns NaN if inputs are not numbers.
+ * @param {number} start - The starting value
+ * @param {number} end - The ending value
+ * @param {number} t - The interpolation factor (0-1)
+ * @param {boolean} [clampT=true] - Whether to clamp t between 0 and 1
+ * @returns {number} The interpolated value
  */
-export function lerp(start, end, t) {
-     if (typeof start !== 'number' || typeof end !== 'number' || typeof t !== 'number') return NaN;
-     const clampedT = clamp(t, 0, 1);
-    return start * (1 - clampedT) + end * clampedT;
+export function lerp(start, end, t, clampT = true) {
+    if (!isFiniteNumber(start) || !isFiniteNumber(end) || !isFiniteNumber(t)) {
+        console.warn("[lerp] Non-finite input values:", { start, end, t });
+        return NaN;
+    }
+    
+    const factor = clampT ? clamp(t, 0, 1) : t;
+    return start + factor * (end - start); // More numerically stable than start * (1 - t) + end * t
 }
-
 
 /**
  * Appends a formatted message to the chat output display element.
- * @param {string} sender The name of the sender (e.g., 'You', 'System', 'Agent').
- * @param {string} message The message text.
+ * @param {string} sender - The name of the sender
+ * @param {string} message - The message text
+ * @param {Object} [options] - Additional options
+ * @param {string} [options.targetId='chat-output'] - Target element ID
+ * @param {boolean} [options.autoScroll=true] - Whether to auto-scroll
+ * @param {string} [options.messageClass=''] - Additional CSS class for the message
  */
-export function appendChatMessage(sender, message) {
-    const chatOutput = document.getElementById('chat-output');
+export function appendChatMessage(sender, message, options = {}) {
+    const {
+        targetId = 'chat-output',
+        autoScroll = true,
+        messageClass = ''
+    } = options;
+    
+    const chatOutput = getCachedElement(targetId);
     if (!chatOutput) {
-         console.warn("Chat output element not found.");
-         return;
+        console.warn(`Chat output element "${targetId}" not found.`);
+        return;
     }
 
-    // Check if user is scrolled near the bottom before appending new message
-    const shouldScroll = chatOutput.scrollTop + chatOutput.clientHeight >= chatOutput.scrollHeight - 30; // Threshold for auto-scroll
+    // Check scroll position before adding message
+    const shouldScroll = autoScroll && (
+        chatOutput.scrollTop + chatOutput.clientHeight >= chatOutput.scrollHeight - 30
+    );
 
+    // Create message container
     const messageDiv = document.createElement('div');
-    messageDiv.classList.add('chat-message'); // Add class for potential styling
+    messageDiv.className = `chat-message sender-${sender.toLowerCase().replace(/\s+/g, '-')} ${messageClass}`.trim();
 
-    // Basic sanitization: Replace HTML tags to prevent injection
-    const sanitizedSender = sender.replace(/</g, "<").replace(/>/g, ">");
-    const sanitizedMessage = message.replace(/</g, "<").replace(/>/g, ">");
+    // Create message content with better structure
+    const senderSpan = document.createElement('strong');
+    senderSpan.className = 'chat-sender';
+    senderSpan.textContent = sender + ':';
 
-    // Use classList for sender type styling if needed
-    messageDiv.classList.add(`sender-${sender.toLowerCase().replace(/\s+/g, '-')}`);
+    const messageSpan = document.createElement('span');
+    messageSpan.className = 'chat-text';
+    messageSpan.textContent = message;
 
-    messageDiv.innerHTML = `<strong class="chat-sender">${sanitizedSender}:</strong> <span class="chat-text">${sanitizedMessage}</span>`;
+    messageDiv.appendChild(senderSpan);
+    messageDiv.appendChild(document.createTextNode(' '));
+    messageDiv.appendChild(messageSpan);
+
+    // Add timestamp as data attribute for potential styling/sorting
+    messageDiv.dataset.timestamp = Date.now().toString();
+
     chatOutput.appendChild(messageDiv);
 
-    // Auto-scroll to bottom only if the user was already near the bottom
-    if(shouldScroll) {
-        // Use smooth scroll if available, fallback to direct assignment
-        try { chatOutput.scrollTo({ top: chatOutput.scrollHeight, behavior: 'smooth' }); }
-        catch(e) { chatOutput.scrollTop = chatOutput.scrollHeight; }
+    // Auto-scroll with smooth behavior
+    if (shouldScroll) {
+        requestAnimationFrame(() => {
+            try {
+                chatOutput.scrollTo({ 
+                    top: chatOutput.scrollHeight, 
+                    behavior: 'smooth' 
+                });
+            } catch (e) {
+                chatOutput.scrollTop = chatOutput.scrollHeight;
+            }
+        });
     }
 }
 
 /**
  * Logs a message with a timestamp to a timeline list UI element.
- * @param {string} message The message to log.
- * @param {string} listId The ID of the UL element for the timeline.
- * @param {number} [maxItems=20] Maximum number of items to keep in the timeline.
+ * @param {string} message - The message to log
+ * @param {string} listId - The ID of the UL element for the timeline
+ * @param {Object} [options] - Additional options
+ * @param {number} [options.maxItems=20] - Maximum number of items to keep
+ * @param {boolean} [options.showMilliseconds=false] - Include milliseconds in timestamp
  */
-export function logToTimeline(message, listId, maxItems = 20) {
-    const list = document.getElementById(listId);
+export function logToTimeline(message, listId, options = {}) {
+    const { maxItems = 20, showMilliseconds = false } = options;
+    
+    const list = getCachedElement(listId);
     if (!list) {
-         console.warn(`Timeline list element "${listId}" not found.`);
-         return;
+        console.warn(`Timeline list element "${listId}" not found.`);
+        return;
     }
 
     const item = document.createElement('li');
-    const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    item.className = 'timeline-item';
+    
+    const now = new Date();
+    const timeOptions = { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+    };
+    
+    let timestamp = now.toLocaleTimeString([], timeOptions);
+    if (showMilliseconds) {
+        timestamp += `.${now.getMilliseconds().toString().padStart(3, '0')}`;
+    }
 
-    const sanitizedMessage = message.replace(/</g, "<").replace(/>/g, ">");
-    item.innerHTML = `<span class="timeline-time">${timestamp}</span> ${sanitizedMessage}`;
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'timeline-time';
+    timeSpan.textContent = timestamp;
+
+    const messageSpan = document.createElement('span');
+    messageSpan.className = 'timeline-message';
+    messageSpan.textContent = message;
+
+    item.appendChild(timeSpan);
+    item.appendChild(document.createTextNode(' '));
+    item.appendChild(messageSpan);
     item.title = `${timestamp}: ${message}`;
+    item.dataset.timestamp = now.getTime().toString();
 
     list.appendChild(item);
 
+    // Efficiently remove old items
     while (list.children.length > maxItems) {
         list.removeChild(list.firstChild);
     }
 
-     try { list.scrollTo({ top: list.scrollHeight, behavior: 'auto' }); }
-     catch(e) { list.scrollTop = list.scrollHeight; }
+    // Smooth scroll to bottom
+    requestAnimationFrame(() => {
+        try {
+            list.scrollTo({ top: list.scrollHeight, behavior: 'auto' });
+        } catch (e) {
+            list.scrollTop = list.scrollHeight;
+        }
+    });
 }
 
-
 /**
- * Displays the content of a tensor or array in a designated HTML <pre> element.
- * Handles disposed tensors and provides basic formatting.
- * @param {tf.Tensor | number[] | number | string | null | undefined} data The tensor, array, or other data to inspect.
- * @param {string} elementId The ID of the HTML <pre> element to display the content in.
+ * Displays tensor or data content in a designated HTML element with enhanced formatting.
+ * @param {tf.Tensor|number[]|number|string|null|undefined} data - The data to inspect
+ * @param {string} elementId - The ID of the HTML element to display content in
+ * @param {Object} [options] - Formatting options
+ * @param {number} [options.precision=4] - Number of decimal places for numbers
+ * @param {number} [options.maxElements=50] - Maximum elements to display
+ * @param {number} [options.maxLength=1500] - Maximum string length for display
  */
-export function inspectTensor(data, elementId) {
-    const el = document.getElementById(elementId);
-    if (!el) {
+export function inspectTensor(data, elementId, options = {}) {
+    const {
+        precision = 4,
+        maxElements = 50,
+        maxLength = 1500
+    } = options;
+    
+    const element = getCachedElement(elementId);
+    if (!element) {
         console.warn(`Inspector element "${elementId}" not found.`);
         return;
     }
 
-    let outputContent = "";
-
     try {
-        let dataSummary;
         let headerInfo = "";
         let status = "";
+        let dataSummary;
 
+        // Enhanced type detection and info gathering
         if (data === null || data === undefined) {
             status = " (Null/Undefined)";
-            dataSummary = "null";
-            headerInfo = "Type: Null/Undefined";
-        } else if (typeof tf !== 'undefined' && data instanceof tf.Tensor) { // Check tf exists
-            headerInfo = `Type: tf.Tensor | Shape: [${data.shape.join(', ')}] | Rank: ${data.rank} | DType: ${data.dtype}`;
+            dataSummary = String(data);
+            headerInfo = `Type: ${data === null ? 'Null' : 'Undefined'}`;
+        } else if (typeof tf !== 'undefined' && data instanceof tf.Tensor) {
+            const memoryInfo = tf.memory ? ` | Memory: ${tf.memory().numTensors} tensors` : '';
+            headerInfo = `Type: tf.Tensor | Shape: [${data.shape.join(', ')}] | Rank: ${data.rank} | DType: ${data.dtype} | Size: ${data.size}${memoryInfo}`;
+            
             if (data.isDisposed) {
                 status = " (Disposed)";
                 dataSummary = "[Tensor Disposed]";
             } else {
-                const size = data.size;
-                headerInfo += ` | Size: ${size}`;
-                const displayLimit = 50;
-                if (size > displayLimit) {
+                if (data.size > maxElements) {
                     const sliceSize = Math.min(10, data.shape[0] || 10);
                     dataSummary = data.slice(0, sliceSize).arraySync();
-                    status += ` (Showing first ${sliceSize} element(s))`;
+                    status += ` (Showing first ${sliceSize} element(s) of ${data.size})`;
                 } else {
                     dataSummary = data.arraySync();
                 }
             }
         } else if (Array.isArray(data)) {
-             headerInfo = `Type: Array | Length: ${data.length}`;
-             const displayLimit = 50;
-             dataSummary = data.slice(0, displayLimit);
-             if(data.length > displayLimit) status += ` (Showing first ${displayLimit} elements)`;
-        } else if (typeof data === 'number') {
-             headerInfo = "Type: Number (Scalar)";
-             dataSummary = data;
+            const flatLength = data.flat(Infinity).length;
+            headerInfo = `Type: Array | Length: ${data.length} | Flat Length: ${flatLength}`;
+            
+            if (flatLength > maxElements) {
+                dataSummary = data.slice(0, maxElements);
+                status += ` (Showing first ${maxElements} elements of ${flatLength})`;
+            } else {
+                dataSummary = data;
+            }
+        } else if (isFiniteNumber(data)) {
+            headerInfo = `Type: Number (Scalar) | Value: ${data}`;
+            dataSummary = data;
         } else if (typeof data === 'string') {
-             headerInfo = `Type: String | Length: ${data.length}`;
-             const displayLimit = 200;
-             dataSummary = data.substring(0, displayLimit);
-              if(data.length > displayLimit) status += ` (Showing first ${displayLimit} chars)`;
+            headerInfo = `Type: String | Length: ${data.length}`;
+            if (data.length > maxLength) {
+                dataSummary = data.substring(0, maxLength);
+                status += ` (Showing first ${maxLength} chars of ${data.length})`;
+            } else {
+                dataSummary = data;
+            }
         } else {
-             status = " (Unknown Type)";
-             headerInfo = `Type: ${typeof data}`;
-             try { dataSummary = JSON.stringify(data); }
-             catch (e) { dataSummary = "[Cannot display value]"; }
-        }
-
-        let formattedData;
-        try {
-             if (typeof dataSummary === 'number') {
-                 formattedData = dataSummary.toFixed ? dataSummary.toFixed(4) : String(dataSummary);
-             } else if (Array.isArray(dataSummary) || typeof dataSummary === 'object') {
-                 formattedData = JSON.stringify(dataSummary, (key, value) =>
-                     typeof value === 'number' && value.toFixed ? parseFloat(value.toFixed(4)) : value,
-                 2);
-                 const maxLength = 1500;
-                 if (formattedData.length > maxLength) {
-                     formattedData = formattedData.substring(0, maxLength) + "\n... (Truncated)";
-                 }
-             } else {
-                 formattedData = String(dataSummary);
-             }
-        } catch(formatError) {
-             console.error("Error formatting inspector data:", formatError);
-             formattedData = "[Error formatting data]";
-        }
-
-        outputContent = `${headerInfo}${status}\n${'-'.repeat(Math.max(0, (headerInfo?.length || 0) + (status?.length || 0)))}\n${formattedData}`;
-
-    } catch (e) {
-        console.error(`Error inspecting data for element ${elementId}:`, e);
-        outputContent = `Error inspecting data: ${e.message}`;
-    }
-
-    el.textContent = outputContent;
-}
-
-
-/**
- * Clamps all values in a numerical array between a minimum and maximum.
- * @param {number[]} arr The array to clamp.
- * @param {number} min The minimum boundary.
- * @param {number} max The maximum boundary.
- * @returns {number[]} The clamped array. Returns empty array if input invalid.
- */
-export function clampArray(arr, min, max) {
-     if (!Array.isArray(arr)) return [];
-     if (typeof min !== 'number' || typeof max !== 'number') return arr;
-    return arr.map(x => (typeof x === 'number' ? clamp(x, min, max) : x));
-}
-
-/**
- * Computes the softmax function for an array, handling potential numeric issues.
- * Converts logits/scores into probabilities that sum to 1.
- * @param {number[]} arr The array of raw scores/logits.
- * @returns {number[]} The array with softmax applied. Returns array of zeros if input invalid or results are unstable.
- */
-export function softmax(arr) {
-    if (!Array.isArray(arr) || arr.length === 0) return [];
-
-    const finiteArr = arr.filter(x => typeof x === 'number' && isFinite(x));
-    if (finiteArr.length === 0) return zeros([arr.length]);
-
-    const maxVal = Math.max(...finiteArr);
-    const exps = finiteArr.map(x => Math.exp(x - maxVal));
-    const sumExps = exps.reduce((a, b) => a + b, 0);
-
-    if (sumExps === 0 || !isFinite(sumExps)) {
-        // console.warn("[softmax] Sum of exponents is zero or non-finite. Returning uniform distribution over finite inputs."); // Noisy
-        const uniformProb = finiteArr.length > 0 ? 1 / finiteArr.length : 0;
-        const result = zeros([arr.length]);
-        let k = 0;
-        for(let i = 0; i < arr.length; i++){
-            if(typeof arr[i] === 'number' && isFinite(arr[i])){
-                result[i] = uniformProb;
+            headerInfo = `Type: ${typeof data} | Constructor: ${data.constructor?.name || 'Unknown'}`;
+            try {
+                dataSummary = JSON.stringify(data, null, 2);
+                if (dataSummary.length > maxLength) {
+                    dataSummary = dataSummary.substring(0, maxLength);
+                    status += " (Truncated)";
+                }
+            } catch (e) {
+                dataSummary = "[Cannot serialize object]";
+                status += " (Serialization failed)";
             }
         }
+
+        // Enhanced formatting with better number precision
+        let formattedData;
+        if (isFiniteNumber(dataSummary)) {
+            formattedData = dataSummary.toFixed(precision);
+        } else if (Array.isArray(dataSummary) || (typeof dataSummary === 'object' && dataSummary !== null)) {
+            formattedData = JSON.stringify(dataSummary, (key, value) => {
+                if (isFiniteNumber(value)) {
+                    return parseFloat(value.toFixed(precision));
+                }
+                return value;
+            }, 2);
+            
+            if (formattedData.length > maxLength) {
+                formattedData = formattedData.substring(0, maxLength) + "\n... (Truncated)";
+            }
+        } else {
+            formattedData = String(dataSummary);
+        }
+
+        const separatorLength = Math.min(80, (headerInfo + status).length);
+        const separator = '='.repeat(separatorLength);
+        
+        element.textContent = `${headerInfo}${status}\n${separator}\n${formattedData}`;
+
+    } catch (error) {
+        console.error(`Error inspecting data for element ${elementId}:`, error);
+        element.textContent = `Error inspecting data: ${error.message}\nStack: ${error.stack}`;
+    }
+}
+
+/**
+ * Clamps all values in a numerical array between boundaries.
+ * @param {number[]} arr - The array to clamp
+ * @param {number} min - The minimum boundary
+ * @param {number} max - The maximum boundary
+ * @returns {number[]} The clamped array
+ */
+export function clampArray(arr, min, max) {
+    if (!Array.isArray(arr)) {
+        console.warn("[clampArray] Input is not an array");
+        return [];
+    }
+    
+    if (!isFiniteNumber(min) || !isFiniteNumber(max)) {
+        console.warn("[clampArray] Invalid min/max values");
+        return [...arr]; // Return copy of original array
+    }
+    
+    return arr.map(x => isFiniteNumber(x) ? clamp(x, min, max) : x);
+}
+
+/**
+ * Computes the softmax function with numerical stability improvements.
+ * @param {number[]} arr - The array of raw scores/logits
+ * @param {number} [temperature=1.0] - Temperature parameter for softmax
+ * @returns {number[]} The array with softmax applied
+ */
+export function softmax(arr, temperature = 1.0) {
+    if (!Array.isArray(arr) || arr.length === 0) {
+        return [];
+    }
+    
+    if (!isFiniteNumber(temperature) || temperature <= 0) {
+        console.warn("[softmax] Invalid temperature, using 1.0");
+        temperature = 1.0;
+    }
+
+    // Filter and scale by temperature
+    const validIndices = [];
+    const validValues = [];
+    
+    for (let i = 0; i < arr.length; i++) {
+        if (isFiniteNumber(arr[i])) {
+            validIndices.push(i);
+            validValues.push(arr[i] / temperature);
+        }
+    }
+    
+    if (validValues.length === 0) {
+        console.warn("[softmax] No valid finite values found");
+        return new Array(arr.length).fill(0);
+    }
+
+    // Numerical stability: subtract max value
+    const maxVal = Math.max(...validValues);
+    const exps = validValues.map(x => Math.exp(x - maxVal));
+    const sumExps = exps.reduce((sum, exp) => sum + exp, 0);
+
+    if (!isFiniteNumber(sumExps) || sumExps === 0) {
+        console.warn("[softmax] Sum of exponentials is invalid, using uniform distribution");
+        const uniformProb = 1 / validValues.length;
+        const result = new Array(arr.length).fill(0);
+        validIndices.forEach(idx => { result[idx] = uniformProb; });
         return result;
     }
 
-    const softmaxResult = zeros([arr.length]);
-    let expIndex = 0;
-    for(let i=0; i<arr.length; i++) {
-        if(typeof arr[i] === 'number' && isFinite(arr[i])) {
-            softmaxResult[i] = exps[expIndex] / sumExps;
-            expIndex++;
-        }
-    }
-    return softmaxResult;
+    // Create result array
+    const result = new Array(arr.length).fill(0);
+    validIndices.forEach((idx, i) => {
+        result[idx] = exps[i] / sumExps;
+    });
+
+    return result;
 }
 
 /**
- * Debounces a function to limit how often it can be called
+ * Enhanced debounce function with immediate execution option and cancellation.
  * @param {Function} func - The function to debounce
  * @param {number} delay - Delay in milliseconds
- * @returns {Function} - Debounced function
+ * @param {Object} [options] - Additional options
+ * @param {boolean} [options.immediate=false] - Execute immediately on first call
+ * @returns {Function & {cancel: Function}} Debounced function with cancel method
  */
-export function debounce(func, delay) {
+export function debounce(func, delay, options = {}) {
+    const { immediate = false } = options;
     let timeoutId;
-    return function(...args) {
+    let lastCallTime;
+    
+    const debounced = function(...args) {
+        const callNow = immediate && !timeoutId;
+        lastCallTime = Date.now();
+        
         clearTimeout(timeoutId);
+        
         timeoutId = setTimeout(() => {
-            func.apply(this, args);
+            timeoutId = null;
+            if (!immediate) func.apply(this, args);
         }, delay);
+        
+        if (callNow) func.apply(this, args);
     };
+    
+    debounced.cancel = function() {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+    };
+    
+    debounced.flush = function() {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+            func.apply(this, arguments);
+            timeoutId = null;
+        }
+    };
+    
+    return debounced;
+}
+
+/**
+ * Throttle function to limit execution frequency.
+ * @param {Function} func - The function to throttle
+ * @param {number} limit - Time limit in milliseconds
+ * @returns {Function} Throttled function
+ */
+export function throttle(func, limit) {
+    let inThrottle;
+    return function(...args) {
+        if (!inThrottle) {
+            func.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
+        }
+    };
+}
+
+/**
+ * Creates a retry mechanism for async functions.
+ * @param {Function} fn - Async function to retry
+ * @param {number} [maxRetries=3] - Maximum number of retry attempts
+ * @param {number} [delay=1000] - Delay between retries in milliseconds
+ * @returns {Function} Function that will retry on failure
+ */
+export function withRetry(fn, maxRetries = 3, delay = 1000) {
+    return async function(...args) {
+        let lastError;
+        
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                return await fn.apply(this, args);
+            } catch (error) {
+                lastError = error;
+                
+                if (attempt === maxRetries) {
+                    throw error;
+                }
+                
+                console.warn(`Attempt ${attempt + 1} failed, retrying in ${delay}ms:`, error.message);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+        
+        throw lastError;
+    };
+}
+
+/**
+ * Clears the element cache. Useful when DOM structure changes significantly.
+ */
+export function clearElementCache() {
+    elementCache.clear();
 }
